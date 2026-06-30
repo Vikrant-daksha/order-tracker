@@ -1,0 +1,204 @@
+<<<<<<< HEAD
+# Master Prompt: Unified Order Management Mobile App
+
+## App Overview
+Build a **React Native** mobile app (no Python/backend server) for small business owners who sell across Instagram, Facebook, WhatsApp, their own website, and email — and need ONE place to track every order, due date, payment status, and shipment, without manually re-typing order details from each platform.
+
+The app is **fully offline/local**:
+- No cloud backend, no account/login system
+- All data stored locally on-device using **SQLite** (e.g. `expo-sqlite` or `react-native-sqlite-storage`)
+- All images stored as **compressed files in local app storage** (file system), with only the file path saved in the database — never store images as binary blobs in the DB
+- Generate and store a separate **thumbnail** version of each image for fast list rendering; load full-resolution only on the detail view
+
+---
+
+## Data Models
+
+### Order
+- `id` (auto-generated)
+- `source` — Instagram / Facebook / WhatsApp / Website / Email / Manual
+- `customerName`
+- `contactInfo` — flexible field (IG handle / phone / email depending on source)
+- `orderDate`
+- `dueDate` / `shipDate`
+- `productId` (FK to Product Catalog) OR custom item fields (`customName`, `customImage`)
+- `price`, `paymentStatus` (Unpaid / Partial / Paid), `amountPaid`
+- `status` — **Confirmed → Shipped → Delivered** (only these three stages)
+- `trackingLink`
+- `referenceImagePath` (thumbnail + full path)
+- `notes`
+
+### Product Catalog (auto-building, local)
+- `id`
+- `name`
+- `imagePath` (thumbnail + full path)
+- `defaultPrice` (optional)
+- `category` (optional)
+
+---
+
+## Feature 1: Smart Paste (Clipboard Intake)
+- A dedicated "Smart Paste" input box where the user pastes raw text copied from an email, Instagram DM, WhatsApp message, or website order notification.
+- A parser attempts to extract: customer name, contact info, product/items, date, price, order reference — using pattern matching (works best on structured sources like email/website; best-effort on free text from IG/WhatsApp).
+- Extracted fields populate an **editable preview form** — nothing is auto-saved silently. The user reviews, corrects if needed, and confirms to save the order.
+- Manual order entry must always be available as a fallback/alternative to Smart Paste.
+
+## Feature 2: Product Catalog Auto-Matching
+- When creating/editing an order, the product name field has **autocomplete** against the existing local Product Catalog.
+- If the typed name matches an existing catalog entry → auto-fill that product's saved image and details.
+- If the name is new → prompt the user to attach an image → save as a **new entry in the Product Catalog** for future reuse.
+- Orders can still be marked **Custom**, attaching a one-off image that is NOT added to the shared catalog.
+
+## Feature 3: Image & Storage Management
+- Compress and resize all uploaded images on intake (e.g. max dimension ~800–1000px, convert to WebP/JPEG) before saving to local storage.
+- Generate a thumbnail for every image, used in list views; full image loads only on tap/detail view.
+- **Clear Cache** action: removes/frees the stored images for orders marked **Delivered** (closed), to keep on-device storage lean. Order data/text records remain; only the image files are purged.
+- **Bulk Delete** action for completed orders:
+  - Deletes the selected completed order records and their **custom/one-off reference images**.
+  - **Important rule:** Before deleting a catalog product's image, check if that product is still referenced by **any other existing order** (including non-deleted ones). If it is referenced elsewhere, the catalog entry and its image must be **kept** — only remove a catalog product's image if zero remaining orders reference it.
+
+## Feature 4: Tracking Link
+- User pastes a tracking URL/number onto the order.
+- A button on the order detail screen opens this link directly in the device browser (simple redirect — no carrier API integration needed).
+
+## Feature 5: "Send" Button (Customer Communication)
+- A button to notify the customer, with behavior dependent on the order's source platform:
+  - **WhatsApp**: opens WhatsApp via a `wa.me` link with a fully pre-filled message (e.g. shipping update + tracking link).
+  - **Email**: opens the device's mail client via a `mailto:` link with pre-filled subject and body.
+  - **Instagram / Facebook**: Meta does not support pre-filled DM links. Instead, copy the pre-composed message to the clipboard and open the relevant app/profile so the user can paste it manually.
+
+## Feature 6: Search
+- A persistent search bar with filtering by: customer name, order ID, product name, status (Confirmed/Shipped/Delivered), source platform, date range, tracking number, and payment status (paid/unpaid/partial).
+
+---
+
+## Additional Features (Approved Add-Ons)
+- **Dashboard/Home**: orders due today/this week, with overdue orders visually highlighted.
+- **Customer Profiles**: auto-aggregated from order history — total orders, total amount spent, repeat-customer indicator.
+- **Outstanding Payments Summary**: running total of unpaid/partial balances across all orders.
+- **CSV/Excel Export**: export order data for backup or handoff to an accountant.
+- **Local Backup/Restore**: one-click export/import of the full local database + image folder, since there is no cloud copy.
+- **Basic Analytics**: revenue by month, order volume by source platform, top-selling products — shown as KPI cards + a simple chart with weekly/monthly toggle.
+- **Kanban-style Status Board**: alternate view to the list, with columns for Confirmed / Shipped / Delivered, supporting drag-or-tap status updates.
+
+---
+
+## UI / Design Direction
+Match the attached reference design as closely as possible: clean, minimal, card-based mobile UI with rounded corners, soft shadows, and generous whitespace on a light gray background.
+
+- **Navigation**: bottom tab bar — Home, Orders, Stock (Catalog), Insights, Profile
+- **Orders list screen**: filter chips (All / Confirmed / Shipped / Delivered), order cards showing icon, customer name, order ID, item count, value, and a colored status pill
+- **Order detail screen**: header with order ID, customer info (name, location/contact, date, item count, total value), and a vertical timeline showing status progression (e.g. Order Placed → Confirmed → Shipped → Delivered)
+- **Insights/Analytics screen**: KPI summary cards (e.g. total orders, delayed shipments, delivery success rate, avg. delivery time) with trend indicators, a Weekly/Monthly toggle, and a line chart (Shipments vs. Delivered) below
+- **Color override**: replace all primary/accent green elements (status pills, icons, timeline dots, active tab indicator, chart lines/legend) with **`#F8BCCD`**, keeping the rest of the palette (grays, white, dark text) as shown in the reference
+- Typography: clean sans-serif, bold large headers, light/regular body text, consistent spacing matching the reference
+
+---
+
+## Build Notes for the Agent
+- Use Expo (React Native) for fastest local setup and built-in modules for camera/image picker, clipboard, and linking (`expo-clipboard`, `expo-image-picker`, `expo-linking`, `expo-file-system`).
+- Use a local SQLite database via `expo-sqlite` for all structured data.
+- Use `expo-file-system` for storing compressed images and thumbnails in app-private storage directories.
+=======
+# Master Prompt: Unified Order Management Mobile App
+
+## App Overview
+Build a **React Native** mobile app (no Python/backend server) for small business owners who sell across Instagram, Facebook, WhatsApp, their own website, and email — and need ONE place to track every order, due date, payment status, and shipment, without manually re-typing order details from each platform.
+
+The app is **fully offline/local**:
+- No cloud backend, no account/login system
+- All data stored locally on-device using **SQLite** (e.g. `expo-sqlite` or `react-native-sqlite-storage`)
+- All images stored as **compressed files in local app storage** (file system), with only the file path saved in the database — never store images as binary blobs in the DB
+- Generate and store a separate **thumbnail** version of each image for fast list rendering; load full-resolution only on the detail view
+
+---
+
+## Data Models
+
+### Order
+- `id` (auto-generated)
+- `source` — Instagram / Facebook / WhatsApp / Website / Email / Manual
+- `customerName`
+- `contactInfo` — flexible field (IG handle / phone / email depending on source)
+- `orderDate`
+- `dueDate` / `shipDate`
+- `productId` (FK to Product Catalog) OR custom item fields (`customName`, `customImage`)
+- `price`, `paymentStatus` (Unpaid / Partial / Paid), `amountPaid`
+- `status` — **Confirmed → Shipped → Delivered** (only these three stages)
+- `trackingLink`
+- `referenceImagePath` (thumbnail + full path)
+- `notes`
+
+### Product Catalog (auto-building, local)
+- `id`
+- `name`
+- `imagePath` (thumbnail + full path)
+- `defaultPrice` (optional)
+- `category` (optional)
+
+---
+
+## Feature 1: Smart Paste (Clipboard Intake)
+- A dedicated "Smart Paste" input box where the user pastes raw text copied from an email, Instagram DM, WhatsApp message, or website order notification.
+- A parser attempts to extract: customer name, contact info, product/items, date, price, order reference — using pattern matching (works best on structured sources like email/website; best-effort on free text from IG/WhatsApp).
+- Extracted fields populate an **editable preview form** — nothing is auto-saved silently. The user reviews, corrects if needed, and confirms to save the order.
+- Manual order entry must always be available as a fallback/alternative to Smart Paste.
+
+## Feature 2: Product Catalog Auto-Matching
+- When creating/editing an order, the product name field has **autocomplete** against the existing local Product Catalog.
+- If the typed name matches an existing catalog entry → auto-fill that product's saved image and details.
+- If the name is new → prompt the user to attach an image → save as a **new entry in the Product Catalog** for future reuse.
+- Orders can still be marked **Custom**, attaching a one-off image that is NOT added to the shared catalog.
+
+## Feature 3: Image & Storage Management
+- Compress and resize all uploaded images on intake (e.g. max dimension ~800–1000px, convert to WebP/JPEG) before saving to local storage.
+- Generate a thumbnail for every image, used in list views; full image loads only on tap/detail view.
+- **Clear Cache** action: removes/frees the stored images for orders marked **Delivered** (closed), to keep on-device storage lean. Order data/text records remain; only the image files are purged.
+- **Bulk Delete** action for completed orders:
+  - Deletes the selected completed order records and their **custom/one-off reference images**.
+  - **Important rule:** Before deleting a catalog product's image, check if that product is still referenced by **any other existing order** (including non-deleted ones). If it is referenced elsewhere, the catalog entry and its image must be **kept** — only remove a catalog product's image if zero remaining orders reference it.
+
+## Feature 4: Tracking Link
+- User pastes a tracking URL/number onto the order.
+- A button on the order detail screen opens this link directly in the device browser (simple redirect — no carrier API integration needed).
+
+## Feature 5: "Send" Button (Customer Communication)
+- A button to notify the customer, with behavior dependent on the order's source platform:
+  - **WhatsApp**: opens WhatsApp via a `wa.me` link with a fully pre-filled message (e.g. shipping update + tracking link).
+  - **Email**: opens the device's mail client via a `mailto:` link with pre-filled subject and body.
+  - **Instagram / Facebook**: Meta does not support pre-filled DM links. Instead, copy the pre-composed message to the clipboard and open the relevant app/profile so the user can paste it manually.
+
+## Feature 6: Search
+- A persistent search bar with filtering by: customer name, order ID, product name, status (Confirmed/Shipped/Delivered), source platform, date range, tracking number, and payment status (paid/unpaid/partial).
+
+---
+
+## Additional Features (Approved Add-Ons)
+- **Dashboard/Home**: orders due today/this week, with overdue orders visually highlighted.
+- **Customer Profiles**: auto-aggregated from order history — total orders, total amount spent, repeat-customer indicator.
+- **Outstanding Payments Summary**: running total of unpaid/partial balances across all orders.
+- **CSV/Excel Export**: export order data for backup or handoff to an accountant.
+- **Local Backup/Restore**: one-click export/import of the full local database + image folder, since there is no cloud copy.
+- **Basic Analytics**: revenue by month, order volume by source platform, top-selling products — shown as KPI cards + a simple chart with weekly/monthly toggle.
+- **Kanban-style Status Board**: alternate view to the list, with columns for Confirmed / Shipped / Delivered, supporting drag-or-tap status updates.
+
+---
+
+## UI / Design Direction
+Match the attached reference design as closely as possible: clean, minimal, card-based mobile UI with rounded corners, soft shadows, and generous whitespace on a light gray background.
+
+- **Navigation**: bottom tab bar — Home, Orders, Stock (Catalog), Insights, Profile
+- **Orders list screen**: filter chips (All / Confirmed / Shipped / Delivered), order cards showing icon, customer name, order ID, item count, value, and a colored status pill
+- **Order detail screen**: header with order ID, customer info (name, location/contact, date, item count, total value), and a vertical timeline showing status progression (e.g. Order Placed → Confirmed → Shipped → Delivered)
+- **Insights/Analytics screen**: KPI summary cards (e.g. total orders, delayed shipments, delivery success rate, avg. delivery time) with trend indicators, a Weekly/Monthly toggle, and a line chart (Shipments vs. Delivered) below
+- **Color override**: replace all primary/accent green elements (status pills, icons, timeline dots, active tab indicator, chart lines/legend) with **`#F8BCCD`**, keeping the rest of the palette (grays, white, dark text) as shown in the reference
+- Typography: clean sans-serif, bold large headers, light/regular body text, consistent spacing matching the reference
+
+---
+
+## Build Notes for the Agent
+- Use Expo (React Native) for fastest local setup and built-in modules for camera/image picker, clipboard, and linking (`expo-clipboard`, `expo-image-picker`, `expo-linking`, `expo-file-system`).
+- Use a local SQLite database via `expo-sqlite` for all structured data.
+- Use `expo-file-system` for storing compressed images and thumbnails in app-private storage directories.
+>>>>>>> 75d8b26ae46b8ecd2208fc2688c2660283e39e29
+- Ensure all features work fully offline with no network calls required for core functionality (tracking link opening and send buttons are the only actions that open external apps/browser).
