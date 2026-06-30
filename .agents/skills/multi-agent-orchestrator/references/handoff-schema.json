@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Multi-Agent Handoff Contract",
+  "description": "Validates handoff artifacts between agents in the order-mgr multi-agent system",
+  "definitions": {
+    "flag": {
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["success", "failed"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["agentId", "completedAt", "status"]
+    },
+    "architecture": {
+      "type": "object",
+      "properties": {
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["mobile", "api-server", "lib", "infra"] },
+              "packageName": { "type": "string" },
+              "dependencies": { "type": "array", "items": { "type": "string" } },
+              "agentOwner": { "type": "integer" }
+            },
+            "required": ["name", "type", "packageName", "agentOwner"]
+          }
+        },
+        "dataContracts": {
+          "type": "object",
+          "description": "Key entity names mapped to owning service",
+          "additionalProperties": { "type": "string" }
+        },
+        "tradeoffDecisions": {
+          "type": "object",
+          "properties": {
+            "dataOwnership": { "type": "string", "enum": ["local-first", "server-first"] },
+            "authStrategy": { "type": "string", "enum": ["none", "api-key", "jwt"] },
+            "smartPasteStrategy": { "type": "string", "enum": ["regex", "llm"] }
+          },
+          "required": ["dataOwnership", "authStrategy", "smartPasteStrategy"]
+        }
+      },
+      "required": ["services", "dataContracts", "tradeoffDecisions"]
+    }
+  }
+}
