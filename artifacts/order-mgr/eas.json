@@ -17,9 +17,7 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "ios": {
-        "buildType": "release"
-      }
+      "ios": {}
     }
   }
 }
