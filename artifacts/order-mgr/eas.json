@@ -10,7 +10,7 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "ios": {
-        "simulator": true
+        "distribution": "internal"
       }
     },
     "production": {

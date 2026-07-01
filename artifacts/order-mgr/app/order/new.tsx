@@ -53,21 +53,78 @@ export default function NewOrderScreen() {
   const [address, setAddress] = useState(existing?.address || '');
   const [orderDate, setOrderDate] = useState(existing?.orderDate || today());
   const [dueDate, setDueDate] = useState(existing?.dueDate || '');
-  const [productName, setProductName] = useState(existing?.customName || '');
-  const [selectedProductId, setSelectedProductId] = useState(existing?.productId || '');
-  const [isCustom, setIsCustom] = useState(existing?.isCustom === 1 || false);
-  const [size, setSize] = useState(existing?.size || '');
-  const [price, setPrice] = useState(existing?.price ? String(existing.price) : '');
+
+  interface OrderItemState {
+    id: string;
+    productId: string;
+    productName: string;
+    size: string;
+    price: string;
+    quantity: string;
+    imageUri: string;
+    thumbUri: string;
+    isCustom: boolean;
+  }
+
+  const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+
+  const [items, setItems] = useState<OrderItemState[]>(() => {
+    if (isEditing && existing) {
+      if (existing.items && existing.items.length > 0) {
+        return existing.items.map(item => ({
+          id: item.id,
+          productId: item.productId || '',
+          productName: item.productName || '',
+          size: item.size || '',
+          price: String(item.price || ''),
+          quantity: String(item.quantity || 1),
+          imageUri: item.imagePath || '',
+          thumbUri: item.thumbnailPath || '',
+          isCustom: item.isCustom,
+        }));
+      } else {
+        return [{
+          id: 'legacy-' + existing.id,
+          productId: existing.productId || '',
+          productName: existing.customName || '',
+          size: existing.size || '',
+          price: existing.price ? String(existing.price) : '',
+          quantity: '1',
+          imageUri: existing.referenceImagePath || '',
+          thumbUri: existing.thumbnailPath || '',
+          isCustom: existing.isCustom === 1,
+        }];
+      }
+    }
+    return [{
+      id: genId(),
+      productId: '',
+      productName: '',
+      size: '',
+      price: '',
+      quantity: '1',
+      imageUri: '',
+      thumbUri: '',
+      isCustom: false,
+    }];
+  });
+
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(existing?.paymentStatus || 'Unpaid');
   const [amountPaid, setAmountPaid] = useState(existing?.amountPaid ? String(existing.amountPaid) : '');
   const [status, setStatus] = useState<OrderStatus>(existing?.status || 'Confirmed');
   const [trackingLink, setTrackingLink] = useState(existing?.trackingLink || '');
   const [notes, setNotes] = useState(existing?.notes || '');
-  const [imageUri, setImageUri] = useState(existing?.referenceImagePath || '');
-  const [thumbUri, setThumbUri] = useState(existing?.thumbnailPath || '');
   const [saving, setSaving] = useState(false);
   const [pasteVisible, setPasteVisible] = useState(false);
   const [linkedCustomer, setLinkedCustomer] = useState<Customer | null>(null);
+
+  const totalPrice = React.useMemo(() => {
+    return items.reduce((sum, item) => {
+      const p = parseFloat(item.price) || 0;
+      const q = parseInt(item.quantity) || 1;
+      return sum + (p * q);
+    }, 0);
+  }, [items]);
 
   useEffect(() => {
     if (isEditing && existing?.customerId) {
@@ -84,7 +141,7 @@ export default function NewOrderScreen() {
       setIsSearching(false);
       return;
     }
-    
+
     setIsSearching(true);
     const timer = setTimeout(() => {
       const match = (igHandle ? findCustomerByIg(igHandle) : null) || (phone ? findCustomerByPhone(phone) : null);
@@ -103,38 +160,22 @@ export default function NewOrderScreen() {
       clearTimeout(timer);
       setIsSearching(false);
     };
-  }, [igHandle, phone, isEditing, findCustomerByIg, findCustomerByPhone]);  // Track whether an in-session image has been committed to a saved order.
-  // If the user dismisses the form without saving we delete the file to
-  // prevent orphaned assets accumulating on disk.
-  const savedImageRef = useRef<{ fullPath: string; thumbnailPath: string } | null>(null);
+  }, [igHandle, phone, isEditing, findCustomerByIg, findCustomerByPhone]);
+
+  const pickedImagesRef = useRef<{ fullPath: string; thumbnailPath: string }[]>([]);
   const imageSavedToOrder = useRef(false);
 
-  // Cleanup effect: runs when the component unmounts (back navigation, swipe).
-  // Only deletes images that were picked *during this session* and never saved.
   useEffect(() => {
     return () => {
-      if (!imageSavedToOrder.current && savedImageRef.current) {
-        deleteImage(
-          savedImageRef.current.fullPath,
-          savedImageRef.current.thumbnailPath,
-        );
+      if (!imageSavedToOrder.current && pickedImagesRef.current.length > 0) {
+        pickedImagesRef.current.forEach(img => {
+          deleteImage(img.fullPath, img.thumbnailPath);
+        });
       }
     };
   }, []);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-
-  const handleProductChange = useCallback((name: string, product?: any) => {
-    setProductName(name);
-    if (product) {
-      setSelectedProductId(product.id);
-      if (!price && product.defaultPrice) setPrice(String(product.defaultPrice));
-      if (product.imagePath) { setImageUri(product.imagePath); setThumbUri(product.thumbnailPath); }
-      setIsCustom(false);
-    } else {
-      setSelectedProductId('');
-    }
-  }, [price]);
 
   const handleParsed = useCallback((parsed: ParsedOrder) => {
     if (parsed.customerName) setCustomerName(parsed.customerName);
@@ -143,29 +184,37 @@ export default function NewOrderScreen() {
     if (parsed.address) setAddress(parsed.address);
     if (parsed.orderDate) setOrderDate(parsed.orderDate);
     if (parsed.dueDate) setDueDate(parsed.dueDate);
-    if (parsed.price) setPrice(String(parsed.price));
-    if (parsed.customName) setProductName(parsed.customName);
+
+    setItems(prev => {
+      const next = [...prev];
+      if (next.length > 0) {
+        next[0] = {
+          ...next[0],
+          productName: parsed.customName || next[0].productName,
+          price: parsed.price ? String(parsed.price) : next[0].price,
+        };
+      }
+      return next;
+    });
     if (parsed.notes) setNotes(parsed.notes);
   }, []);
 
-  async function pickImage() {
+  async function pickImage(index: number) {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9 });
     if (!res.canceled && res.assets[0]) {
       setSaving(true);
       try {
-        // If the user picked a previous image this session, clean it up first
-        if (savedImageRef.current && !imageSavedToOrder.current) {
-          deleteImage(
-            savedImageRef.current.fullPath,
-            savedImageRef.current.thumbnailPath,
-          );
-        }
         const saved = await saveImage(res.assets[0].uri);
-        setImageUri(saved.fullPath);
-        setThumbUri(saved.thumbnailPath);
-        // Keep a ref to the newly saved temp image for cleanup if form is dismissed
-        savedImageRef.current = saved;
-        imageSavedToOrder.current = false;
+        setItems(prev => {
+          const next = [...prev];
+          next[index] = {
+            ...next[index],
+            imageUri: saved.fullPath,
+            thumbUri: saved.thumbnailPath,
+          };
+          return next;
+        });
+        pickedImagesRef.current.push(saved);
       } finally {
         setSaving(false);
       }
@@ -177,45 +226,48 @@ export default function NewOrderScreen() {
       Alert.alert('Required', 'Please enter a customer name.');
       return;
     }
+
+    const emptyNameIndex = items.findIndex(item => !item.productName.trim());
+    if (emptyNameIndex >= 0) {
+      Alert.alert('Required', `Please enter a product name for Product #${emptyNameIndex + 1}.`);
+      return;
+    }
+
     setSaving(true);
     try {
-      let resolvedProductId = selectedProductId;
-      if (productName.trim() && !selectedProductId && !isCustom) {
-        const found = findProductByName(productName.trim());
-        if (found) {
-          resolvedProductId = found.id;
-        } else {
-          setSaving(false);
-          Alert.alert(
-            'New Product',
-            `Add "${productName}" to your product catalog?`,
-            [
-              { text: 'Keep as Custom', onPress: () => { setIsCustom(true); setTimeout(() => handleSave(), 100); } },
-              {
-                text: 'Add to Catalog', onPress: async () => {
-                  const pid = await addProduct({
-                    name: productName.trim(),
-                    imagePath: imageUri,
-                    thumbnailPath: thumbUri,
-                    defaultPrice: parseFloat(price) || 0,
-                    category: '',
-                  });
-                  await saveOrderData(pid);
-                }
-              },
-            ]
-          );
-          return;
+      const resolvedItems = [];
+      for (const item of items) {
+        let resolvedProductId = item.productId;
+        if (item.productName.trim() && !item.productId && !item.isCustom) {
+          const found = findProductByName(item.productName.trim());
+          if (found) {
+            resolvedProductId = found.id;
+          } else {
+            const pVal = parseFloat(item.price) || 0;
+            const newPid = await addProduct({
+              name: item.productName.trim(),
+              imagePath: item.imageUri,
+              thumbnailPath: item.thumbUri,
+              defaultPrice: pVal,
+              category: '',
+            });
+            resolvedProductId = newPid;
+          }
         }
+        resolvedItems.push({
+          ...item,
+          productId: resolvedProductId,
+        });
       }
-      await saveOrderData(resolvedProductId);
-    } catch {
+      await saveOrderData(resolvedItems);
+    } catch (err) {
+      console.error("Could not save order:", err);
       Alert.alert('Error', 'Could not save order.');
       setSaving(false);
     }
   }
 
-  async function saveOrderData(productId: string) {
+  async function saveOrderData(resolvedItems: OrderItemState[]) {
     setSaving(true);
     let cid = linkedCustomer?.id;
     if (linkedCustomer) {
@@ -236,6 +288,24 @@ export default function NewOrderScreen() {
       });
     }
 
+    const orderItems = resolvedItems.map(item => ({
+      id: item.id,
+      productId: item.productId || undefined,
+      productName: item.productName.trim(),
+      size: item.size.trim() || undefined,
+      price: parseFloat(item.price) || 0,
+      quantity: parseInt(item.quantity) || 1,
+      imagePath: item.imageUri || undefined,
+      thumbnailPath: item.thumbUri || undefined,
+      isCustom: item.isCustom,
+    }));
+
+    const firstItem = orderItems[0];
+    let summarizedName = firstItem.productName;
+    if (orderItems.length > 1) {
+      summarizedName = `${firstItem.productName} (+${orderItems.length - 1} items)`;
+    }
+
     const data: Omit<Order, 'id' | 'createdAt'> = {
       source,
       customerName: customerName.trim(),
@@ -243,19 +313,20 @@ export default function NewOrderScreen() {
       address: address.trim(),
       orderDate,
       dueDate,
-      productId,
-      customName: productName.trim(),
-      referenceImagePath: imageUri,
-      thumbnailPath: thumbUri,
-      price: parseFloat(price) || 0,
+      productId: firstItem.productId || '',
+      customName: summarizedName,
+      referenceImagePath: firstItem.imagePath || '',
+      thumbnailPath: firstItem.thumbnailPath || '',
+      price: totalPrice,
       paymentStatus,
-      amountPaid: paymentStatus === 'Partial' ? (parseFloat(amountPaid) || 0) : paymentStatus === 'Paid' ? (parseFloat(price) || 0) : 0,
+      amountPaid: paymentStatus === 'Partial' ? (parseFloat(amountPaid) || 0) : paymentStatus === 'Paid' ? totalPrice : 0,
       status,
       trackingLink: trackingLink.trim(),
       notes: notes.trim(),
-      isCustom: isCustom ? 1 : 0,
-      size: size.trim(),
+      isCustom: firstItem.isCustom ? 1 : 0,
+      size: firstItem.size || '',
       customerId: cid,
+      items: orderItems,
     };
 
     let savedId: string;
@@ -271,7 +342,6 @@ export default function NewOrderScreen() {
       await scheduleOrderReminder(savedId, data.customerName, data.customName, dueDate);
     }
 
-    // Mark the image as committed so the cleanup effect skips deletion
     imageSavedToOrder.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(false);
@@ -317,7 +387,7 @@ export default function NewOrderScreen() {
               </View>
             )}
             <FieldInput label="Name *" value={customerName} onChange={setCustomerName} placeholder="Customer name" colors={colors} />
-            
+
             <View style={{ gap: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Contact Info</Text>
@@ -378,36 +448,198 @@ export default function NewOrderScreen() {
             ) : null}
           </FormSection>
 
-          {/* Product */}
-          <FormSection title="Product">
-            <ProductAutocomplete value={productName} onChange={handleProductChange} products={products} placeholder="Search catalog or enter new..." />
-            <View style={styles.customRow}>
-              <Pressable
-                onPress={() => setIsCustom(!isCustom)}
-                style={[styles.checkbox, { borderColor: isCustom ? colors.primary : colors.border, backgroundColor: isCustom ? colors.primary : 'transparent' }]}
+          {/* Products / Items */}
+          <View style={{ gap: 16 }}>
+            {items.map((item, index) => (
+              <FormSection
+                key={item.id}
+                title={
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1, marginRight: 8 }}>
+                    <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: colors.foreground }}>Product #{index + 1}</Text>
+                    {items.length > 1 && (
+                      <Pressable
+                        onPress={() => {
+                          setItems(prev => prev.filter(x => x.id !== item.id));
+                        }}
+                        style={{ padding: 4 }}
+                      >
+                        <Feather name="trash-2" size={18} color={colors.destructive} />
+                      </Pressable>
+                    )}
+                  </View>
+                }
               >
-                {isCustom && <Feather name="check" size={12} color={colors.primaryForeground} />}
-              </Pressable>
-              <Text style={[styles.checkboxLabel, { color: colors.mutedForeground }]}>
-                Mark as custom (don't add to catalog)
-              </Text>
-            </View>
-            <Pressable onPress={pickImage} style={[styles.imagePicker, { backgroundColor: colors.card, borderColor: colors.border, height: 350 }]}>
-              {imageUri ? (
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" />
-              ) : (
-                <View style={styles.imageEmpty}>
-                  <Feather name="camera" size={20} color={colors.mutedForeground} />
-                  <Text style={[styles.imageEmptyText, { color: colors.mutedForeground }]}>Add reference photo</Text>
+                <ProductAutocomplete
+                  value={item.productName}
+                  onChange={(name, product) => {
+                    setItems(prev => {
+                      const next = [...prev];
+                      next[index] = {
+                        ...next[index],
+                        productName: name,
+                        productId: product ? product.id : '',
+                        price: product && !item.price ? String(product.defaultPrice) : item.price,
+                        imageUri: product && product.imagePath ? product.imagePath : item.imageUri,
+                        thumbUri: product && product.thumbnailPath ? product.thumbnailPath : item.thumbUri,
+                        isCustom: product ? false : item.isCustom,
+                      };
+                      return next;
+                    });
+                  }}
+                  products={products}
+                  placeholder="Search catalog or enter name..."
+                />
+
+                <View style={styles.customRow}>
+                  <Pressable
+                    onPress={() => {
+                      setItems(prev => {
+                        const next = [...prev];
+                        next[index] = { ...next[index], isCustom: !item.isCustom };
+                        return next;
+                      });
+                    }}
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: item.isCustom ? colors.primary : colors.border,
+                        backgroundColor: item.isCustom ? colors.primary : 'transparent',
+                      },
+                    ]}
+                  >
+                    {item.isCustom && <Feather name="check" size={12} color={colors.primaryForeground} />}
+                  </Pressable>
+                  <Text style={[styles.checkboxLabel, { color: colors.mutedForeground }]}>
+                    Mark as custom (don't add to catalog)
+                  </Text>
                 </View>
-              )}
+
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flex: 2 }}>
+                    <FieldInput
+                      label="Unit Price"
+                      value={item.price}
+                      onChange={(val: string) => {
+                        setItems(prev => {
+                          const next = [...prev];
+                          next[index] = { ...next[index], price: val };
+                          return next;
+                        });
+                      }}
+                      placeholder="0.00"
+                      keyboardType="decimal-pad"
+                      colors={colors}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <FieldInput
+                      label="Qty"
+                      value={item.quantity}
+                      onChange={(val: string) => {
+                        setItems(prev => {
+                          const next = [...prev];
+                          next[index] = { ...next[index], quantity: val };
+                          return next;
+                        });
+                      }}
+                      placeholder="1"
+                      keyboardType="number-pad"
+                      colors={colors}
+                    />
+                  </View>
+                </View>
+
+                <FieldInput
+                  label="Size"
+                  value={item.size}
+                  onChange={(val: string) => {
+                    setItems(prev => {
+                      const next = [...prev];
+                      next[index] = { ...next[index], size: val };
+                      return next;
+                    });
+                  }}
+                  placeholder="e.g. XL, 10x12..."
+                  colors={colors}
+                />
+
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4, marginBottom: 6 }]}>Reference Photo</Text>
+                <Pressable
+                  onPress={() => pickImage(index)}
+                  style={[
+                    styles.imagePicker,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      height: 150,
+                      borderRadius: 12,
+                      borderStyle: 'dashed',
+                      borderWidth: 1,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      overflow: 'hidden',
+                    },
+                  ]}
+                >
+                  {item.imageUri ? (
+                    <Image source={{ uri: item.imageUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Feather name="camera" size={16} color={colors.mutedForeground} />
+                      <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.mutedForeground }}>Add image</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </FormSection>
+            ))}
+
+            <Pressable
+              onPress={() => {
+                setItems(prev => [...prev, {
+                  id: genId(),
+                  productId: '',
+                  productName: '',
+                  size: '',
+                  price: '',
+                  quantity: '1',
+                  imageUri: '',
+                  thumbUri: '',
+                  isCustom: false,
+                }]);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: 14,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#C06070',
+                borderStyle: 'dashed',
+                marginHorizontal: 16,
+                backgroundColor: colors.accent,
+              }}
+            >
+              <Feather name="plus" size={16} color="#C06070" />
+              <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#C06070' }}>Add Another Product</Text>
             </Pressable>
-            <FieldInput label="Custom Size" value={size} onChange={setSize} placeholder="e.g. XL, 10x12..." colors={colors} />
-          </FormSection>
+          </View>
 
           {/* Payment */}
           <FormSection title="Payment">
-            <FieldInput label="Price" value={price} onChange={setPrice} placeholder="0.00" keyboardType="decimal-pad" colors={colors} />
+            <View style={{ marginBottom: 16 }}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>Total Price (Calculated)</Text>
+              <View style={{
+                backgroundColor: colors.accent,
+                padding: 14,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}>
+                <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#C06070' }}>₹{totalPrice.toFixed(2)}</Text>
+              </View>
+            </View>
             <View style={{ gap: 6 }}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Payment Status</Text>
               <View style={styles.chipRow}>
@@ -496,11 +728,17 @@ function formatReminderDate(dueDate: string): string {
   return `${months[reminder.getMonth()]} ${reminder.getDate()} at 10:00 AM`;
 }
 
-function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+function FormSection({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   const colors = useColors();
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>{title.toUpperCase()}</Text>
+      {title && typeof title === 'string' ? (
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>{title.toUpperCase()}</Text>
+      ) : React.isValidElement(title) ? (
+        title
+      ) : title ? (
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>{String(title).toUpperCase()}</Text>
+      ) : null}
       <View style={styles.sectionBody}>{children}</View>
     </View>
   );

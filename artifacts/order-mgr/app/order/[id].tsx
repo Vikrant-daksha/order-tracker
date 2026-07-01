@@ -56,6 +56,7 @@ export default function OrderDetailScreen() {
   const { getOrder, deleteOrder, updateOrder } = useDatabase();
   const order = getOrder(id);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [activeViewerImage, setActiveViewerImage] = useState<string | null>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -230,8 +231,6 @@ export default function OrderDetailScreen() {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.infoGrid}>
-            <InfoItem label="Product" value={order.customName || '—'} colors={colors} />
-            {order.size ? <InfoItem label="Size" value={order.size} colors={colors} /> : null}
             <InfoItem label="Source" value={order.source} colors={colors} />
             <InfoItem label="Order Date" value={formatDate(order.orderDate)} colors={colors} />
             <InfoItem label="Due Date" value={formatDate(order.dueDate)} colors={colors} />
@@ -255,6 +254,71 @@ export default function OrderDetailScreen() {
             }
             return null;
           })()}
+        </View>
+
+        {/* Order Products Card */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Order Products ({order.items?.length || 1})</Text>
+          <View style={{ gap: 12, marginTop: 4 }}>
+            {(order.items && order.items.length > 0 ? order.items : [{
+              id: 'legacy-' + order.id,
+              productName: order.customName || 'Custom item',
+              price: order.price,
+              quantity: 1,
+              size: order.size,
+              imagePath: order.referenceImagePath,
+              thumbnailPath: order.thumbnailPath,
+              isCustom: !!order.isCustom
+            }]).map((item, idx) => {
+              return (
+                <View key={item.id || idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
+                  {item.thumbnailPath || item.imagePath ? (
+                    <Pressable onPress={() => setActiveViewerImage(item.imagePath || item.thumbnailPath || '')}>
+                      <Image
+                        source={{ uri: item.thumbnailPath || item.imagePath }}
+                        style={{ width: 50, height: 50, borderRadius: 8, backgroundColor: colors.accent }}
+                        contentFit="cover"
+                      />
+                    </Pressable>
+                  ) : (
+                    <View style={{ width: 50, height: 50, borderRadius: 8, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                      <Feather name="package" size={20} color="#C06070" />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: colors.foreground }}>
+                      {item.productName}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.mutedForeground }}>
+                        Qty: {item.quantity}
+                      </Text>
+                      {item.size ? (
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.mutedForeground }}>
+                          • Size: {item.size}
+                        </Text>
+                      ) : null}
+                      {item.isCustom ? (
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: '#C06070', backgroundColor: colors.accent, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                          Custom
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: colors.foreground }}>
+                      ₹{(item.price * item.quantity).toFixed(2)}
+                    </Text>
+                    {item.quantity > 1 ? (
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.mutedForeground }}>
+                        ₹{item.price.toFixed(2)} each
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         </View>
 
         {/* Payment Card */}
@@ -426,6 +490,11 @@ export default function OrderDetailScreen() {
           ) : null}
         </View>
       </ScrollView>
+      <ImageViewer
+        visible={!!activeViewerImage}
+        uri={activeViewerImage || ''}
+        onClose={() => setActiveViewerImage(null)}
+      />
     </View>
   );
 }

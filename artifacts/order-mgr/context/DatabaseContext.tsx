@@ -66,7 +66,8 @@ function initDb() {
       createdAt TEXT DEFAULT '',
       isCustom INTEGER DEFAULT 0,
       size TEXT DEFAULT '',
-      customerId TEXT DEFAULT ''
+      customerId TEXT DEFAULT '',
+      items TEXT DEFAULT '[]'
     );
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
@@ -91,13 +92,45 @@ function initDb() {
   try { db.execSync(`ALTER TABLE orders ADD COLUMN size TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN customerId TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`); } catch {}
 }
 
 function loadOrdersFromDb(): Order[] {
   if (IS_WEB || !db) return [];
   try {
-    return db.getAllSync<Order>('SELECT * FROM orders ORDER BY createdAt DESC');
-  } catch {
+    const rows = db.getAllSync<any>('SELECT * FROM orders ORDER BY createdAt DESC');
+    return rows.map(r => {
+      let parsedItems: any[] = [];
+      try {
+        parsedItems = r.items ? JSON.parse(r.items) : [];
+      } catch (err) {
+        console.error("Failed to parse items JSON for order:", r.id, err);
+      }
+      
+      // If there are no items but there are legacy product details, synthesize a single legacy item
+      if (parsedItems.length === 0 && (r.customName || r.productId)) {
+        parsedItems = [{
+          id: 'legacy-' + r.id,
+          productId: r.productId || '',
+          productName: r.customName || '',
+          size: r.size || '',
+          price: r.price || 0,
+          quantity: 1,
+          imagePath: r.referenceImagePath || '',
+          thumbnailPath: r.thumbnailPath || '',
+          isCustom: r.isCustom === 1,
+        }];
+      }
+
+      return {
+        ...r,
+        isCustom: r.isCustom === 1 ? 1 : 0,
+        workingOn: r.workingOn === 1 ? 1 : 0,
+        items: parsedItems
+      };
+    });
+  } catch (err) {
+    console.error("Failed to load orders from DB:", err);
     return [];
   }
 }
@@ -135,7 +168,28 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             AsyncStorage.getItem(PRODUCTS_KEY),
             AsyncStorage.getItem(CUSTOMERS_KEY),
           ]);
-          setOrders(os ? JSON.parse(os) : []);
+          const parsedOrders = os ? JSON.parse(os) : [];
+          const sanitizedOrders = parsedOrders.map((o: any) => {
+            let parsedItems = o.items || [];
+            if (parsedItems.length === 0 && (o.customName || o.productId)) {
+              parsedItems = [{
+                id: 'legacy-' + o.id,
+                productId: o.productId || '',
+                productName: o.customName || '',
+                size: o.size || '',
+                price: o.price || 0,
+                quantity: 1,
+                imagePath: o.referenceImagePath || '',
+                thumbnailPath: o.thumbnailPath || '',
+                isCustom: !!o.isCustom
+              }];
+            }
+            return {
+              ...o,
+              items: parsedItems
+            };
+          });
+          setOrders(sanitizedOrders);
           setProducts(ps ? JSON.parse(ps) : []);
           setCustomers(cs ? JSON.parse(cs) : []);
         } else {
@@ -208,12 +262,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
     if (!IS_WEB && db) {
       db.runSync(
-        `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,customerId)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,customerId,items)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [id, full.source, full.customerName, full.contactInfo, full.address ?? '', full.orderDate, full.dueDate,
          full.productId, full.customName, full.referenceImagePath, full.thumbnailPath,
          full.price, full.paymentStatus, full.amountPaid, full.status,
-         full.trackingLink, full.notes, createdAt, full.isCustom ? 1 : 0, full.size ?? '', full.customerId ?? '']
+         full.trackingLink, full.notes, createdAt, full.isCustom ? 1 : 0, full.size ?? '', full.customerId ?? '', JSON.stringify(full.items || [])]
       );
     }
     await persistOrders([full, ...orders]);
@@ -223,7 +277,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const updateOrder = useCallback(async (id: string, updates: Partial<Order>) => {
     const next = orders.map(o => o.id === id ? { ...o, ...updates } : o);
     if (!IS_WEB && db) {
-      const u = updates;
+      const u = { ...updates };
+      if (u.items) {
+        (u as any).items = JSON.stringify(u.items);
+      }
       const fields = Object.keys(u).filter(k => k !== 'id' && k !== 'createdAt');
       if (fields.length > 0) {
         const set = fields.map(f => `${f}=?`).join(',');
@@ -343,11 +400,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       db.execSync('DELETE FROM orders; DELETE FROM products;');
       for (const o of data.orders) {
         db.runSync(
-          `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,customerId,items) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [o.id, o.source, o.customerName, o.contactInfo, o.address ?? '', o.orderDate, o.dueDate,
            o.productId, o.customName, o.referenceImagePath, o.thumbnailPath,
            o.price, o.paymentStatus, o.amountPaid, o.status,
-           o.trackingLink, o.notes, o.createdAt, o.isCustom ? 1 : 0, o.size ?? '']
+           o.trackingLink, o.notes, o.createdAt, o.isCustom ? 1 : 0, o.size ?? '', o.customerId ?? '', JSON.stringify(o.items || [])]
         );
       }
       for (const p of data.products) {

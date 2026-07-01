@@ -2,6 +2,18 @@ export type OrderSource = 'Instagram' | 'Facebook' | 'WhatsApp' | 'Website' | 'E
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
 export type OrderStatus = 'Confirmed' | 'Shipped' | 'Delivered';
 
+export interface OrderItem {
+  id: string;
+  productId?: string;
+  productName: string;
+  size?: string;
+  price: number;
+  quantity: number;
+  imagePath?: string;
+  thumbnailPath?: string;
+  isCustom: boolean;
+}
+
 export interface Order {
   id: string;
   source: OrderSource;
@@ -25,6 +37,7 @@ export interface Order {
   size?: string;
   customerId?: string;
   workingOn?: number; // 1 = currently working on, 0 = not
+  items?: OrderItem[];
 }
 
 export interface Product {
