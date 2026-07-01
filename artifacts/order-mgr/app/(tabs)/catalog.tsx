@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   Alert,
+  Dimensions,
   FlatList,
   Modal,
   Platform,
@@ -98,13 +99,19 @@ export default function CatalogScreen() {
     );
   }
 
+  // Calculate dimensions for 2-column grid
+  const screenWidth = Dimensions.get('window').width;
+  const usableWidth = screenWidth - 32; // 16px horizontal margins
+  const G = 12; // Gap size
+  const W = (usableWidth - G) / 2; // Column width
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={filtered}
         keyExtractor={p => p.id}
         numColumns={2}
-        columnWrapperStyle={{ paddingHorizontal: 16, gap: 12 }}
+        columnWrapperStyle={{ paddingHorizontal: 16, gap: G }}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 100 : insets.bottom + 100 }}
         scrollEnabled={filtered.length > 0}
         ListHeaderComponent={
@@ -127,7 +134,7 @@ export default function CatalogScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
-            style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.productCard, { width: W, backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => openEdit(item)}
             onLongPress={() => confirmDelete(item)}
           >
@@ -141,7 +148,7 @@ export default function CatalogScreen() {
             <View style={styles.productInfo}>
               <Text style={[styles.productName, { color: colors.foreground }]} numberOfLines={2}>{item.name}</Text>
               {item.category ? <Text style={[styles.productCat, { color: colors.mutedForeground }]}>{item.category}</Text> : null}
-              {item.defaultPrice ? <Text style={[styles.productPrice, { color: '#C06070' }]}>${item.defaultPrice}</Text> : null}
+              {item.defaultPrice ? <Text style={[styles.productPrice, { color: '#C06070' }]}>₹{item.defaultPrice}</Text> : null}
             </View>
           </Pressable>
         )}
@@ -220,7 +227,7 @@ const styles = StyleSheet.create({
   count: { fontSize: 16, fontFamily: 'Inter_500Medium' },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
   searchInput: { flex: 1, fontSize: 15, fontFamily: 'Inter_400Regular' },
-  productCard: { flex: 1, borderRadius: 14, borderWidth: 1, overflow: 'hidden', marginBottom: 12 },
+  productCard: { borderRadius: 14, borderWidth: 1, overflow: 'hidden', marginBottom: 12 },
   productThumb: { width: '100%', aspectRatio: 1 },
   productInfo: { padding: 10, gap: 3 },
   productName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', lineHeight: 18 },
@@ -239,7 +246,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 17, fontFamily: 'Inter_600SemiBold' },
   saveText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   modalBody: { padding: 20, gap: 16 },
-  imagePickerBtn: { height: 140, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden' },
+  imagePickerBtn: { width: '100%', aspectRatio: 1, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden' },
   modalImage: { width: '100%', height: '100%' },
   imagePickerText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
   field: { gap: 6 },

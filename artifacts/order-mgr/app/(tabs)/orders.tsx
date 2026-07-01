@@ -1,14 +1,24 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OrderCard } from '@/components/OrderCard';
 import { FilterChips } from '@/components/FilterChips';
 import { useColors } from '@/hooks/useColors';
 import { useDatabase } from '@/context/DatabaseContext';
 import { Order, OrderStatus } from '@/types';
+
+
 
 type FilterOption = 'All' | OrderStatus;
 const FILTERS: FilterOption[] = ['All', 'Confirmed', 'Shipped', 'Delivered'];
@@ -17,6 +27,84 @@ function isOverdue(order: Order) {
   if (!order.dueDate || order.status === 'Delivered') return false;
   return order.dueDate < new Date().toISOString().split('T')[0];
 }
+
+function formatDateHeader(dateStr: string): string {
+  if (!dateStr) return 'Unknown Date';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const dayNum = parseInt(d, 10);
+  const monthName = months[parseInt(m, 10) - 1] || '';
+  return `${dayNum}, ${monthName} ${y}`;
+}
+
+interface DateGroup {
+  date: string;
+  label: string;
+  orders: Order[];
+}
+
+function groupOrdersByDate(orders: Order[]): DateGroup[] {
+  const map = new Map<string, Order[]>();
+  for (const o of orders) {
+    const key = o.orderDate || 'unknown';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(o);
+  }
+  // Sort date keys descending
+  const sorted = Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  return sorted.map(([date, grpOrders]) => ({
+    date,
+    label: formatDateHeader(date),
+    orders: grpOrders,
+  }));
+}
+
+// ── Collapsible Date Group ────────────────────────────────────────────────────
+
+function DateGroupSection({ group, defaultOpen }: { group: DateGroup; defaultOpen: boolean }) {
+  const colors = useColors();
+  const [open, setOpen] = useState(defaultOpen);
+
+  const toggle = useCallback(() => {
+    setOpen(v => !v);
+    Haptics.selectionAsync();
+  }, []);
+
+  return (
+    <View style={styles.groupContainer}>
+      {/* Date header */}
+      <Pressable style={styles.dateHeader} onPress={toggle}>
+        <Text style={[styles.dateLabel, { color: colors.foreground }]}>{group.label}</Text>
+        <View style={styles.dateHeaderRight}>
+          <View style={[styles.countBadge, { backgroundColor: colors.accent, borderColor: colors.border }]}>
+            <Text style={[styles.countBadgeText, { color: colors.mutedForeground }]}>{group.orders.length}</Text>
+          </View>
+          <Feather
+            name={open ? 'chevron-up' : 'chevron-down'}
+            size={14}
+            color={colors.mutedForeground}
+          />
+        </View>
+      </Pressable>
+
+      {/* Orders in group */}
+      {open && (
+        <View style={styles.groupOrders}>
+          {group.orders.map(order => (
+            <OrderCard key={order.id} order={order} isOverdue={isOverdue(order)} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function OrdersScreen() {
   const colors = useColors();
@@ -45,15 +133,18 @@ export default function OrdersScreen() {
     return list;
   }, [orders, filter, search]);
 
+  const groups = useMemo(() => groupOrdersByDate(filtered), [filtered]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        data={filtered}
-        keyExtractor={o => o.id}
-        renderItem={({ item }) => <OrderCard order={item} isOverdue={isOverdue(item)} />}
+        data={groups}
+        keyExtractor={g => g.date}
+        renderItem={({ item, index }) => (
+          <DateGroupSection group={item} defaultOpen={index === 0} />
+        )}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 100 : insets.bottom + 100 }}
-        scrollEnabled={filtered.length > 0}
         ListHeaderComponent={
           <>
             <View style={[styles.header, { paddingTop: topPad + 8 }]}>
@@ -88,7 +179,7 @@ export default function OrdersScreen() {
               options={FILTERS}
               selected={filter}
               onSelect={v => { setFilter(v); Haptics.selectionAsync(); }}
-              style={{ marginBottom: 8 }}
+              style={{ marginBottom: 12 }}
             />
           </>
         }
@@ -131,6 +222,33 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   searchInput: { flex: 1, fontSize: 15, fontFamily: 'Inter_400Regular' },
+  // Date group
+  groupContainer: { marginBottom: 4 },
+  dateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+  },
+  dateHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', letterSpacing: 1.4 },
+  countBadge: {
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+  },
+  countBadgeText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  groupOrders: {},
+  // Empty
   empty: { alignItems: 'center', paddingTop: 64, gap: 12, paddingHorizontal: 40 },
   emptyTitle: { fontSize: 20, fontFamily: 'Inter_600SemiBold' },
   emptyText: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },

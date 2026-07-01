@@ -1,14 +1,15 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useDatabase } from '@/context/DatabaseContext';
 import { exportBackup, exportCSV } from '@/utils/csvExport';
+import { isNotificationEnabledAppLevel, toggleNotificationAppLevel, rescheduleAllReminders } from '@/utils/notifications';
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -16,6 +17,20 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { orders, products, clearDeliveredImages, importBackup } = useDatabase();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  useEffect(() => {
+    isNotificationEnabledAppLevel().then(setNotificationsEnabled);
+  }, []);
+
+  async function handleToggleNotifications(val: boolean) {
+    setNotificationsEnabled(val);
+    await toggleNotificationAppLevel(val);
+    if (val) {
+      await rescheduleAllReminders(orders);
+    }
+  }
 
   const stats = useMemo(() => {
     const outstanding = orders.reduce((s, o) => s + Math.max(0, o.price - o.amountPaid), 0);
@@ -93,7 +108,7 @@ export default function ProfileScreen() {
       {/* Outstanding Payments */}
       <View style={[styles.outstandingCard, { backgroundColor: colors.unpaid }]}>
         <View style={styles.outstandingRow}>
-          <Feather name="dollar-sign" size={22} color={colors.unpaidText} />
+          <FontAwesome name="rupee" size={22} color={colors.unpaidText} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.outstandingLabel, { color: colors.unpaidText }]}>Outstanding Balance</Text>
             <Text style={[styles.outstandingValue, { color: colors.unpaidText }]}>₹{stats.outstanding.toFixed(2)}</Text>
@@ -135,6 +150,22 @@ export default function ProfileScreen() {
         onPress={() => router.push('/customers' as any)}
         colors={colors}
       />
+
+      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>SETTINGS</Text>
+        <View style={[styles.menuRow, { paddingVertical: 10 }]}>
+          <Feather name="bell" size={18} color={colors.foreground} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.menuRowLabel, { color: colors.foreground }]}>App Notifications</Text>
+            <Text style={[styles.menuSub, { color: colors.mutedForeground }]}>Toggle reminder alerts</Text>
+          </View>
+          <Switch
+            value={notificationsEnabled}
+            onValueChange={handleToggleNotifications}
+            trackColor={{ false: colors.border, true: colors.primary }}
+          />
+        </View>
+      </View>
 
       <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>DATA</Text>

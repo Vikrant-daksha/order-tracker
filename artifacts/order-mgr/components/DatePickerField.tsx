@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     flex: 1, fontSize: 15, fontFamily: 'Inter_400Regular',
     borderWidth: 0, backgroundColor: 'transparent', padding: 0,
     // @ts-ignore
-    outlineStyle: 'none',
+    outlineStyle: 'none' as any,
   },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
   sheet: {

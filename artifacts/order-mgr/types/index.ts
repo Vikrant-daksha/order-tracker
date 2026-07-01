@@ -22,6 +22,9 @@ export interface Order {
   notes: string;
   createdAt: string;
   isCustom: number;
+  size?: string;
+  customerId?: string;
+  workingOn?: number; // 1 = currently working on, 0 = not
 }
 
 export interface Product {
@@ -33,9 +36,17 @@ export interface Product {
   category: string;
 }
 
-export interface CustomerProfile {
-  customerName: string;
-  contactInfo: string;
+export interface Customer {
+  id: string;
+  name: string;
+  igHandle: string;
+  phone: string;
+  email: string;
+  address: string;
+  createdAt: string;
+}
+
+export interface CustomerProfile extends Customer {
   totalOrders: number;
   totalSpent: number;
   lastOrderDate: string;

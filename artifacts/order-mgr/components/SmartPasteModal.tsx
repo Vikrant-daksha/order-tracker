@@ -13,7 +13,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { parseOrderText, ParsedOrder } from '@/utils/smartPaste';
 
@@ -25,7 +24,6 @@ interface SmartPasteModalProps {
 
 export function SmartPasteModal({ visible, onClose, onConfirm }: SmartPasteModalProps) {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [parsed, setParsed] = useState<ParsedOrder | null>(null);
 
@@ -62,31 +60,53 @@ export function SmartPasteModal({ visible, onClose, onConfirm }: SmartPasteModal
     onClose();
   }
 
+  // Build display rows from parsed result
+  const resultRows: Array<[string, string | undefined]> = parsed
+    ? [
+        ['Customer Name', parsed.customerName],
+        ['Instagram', parsed.contactInfo],
+        ['Phone', parsed.phone],
+        ['Address', parsed.address],
+        ['Pincode', parsed.pincode],
+        ['Order Date', parsed.orderDate],
+        ['Due Date', parsed.dueDate],
+        ['Price', parsed.price ? `₹${parsed.price}` : undefined],
+        ['Product', parsed.customName],
+        ['Notes', parsed.notes || undefined],
+      ]
+    : [];
+
+  const hasAnyField = parsed && resultRows.some(([, v]) => v);
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 16, borderBottomColor: colors.border }]}>
-          <Pressable onPress={handleClose}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: 20, borderBottomColor: colors.border }]}>
+          <Pressable onPress={handleClose} hitSlop={8}>
             <Feather name="x" size={22} color={colors.mutedForeground} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.foreground }]}>Smart Paste</Text>
+          <View style={styles.headerCenter}>
+            <Feather name="zap" size={15} color="#C06070" />
+            <Text style={[styles.title, { color: colors.foreground }]}>Smart Paste</Text>
+          </View>
           <Pressable onPress={handlePaste} style={[styles.pasteBtn, { backgroundColor: colors.accent }]}>
-            <Feather name="clipboard" size={16} color="#C06070" />
+            <Feather name="clipboard" size={15} color="#C06070" />
             <Text style={[styles.pasteBtnText, { color: '#C06070' }]}>Paste</Text>
           </Pressable>
         </View>
 
-        <ScrollView style={styles.body} contentContainerStyle={{ padding: 16, gap: 16 }}>
+        <ScrollView style={styles.body} contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
           <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-            Paste a message from Instagram DM, WhatsApp, email, or any order notification. We'll extract the details automatically.
+            Paste a message from Instagram DM, WhatsApp, email, or any order notification. We'll extract the details automatically — including name, phone, address & pincode.
           </Text>
 
           <TextInput
             value={text}
-            onChangeText={setText}
+            onChangeText={t => { setText(t); setParsed(null); }}
             multiline
             placeholder="Paste order text here..."
             placeholderTextColor={colors.mutedForeground}
@@ -95,7 +115,8 @@ export function SmartPasteModal({ visible, onClose, onConfirm }: SmartPasteModal
 
           <Pressable
             onPress={() => handleParse()}
-            style={[styles.parseBtn, { backgroundColor: colors.primary }]}
+            style={[styles.parseBtn, { backgroundColor: colors.primary, opacity: text.trim() ? 1 : 0.5 }]}
+            disabled={!text.trim()}
           >
             <Feather name="zap" size={16} color={colors.primaryForeground} />
             <Text style={[styles.parseBtnText, { color: colors.primaryForeground }]}>Extract Details</Text>
@@ -103,27 +124,35 @@ export function SmartPasteModal({ visible, onClose, onConfirm }: SmartPasteModal
 
           {parsed && (
             <View style={[styles.results, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.resultsTitle, { color: colors.foreground }]}>Extracted Fields</Text>
-              {[
-                ['Customer Name', parsed.customerName],
-                ['Contact', parsed.contactInfo],
-                ['Order Date', parsed.orderDate],
-                ['Due Date', parsed.dueDate],
-                ['Price', parsed.price ? `₹${parsed.price}` : undefined],
-                ['Product', parsed.customName],
-                ['Notes', parsed.notes],
-              ].map(([label, val]) => val ? (
-                <View key={label as string} style={styles.resultRow}>
-                  <Text style={[styles.resultLabel, { color: colors.mutedForeground }]}>{label}</Text>
-                  <Text style={[styles.resultVal, { color: colors.foreground }]}>{val as string}</Text>
-                </View>
-              ) : null)}
-              <Pressable
-                onPress={handleConfirm}
-                style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
-              >
-                <Text style={[styles.confirmBtnText, { color: colors.primaryForeground }]}>Use These Details</Text>
-              </Pressable>
+              <View style={styles.resultsHeader}>
+                <Feather name="check-circle" size={16} color="#C06070" />
+                <Text style={[styles.resultsTitle, { color: colors.foreground }]}>Extracted Fields</Text>
+              </View>
+
+              {!hasAnyField && (
+                <Text style={[styles.noFields, { color: colors.mutedForeground }]}>
+                  Couldn't extract any fields. Try adding labels like "Name:", "Phone:", "Address:".
+                </Text>
+              )}
+
+              {resultRows.map(([label, val]) =>
+                val ? (
+                  <View key={label} style={[styles.resultRow, { borderTopColor: colors.border }]}>
+                    <Text style={[styles.resultLabel, { color: colors.mutedForeground }]}>{label}</Text>
+                    <Text style={[styles.resultVal, { color: colors.foreground }]}>{val}</Text>
+                  </View>
+                ) : null
+              )}
+
+              {hasAnyField && (
+                <Pressable
+                  onPress={handleConfirm}
+                  style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Feather name="check" size={16} color={colors.primaryForeground} />
+                  <Text style={[styles.confirmBtnText, { color: colors.primaryForeground }]}>Use These Details</Text>
+                </Pressable>
+              )}
             </View>
           )}
         </ScrollView>
@@ -142,6 +171,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   title: { fontSize: 17, fontFamily: 'Inter_600SemiBold' },
   pasteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
   pasteBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
@@ -166,11 +196,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   parseBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
-  results: { borderRadius: 14, padding: 16, borderWidth: 1, gap: 10 },
-  resultsTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', marginBottom: 4 },
-  resultRow: { flexDirection: 'row', gap: 8 },
+  results: { borderRadius: 14, padding: 16, borderWidth: 1, gap: 0 },
+  resultsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  resultsTitle: { fontSize: 15, fontFamily: 'Inter_700Bold' },
+  noFields: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 20, marginBottom: 8 },
+  resultRow: { flexDirection: 'row', gap: 8, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   resultLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', width: 110 },
   resultVal: { fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 },
-  confirmBtn: { borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+  confirmBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 10, paddingVertical: 13, marginTop: 12 },
   confirmBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
 });

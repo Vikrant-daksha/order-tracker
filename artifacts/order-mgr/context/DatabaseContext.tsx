@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
-import { Order, OrderSource, OrderStatus, PaymentStatus, Product } from '@/types';
+import { Order, OrderSource, OrderStatus, PaymentStatus, Product, Customer } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function genId() {
@@ -13,17 +13,23 @@ const today = () => new Date().toISOString().split('T')[0];
 interface DatabaseContextType {
   orders: Order[];
   products: Product[];
+  customers: Customer[];
   loading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => Promise<string>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   getOrder: (id: string) => Order | undefined;
+  toggleWorkingOn: (id: string) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<string>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   findProductByName: (name: string) => Product | undefined;
+  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => Promise<string>;
+  updateCustomer: (id: string, updates: Partial<Customer>) => Promise<void>;
+  findCustomerByIg: (ig: string) => Customer | undefined;
+  findCustomerByPhone: (phone: string) => Customer | undefined;
   clearDeliveredImages: () => Promise<number>;
-  importBackup: (data: { orders: Order[]; products: Product[] }) => Promise<void>;
+  importBackup: (data: { orders: Order[]; products: Product[]; customers?: Customer[] }) => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | null>(null);
@@ -31,6 +37,7 @@ const DatabaseContext = createContext<DatabaseContextType | null>(null);
 const IS_WEB = Platform.OS === 'web';
 const ORDERS_KEY = '@orderflow_orders';
 const PRODUCTS_KEY = '@orderflow_products';
+const CUSTOMERS_KEY = '@orderflow_customers';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -57,7 +64,9 @@ function initDb() {
       trackingLink TEXT DEFAULT '',
       notes TEXT DEFAULT '',
       createdAt TEXT DEFAULT '',
-      isCustom INTEGER DEFAULT 0
+      isCustom INTEGER DEFAULT 0,
+      size TEXT DEFAULT '',
+      customerId TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
@@ -67,9 +76,21 @@ function initDb() {
       defaultPrice REAL DEFAULT 0,
       category TEXT DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS customers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      igHandle TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      createdAt TEXT DEFAULT ''
+    );
   `);
-  // Migration: add address column if it doesn't exist yet
+  // Migration: add missing columns if they don't exist yet
   try { db.execSync(`ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN size TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN customerId TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`); } catch {}
 }
 
 function loadOrdersFromDb(): Order[] {
@@ -90,26 +111,74 @@ function loadProductsFromDb(): Product[] {
   }
 }
 
+function loadCustomersFromDb(): Customer[] {
+  if (IS_WEB || !db) return [];
+  try {
+    return db.getAllSync<Customer>('SELECT * FROM customers ORDER BY createdAt DESC');
+  } catch {
+    return [];
+  }
+}
+
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function init() {
       try {
         if (IS_WEB) {
-          const [os, ps] = await Promise.all([
+          const [os, ps, cs] = await Promise.all([
             AsyncStorage.getItem(ORDERS_KEY),
             AsyncStorage.getItem(PRODUCTS_KEY),
+            AsyncStorage.getItem(CUSTOMERS_KEY),
           ]);
           setOrders(os ? JSON.parse(os) : []);
           setProducts(ps ? JSON.parse(ps) : []);
+          setCustomers(cs ? JSON.parse(cs) : []);
         } else {
           initDb();
-          setOrders(loadOrdersFromDb());
+          let loadedOrders = loadOrdersFromDb();
+          let loadedCustomers = loadCustomersFromDb();
+          
+          if (loadedCustomers.length === 0 && loadedOrders.length > 0 && db) {
+            const map: Record<string, any> = {};
+            for (const o of loadedOrders) {
+              const key = o.customerName?.trim() || 'Unknown';
+              if (!map[key]) {
+                const igMatch = o.contactInfo?.match(/@[\w.]+/);
+                const pMatch = o.contactInfo?.match(/\+?[0-9\s-]{10,}/);
+                const eMatch = o.contactInfo?.match(/[\w.-]+@[\w.-]+\.\w+/);
+                map[key] = {
+                  id: genId(),
+                  name: key,
+                  igHandle: igMatch ? igMatch[0].replace('@', '') : '',
+                  phone: pMatch ? pMatch[0].replace(/[^0-9+]/g, '') : '',
+                  email: eMatch ? eMatch[0] : '',
+                  address: o.address || '',
+                  createdAt: o.createdAt || new Date().toISOString()
+                };
+              }
+              o.customerId = map[key].id;
+              db.runSync('UPDATE orders SET customerId=? WHERE id=?', [o.customerId || null, o.id]);
+            }
+            const newCustomers = Object.values(map);
+            for (const c of newCustomers as any[]) {
+              db.runSync(
+                'INSERT INTO customers (id,name,igHandle,phone,email,address,createdAt) VALUES (?,?,?,?,?,?,?)',
+                [c.id, c.name, c.igHandle, c.phone, c.email, c.address, c.createdAt]
+              );
+            }
+            loadedCustomers = newCustomers;
+          }
+          setOrders(loadedOrders);
           setProducts(loadProductsFromDb());
+          setCustomers(loadedCustomers);
         }
+      } catch (err) {
+        console.error("Database initialization failed:", err);
       } finally {
         setLoading(false);
       }
@@ -127,6 +196,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     if (IS_WEB) await AsyncStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
   }
 
+  async function persistCustomers(next: Customer[]) {
+    setCustomers(next);
+    if (IS_WEB) await AsyncStorage.setItem(CUSTOMERS_KEY, JSON.stringify(next));
+  }
+
   const addOrder = useCallback(async (order: Omit<Order, 'id' | 'createdAt'>): Promise<string> => {
     const id = genId();
     const createdAt = new Date().toISOString();
@@ -134,12 +208,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
     if (!IS_WEB && db) {
       db.runSync(
-        `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,customerId)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [id, full.source, full.customerName, full.contactInfo, full.address ?? '', full.orderDate, full.dueDate,
          full.productId, full.customName, full.referenceImagePath, full.thumbnailPath,
          full.price, full.paymentStatus, full.amountPaid, full.status,
-         full.trackingLink, full.notes, createdAt, full.isCustom ? 1 : 0]
+         full.trackingLink, full.notes, createdAt, full.isCustom ? 1 : 0, full.size ?? '', full.customerId ?? '']
       );
     }
     await persistOrders([full, ...orders]);
@@ -167,6 +241,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const getOrder = useCallback((id: string) => orders.find(o => o.id === id), [orders]);
+
+  const toggleWorkingOn = useCallback(async (id: string) => {
+    const order = orders.find(o => o.id === id);
+    if (!order) return;
+    const next = order.workingOn ? 0 : 1;
+    await updateOrder(id, { workingOn: next });
+  }, [orders, updateOrder]);
 
   const addProduct = useCallback(async (product: Omit<Product, 'id'>): Promise<string> => {
     const id = genId();
@@ -200,6 +281,46 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await persistProducts(next);
   }, [products]);
 
+
+  const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt'>): Promise<string> => {
+    const id = genId();
+    const createdAt = new Date().toISOString();
+    const full: Customer = { ...customer, id, createdAt } as Customer;
+    if (!IS_WEB && db) {
+      db.runSync(
+        'INSERT INTO customers (id,name,igHandle,phone,email,address,createdAt) VALUES (?,?,?,?,?,?,?)',
+        [id, full.name, full.igHandle, full.phone, full.email, full.address, createdAt]
+      );
+    }
+    await persistCustomers([...customers, full].sort((a,b) => a.name.localeCompare(b.name)));
+    return id;
+  }, [customers]);
+
+  const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>) => {
+    const next = customers.map(c => c.id === id ? { ...c, ...updates } : c);
+    if (!IS_WEB && db) {
+      const fields = Object.keys(updates).filter(k => k !== 'id' && k !== 'createdAt');
+      if (fields.length > 0) {
+        const set = fields.map(f => `${f}=?`).join(',');
+        const vals = fields.map(f => (updates as any)[f]);
+        db.runSync(`UPDATE customers SET ${set} WHERE id=?`, [...vals, id]);
+      }
+    }
+    await persistCustomers(next);
+  }, [customers]);
+
+  const findCustomerByIg = useCallback((ig: string) => {
+    if (!ig) return undefined;
+    const search = ig.replace('@', '').toLowerCase().trim();
+    return customers.find(c => c.igHandle?.toLowerCase() === search);
+  }, [customers]);
+
+  const findCustomerByPhone = useCallback((phone: string) => {
+    if (!phone) return undefined;
+    const search = phone.replace(/[^0-9+]/g, '');
+    return customers.find(c => c.phone && search.includes(c.phone.replace(/[^0-9]/g, '')) || c.phone?.replace(/[^0-9]/g, '').includes(search.replace(/[^0-9]/g, '')));
+  }, [customers]);
+
   const findProductByName = useCallback((name: string) => {
     const lower = name.toLowerCase();
     return products.find(p => p.name.toLowerCase().includes(lower));
@@ -222,11 +343,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       db.execSync('DELETE FROM orders; DELETE FROM products;');
       for (const o of data.orders) {
         db.runSync(
-          `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [o.id, o.source, o.customerName, o.contactInfo, o.address ?? '', o.orderDate, o.dueDate,
            o.productId, o.customName, o.referenceImagePath, o.thumbnailPath,
            o.price, o.paymentStatus, o.amountPaid, o.status,
-           o.trackingLink, o.notes, o.createdAt, o.isCustom ? 1 : 0]
+           o.trackingLink, o.notes, o.createdAt, o.isCustom ? 1 : 0, o.size ?? '']
         );
       }
       for (const p of data.products) {
@@ -242,9 +363,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DatabaseContext.Provider value={{
-      orders, products, loading,
-      addOrder, updateOrder, deleteOrder, getOrder,
+      orders, products, customers, loading,
+      addOrder, updateOrder, deleteOrder, getOrder, toggleWorkingOn,
       addProduct, updateProduct, deleteProduct,
+      addCustomer, updateCustomer, findCustomerByIg, findCustomerByPhone,
       findProductByName, clearDeliveredImages, importBackup,
     }}>
       {children}

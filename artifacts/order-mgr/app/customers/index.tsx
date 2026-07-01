@@ -11,38 +11,34 @@ export default function CustomersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { orders } = useDatabase();
+  const { orders, customers: dbCustomers } = useDatabase();
   const [search, setSearch] = useState('');
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const customers = useMemo((): CustomerProfile[] => {
-    const map: Record<string, CustomerProfile> = {};
-    for (const o of orders) {
-      const key = o.customerName?.trim() || 'Unknown';
-      if (!map[key]) {
-        map[key] = { customerName: key, contactInfo: o.contactInfo, totalOrders: 0, totalSpent: 0, lastOrderDate: o.orderDate, isRepeat: false };
-      }
-      map[key].totalOrders++;
-      map[key].totalSpent += o.amountPaid;
-      if (o.orderDate > map[key].lastOrderDate) map[key].lastOrderDate = o.orderDate;
-      if (!map[key].contactInfo && o.contactInfo) map[key].contactInfo = o.contactInfo;
-    }
-    const list = Object.values(map);
-    list.forEach(c => { c.isRepeat = c.totalOrders > 1; });
-    list.sort((a, b) => b.totalOrders - a.totalOrders);
-    return list;
-  }, [orders]);
+    return dbCustomers.map(c => {
+      const custOrders = orders.filter(o => o.customerId === c.id);
+      return {
+        ...c,
+        totalOrders: custOrders.length,
+        totalSpent: custOrders.reduce((sum, o) => sum + o.amountPaid, 0),
+        lastOrderDate: custOrders.reduce((latest, o) => o.orderDate > latest ? o.orderDate : latest, ''),
+        isRepeat: custOrders.length > 1
+      };
+    }).sort((a, b) => b.totalOrders - a.totalOrders);
+  }, [dbCustomers, orders]);
 
   const filtered = search ? customers.filter(c =>
-    c.customerName.toLowerCase().includes(search.toLowerCase()) ||
-    c.contactInfo?.toLowerCase().includes(search.toLowerCase())
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.igHandle?.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone?.includes(search)
   ) : customers;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={filtered}
-        keyExtractor={c => c.customerName}
+        keyExtractor={c => c.id}
         contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 20 }}
         scrollEnabled={filtered.length > 0}
         ListHeaderComponent={
@@ -68,22 +64,23 @@ export default function CustomersScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => router.push({ pathname: '/customers/[id]', params: { id: encodeURIComponent(item.customerName) } } as any)}
+            onPress={() => router.push({ pathname: '/customers/[id]', params: { id: item.id } } as any)}
             style={({ pressed }) => [styles.card, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.9 : 1 }]}
           >
             <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
-              <Text style={[styles.avatarText, { color: '#C06070' }]}>{item.customerName.charAt(0).toUpperCase()}</Text>
+              <Text style={[styles.avatarText, { color: '#C06070' }]}>{item.name.charAt(0).toUpperCase()}</Text>
             </View>
             <View style={{ flex: 1, gap: 3 }}>
               <View style={styles.nameRow}>
-                <Text style={[styles.name, { color: colors.foreground }]}>{item.customerName}</Text>
+                <Text style={[styles.name, { color: colors.foreground }]}>{item.name}</Text>
                 {item.isRepeat && (
                   <View style={[styles.repeatBadge, { backgroundColor: colors.primary }]}>
                     <Text style={[styles.repeatText, { color: colors.primaryForeground }]}>Repeat</Text>
                   </View>
                 )}
               </View>
-              {item.contactInfo ? <Text style={[styles.contact, { color: colors.mutedForeground }]}>{item.contactInfo}</Text> : null}
+              {item.igHandle ? <Text style={[styles.contact, { color: colors.mutedForeground }]}>@{item.igHandle}</Text> : null}
+              {item.phone ? <Text style={[styles.contact, { color: colors.mutedForeground }]}>{item.phone}</Text> : null}
               <View style={styles.statsRow}>
                 <Text style={[styles.statText, { color: colors.mutedForeground }]}>{item.totalOrders} order{item.totalOrders !== 1 ? 's' : ''}</Text>
                 <Text style={[styles.statDot, { color: colors.mutedForeground }]}>·</Text>

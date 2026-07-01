@@ -17,14 +17,16 @@ export default function CustomerDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders } = useDatabase();
+  const { id: customerId } = useLocalSearchParams<{ id: string }>();
+  const { orders, customers } = useDatabase();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
-  const customerName = decodeURIComponent(id || '');
+  const customer = useMemo(() => customers.find(c => c.id === customerId), [customers, customerId]);
+  const customerName = customer?.name || 'Unknown';
+
   const customerOrders = useMemo(() =>
-    orders.filter(o => o.customerName === customerName).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [orders, customerName]
+    orders.filter(o => o.customerId === customerId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [orders, customerId]
   );
 
   const stats = useMemo(() => ({
@@ -32,9 +34,9 @@ export default function CustomerDetailScreen() {
     spent: customerOrders.reduce((s, o) => s + o.amountPaid, 0),
     outstanding: customerOrders.reduce((s, o) => s + Math.max(0, o.price - o.amountPaid), 0),
     lastOrder: customerOrders[0]?.orderDate || '—',
-    contactInfo: customerOrders[0]?.contactInfo || '—',
+    contactInfo: [customer?.igHandle ? `@${customer.igHandle}` : null, customer?.phone].filter(Boolean).join('\n') || '—',
     sources: [...new Set(customerOrders.map(o => o.source))],
-  }), [customerOrders]);
+  }), [customerOrders, customer]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

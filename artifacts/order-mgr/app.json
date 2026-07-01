@@ -15,7 +15,8 @@
       "backgroundColor": "#F5F5F7"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.vikrant05.orderflow"
     },
     "android": {
       "package": "com.vikrant05.orderflow",

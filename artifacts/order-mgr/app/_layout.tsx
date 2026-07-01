@@ -9,8 +9,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
+//Dont remove comment this gesture handler is breaking the app
+// import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -43,10 +43,21 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-      requestNotificationPermissions();
+    async function initApp() {
+      if (fontsLoaded || fontError) {
+        try {
+          await SplashScreen.hideAsync();
+        } catch (e) {
+          console.warn("Failed to hide splash screen:", e);
+        }
+        try {
+          await requestNotificationPermissions();
+        } catch (e) {
+          console.warn("Failed to request notifications:", e);
+        }
+      }
     }
+    initApp();
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;
@@ -56,11 +67,11 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <DatabaseProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
+            {/* Dont remove comment this gesture handler is breaking the app */}
+            {/* <GestureHandlerRootView style={{ flex: 1 }}> */}
+            <RootLayoutNav />
+            {/* </GestureHandlerRootView> */}
+            {/* Dont remove comment this gesture handler is breaking the app */}
           </DatabaseProvider>
         </QueryClientProvider>
       </ErrorBoundary>

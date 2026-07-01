@@ -4,7 +4,8 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
+import { ImageViewer } from '@/components/ImageViewer';
 import {
   Alert,
   Platform,
@@ -39,6 +40,14 @@ function buildMessage(order: any): string {
   return lines.join('\n');
 }
 
+function formatWhatsAppNumber(phone: string): string {
+  let p = phone.replace(/[^0-9+]/g, '');
+  if (!p.startsWith('+') && !p.startsWith('91')) {
+    p = '91' + p;
+  }
+  return p.replace('+', '');
+}
+
 export default function OrderDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -46,6 +55,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getOrder, deleteOrder, updateOrder } = useDatabase();
   const order = getOrder(id);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -64,26 +74,28 @@ export default function OrderDetailScreen() {
     );
   }
 
-  const outstanding = order.price - order.amountPaid;
-  const message = buildMessage(order);
+  const activeOrder = order;
+  const outstanding = activeOrder.price - activeOrder.amountPaid;
+  const message = buildMessage(activeOrder);
+  const [ig, phone, email] = (activeOrder.contactInfo || '').split('\n');
 
   function handleSend() {
-    const source = order.source;
+    const source = activeOrder.source;
     if (source === 'WhatsApp') {
-      const phone = order.contactInfo?.replace(/[^0-9+]/g, '');
-      const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      const p = formatWhatsAppNumber(activeOrder.contactInfo || '');
+      const url = `https://wa.me/${p}?text=${encodeURIComponent(message)}`;
       Linking.openURL(url);
     } else if (source === 'Email') {
-      const subject = encodeURIComponent(`Order Update - ${order.customName || 'Your Order'}`);
+      const subject = encodeURIComponent(`Order Update - ${activeOrder.customName || 'Your Order'}`);
       const body = encodeURIComponent(message);
-      const email = order.contactInfo || '';
+      const email = activeOrder.contactInfo || '';
       Linking.openURL(`mailto:${email}?subject=${subject}&body=${body}`);
     } else {
       Clipboard.setStringAsync(message);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         'Message Copied',
-        `The message has been copied. Open ${source} to paste and send it to ${order.contactInfo || 'the customer'}.`,
+        `The message has been copied. Open ${source} to paste and send it to ${activeOrder.contactInfo || 'the customer'}.`,
         [
           { text: 'OK' },
           source === 'Instagram'
@@ -95,19 +107,30 @@ export default function OrderDetailScreen() {
   }
 
   function handleTrackingLink() {
-    if (order.trackingLink) {
-      const url = order.trackingLink.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`;
+    if (activeOrder.trackingLink) {
+      const url = activeOrder.trackingLink.startsWith('http') ? activeOrder.trackingLink : `https://${activeOrder.trackingLink}`;
       Linking.openURL(url);
     }
   }
 
   async function handleAdvanceStatus() {
     const next: Record<string, string> = { Confirmed: 'Shipped', Shipped: 'Delivered' };
-    const nextStatus = next[order.status];
+    const nextStatus = next[activeOrder.status];
     if (!nextStatus) return;
-    await updateOrder(order.id, { status: nextStatus as any });
+    await updateOrder(activeOrder.id, { status: nextStatus as any });
     if (nextStatus === 'Delivered') {
-      await cancelOrderReminder(order.id);
+      await cancelOrderReminder(activeOrder.id);
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  async function handleRevertStatus() {
+    const prev: Record<string, string> = { Delivered: 'Shipped', Shipped: 'Confirmed' };
+    const prevStatus = prev[activeOrder.status];
+    if (!prevStatus) return;
+    await updateOrder(activeOrder.id, { status: prevStatus as any });
+    if (activeOrder.status === 'Delivered' && activeOrder.dueDate) {
+      await scheduleOrderReminder(activeOrder.id, activeOrder.customerName, activeOrder.customName, activeOrder.dueDate);
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
@@ -117,8 +140,8 @@ export default function OrderDetailScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
-          await cancelOrderReminder(order.id);
-          await deleteOrder(order.id);
+          await cancelOrderReminder(activeOrder.id);
+          await deleteOrder(activeOrder.id);
           router.back();
         }
       },
@@ -151,13 +174,31 @@ export default function OrderDetailScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 60 : insets.bottom + 30 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Image */}
+        {/* Hero Image — tap to open full-screen viewer */}
         {order.referenceImagePath ? (
-          <Image
-            source={{ uri: order.referenceImagePath }}
-            style={[styles.heroImage, { borderRadius: colors.radius + 4 }]}
-            contentFit="cover"
-          />
+          <>
+            <Pressable
+              onPress={() => setImageViewerOpen(true)}
+              style={[styles.heroImageContainer, { borderRadius: colors.radius + 4 }]}
+            >
+              <Image
+                source={{ uri: order.referenceImagePath }}
+                style={[styles.heroImage, { borderRadius: colors.radius + 4 }]}
+                contentFit="cover"
+              />
+              <View style={styles.zoomHintOverlay}>
+                <View style={styles.zoomHintBadge}>
+                  <Feather name="zoom-in" size={13} color="#fff" />
+                  <Text style={styles.zoomHintText}>Tap to view</Text>
+                </View>
+              </View>
+            </Pressable>
+            <ImageViewer
+              visible={imageViewerOpen}
+              uri={order.referenceImagePath}
+              onClose={() => setImageViewerOpen(false)}
+            />
+          </>
         ) : null}
 
         {/* Customer Info Card */}
@@ -190,6 +231,7 @@ export default function OrderDetailScreen() {
 
           <View style={styles.infoGrid}>
             <InfoItem label="Product" value={order.customName || '—'} colors={colors} />
+            {order.size ? <InfoItem label="Size" value={order.size} colors={colors} /> : null}
             <InfoItem label="Source" value={order.source} colors={colors} />
             <InfoItem label="Order Date" value={formatDate(order.orderDate)} colors={colors} />
             <InfoItem label="Due Date" value={formatDate(order.dueDate)} colors={colors} />
@@ -264,17 +306,31 @@ export default function OrderDetailScreen() {
               );
             })}
           </View>
-          {order.status !== 'Delivered' && (
-            <Pressable
-              onPress={handleAdvanceStatus}
-              style={[styles.advanceBtn, { backgroundColor: colors.primary }]}
-            >
-              <Text style={[styles.advanceBtnText, { color: colors.primaryForeground }]}>
-                Mark as {order.status === 'Confirmed' ? 'Shipped' : 'Delivered'}
-              </Text>
-              <Feather name="arrow-right" size={16} color={colors.primaryForeground} />
-            </Pressable>
-          )}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            {order.status !== 'Confirmed' && (
+              <Pressable
+                onPress={handleRevertStatus}
+                style={[styles.advanceBtn, { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
+              >
+                <Feather name="arrow-left" size={16} color={colors.foreground} />
+                <Text style={[styles.advanceBtnText, { color: colors.foreground }]} adjustsFontSizeToFit numberOfLines={1}>
+                  Revert
+                </Text>
+              </Pressable>
+            )}
+
+            {order.status !== 'Delivered' && (
+              <Pressable
+                onPress={handleAdvanceStatus}
+                style={[styles.advanceBtn, { flex: 2, backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.advanceBtnText, { color: colors.primaryForeground }]} adjustsFontSizeToFit numberOfLines={1}>
+                  Mark as {order.status === 'Confirmed' ? 'Shipped' : 'Delivered'}
+                </Text>
+                <Feather name="arrow-right" size={16} color={colors.primaryForeground} />
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {/* Tracking */}
@@ -303,13 +359,72 @@ export default function OrderDetailScreen() {
         ) : null}
 
         {/* Action Buttons */}
-        <Pressable
-          onPress={handleSend}
-          style={[styles.sendBtn, { backgroundColor: colors.primary }]}
-        >
-          <Feather name="send" size={18} color={colors.primaryForeground} />
-          <Text style={[styles.sendBtnText, { color: colors.primaryForeground }]}>Send to Customer</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {ig ? (
+            <Pressable
+              onPress={async () => {
+                const username = ig.replace('@', '').trim();
+                const appLink = `https://ig.me/m/${username}`;
+                const fallbackLink = `https://instagram.com/${username}`;
+
+                Clipboard.setStringAsync(message);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                try {
+                  const supported = await Linking.canOpenURL(appLink);
+                  if (supported) {
+                    await Linking.openURL(appLink);
+                  } else {
+                    await Linking.openURL(fallbackLink);
+                  }
+                } catch {
+                  await Linking.openURL(fallbackLink);
+                }
+              }}
+              style={[styles.sendBtn, { flex: 1, backgroundColor: '#E1306C' }]}
+            >
+              <Feather name="instagram" size={18} color="#fff" />
+              <Text style={[styles.sendBtnText, { color: '#fff', fontSize: 14 }]} numberOfLines={1} adjustsFontSizeToFit>IG</Text>
+            </Pressable>
+          ) : null}
+
+          {phone ? (
+            <Pressable
+              onPress={() => {
+                const p = formatWhatsAppNumber(phone);
+                Linking.openURL(`https://wa.me/${p}?text=${encodeURIComponent(message)}`);
+              }}
+              style={[styles.sendBtn, { flex: 1, backgroundColor: '#25D366' }]}
+            >
+              <Feather name="message-circle" size={18} color="#fff" />
+              <Text style={[styles.sendBtnText, { color: '#fff', fontSize: 14 }]} numberOfLines={1} adjustsFontSizeToFit>WhatsApp</Text>
+            </Pressable>
+          ) : null}
+
+          {email ? (
+            <Pressable
+              onPress={() => {
+                const subject = encodeURIComponent(`Order Update - ${order.customName || 'Your Order'}`);
+                const body = encodeURIComponent(message);
+                Linking.openURL(`mailto:${email}?subject=${subject}&body=${body}`);
+              }}
+              style={[styles.sendBtn, { flex: 1, backgroundColor: colors.primary }]}
+            >
+              <Feather name="mail" size={18} color={colors.primaryForeground} />
+              <Text style={[styles.sendBtnText, { color: colors.primaryForeground, fontSize: 14 }]} numberOfLines={1} adjustsFontSizeToFit>Email</Text>
+            </Pressable>
+          ) : null}
+
+          {!ig && !phone && !email ? (
+            <Pressable
+              onPress={handleSend}
+              style={[styles.sendBtn, { flex: 1, backgroundColor: colors.primary }]}
+            >
+              <Feather name="send" size={18} color={colors.primaryForeground} />
+              <Text style={[styles.sendBtnText, { color: colors.primaryForeground, fontSize: 14 }]} numberOfLines={1} adjustsFontSizeToFit>Copy Message</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </ScrollView>
     </View>
   );
@@ -340,7 +455,19 @@ const styles = StyleSheet.create({
   headerMid: { flex: 1, alignItems: 'center' },
   orderId: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   headerActions: { flexDirection: 'row', gap: 16 },
-  heroImage: { width: '100%', height: 200, marginBottom: 12 },
+  heroImageContainer: { width: '100%', aspectRatio: 1, marginBottom: 12, overflow: 'hidden' },
+  heroImage: { width: '100%', aspectRatio: 1 },
+  zoomHintOverlay: { position: 'absolute', bottom: 10, right: 10 },
+  zoomHintBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  zoomHintText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: '#fff' },
   card: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12, gap: 12 },
   customerHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   sourceIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

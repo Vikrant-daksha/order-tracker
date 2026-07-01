@@ -133,8 +133,12 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
+  try {
+    if (Platform.OS === 'ios' && typeof isLiquidGlassAvailable === 'function' && isLiquidGlassAvailable()) {
+      return <NativeTabLayout />;
+    }
+  } catch (e) {
+    console.warn("Glass effect not available:", e);
   }
   return <ClassicTabLayout />;
 }
