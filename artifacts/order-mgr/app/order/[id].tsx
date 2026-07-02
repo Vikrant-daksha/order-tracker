@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { ImageViewer } from '@/components/ImageViewer';
 import {
   Alert,
+  Dimensions,
   Platform,
   Pressable,
   ScrollView,
@@ -45,8 +46,12 @@ function formatWhatsAppNumber(phone: string): string {
   if (!p.startsWith('+') && !p.startsWith('91')) {
     p = '91' + p;
   }
-  return p.replace('+', '');
+  return p;
 }
+
+
+const { width: screenWidth } = Dimensions.get('window');
+const CAROUSEL_WIDTH = screenWidth - 32;
 
 export default function OrderDetailScreen() {
   const colors = useColors();
@@ -55,8 +60,9 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getOrder, deleteOrder, updateOrder } = useDatabase();
   const order = getOrder(id);
-  const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [activeViewerImage, setActiveViewerImage] = useState<string | null>(null);
+  const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -79,6 +85,16 @@ export default function OrderDetailScreen() {
   const outstanding = activeOrder.price - activeOrder.amountPaid;
   const message = buildMessage(activeOrder);
   const [ig, phone, email] = (activeOrder.contactInfo || '').split('\n');
+
+  const selectedItem = (activeOrder.items && activeOrder.items.length > 0)
+    ? activeOrder.items[selectedItemIndex]
+    : null;
+
+  const images = selectedItem
+    ? (selectedItem.imagePaths && selectedItem.imagePaths.length > 0
+        ? selectedItem.imagePaths
+        : (selectedItem.imagePath ? [selectedItem.imagePath] : []))
+    : (activeOrder.referenceImagePath ? [activeOrder.referenceImagePath] : []);
 
   function handleSend() {
     const source = activeOrder.source;
@@ -175,31 +191,55 @@ export default function OrderDetailScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 60 : insets.bottom + 30 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Image — tap to open full-screen viewer */}
-        {order.referenceImagePath ? (
-          <>
-            <Pressable
-              onPress={() => setImageViewerOpen(true)}
-              style={[styles.heroImageContainer, { borderRadius: colors.radius + 4 }]}
+        {/* Cover Images Carousel — tap to open full-screen viewer */}
+        {images.length > 0 ? (
+          <View style={{ marginBottom: 16 }}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={e => {
+                const x = e.nativeEvent.contentOffset.x;
+                const index = Math.round(x / CAROUSEL_WIDTH);
+                setActiveImageIndex(index);
+              }}
+              scrollEventThrottle={16}
+              style={{ width: CAROUSEL_WIDTH, height: CAROUSEL_WIDTH, borderRadius: colors.radius + 4, overflow: 'hidden' }}
             >
-              <Image
-                source={{ uri: order.referenceImagePath }}
-                style={[styles.heroImage, { borderRadius: colors.radius + 4 }]}
-                contentFit="cover"
-              />
-              <View style={styles.zoomHintOverlay}>
-                <View style={styles.zoomHintBadge}>
-                  <Feather name="zoom-in" size={13} color="#fff" />
-                  <Text style={styles.zoomHintText}>Tap to view</Text>
-                </View>
+              {images.map((img, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => setActiveViewerImage(img)}
+                  style={{ width: CAROUSEL_WIDTH, height: CAROUSEL_WIDTH }}
+                >
+                  <Image
+                    source={{ uri: img }}
+                    style={{ width: '100%', height: '100%' }}
+                    contentFit="cover"
+                  />
+                  <View style={styles.zoomHintOverlay}>
+                    <View style={styles.zoomHintBadge}>
+                      <Feather name="zoom-in" size={13} color="#fff" />
+                      <Text style={styles.zoomHintText}>Tap to view ({i + 1}/{images.length})</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+            {images.length > 1 && (
+              <View style={styles.dotContainer}>
+                {images.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      { backgroundColor: i === activeImageIndex ? '#C06070' : colors.border }
+                    ]}
+                  />
+                ))}
               </View>
-            </Pressable>
-            <ImageViewer
-              visible={imageViewerOpen}
-              uri={order.referenceImagePath}
-              onClose={() => setImageViewerOpen(false)}
-            />
-          </>
+            )}
+          </View>
         ) : null}
 
         {/* Customer Info Card */}
@@ -270,16 +310,34 @@ export default function OrderDetailScreen() {
               thumbnailPath: order.thumbnailPath,
               isCustom: !!order.isCustom
             }]).map((item, idx) => {
+              const isSelected = idx === selectedItemIndex;
+              const hasImages = (item.imagePaths && item.imagePaths.length > 0) || !!item.imagePath || !!item.thumbnailPath;
+              const displayUri = item.thumbnailPath || item.imagePath || (item.imagePaths && item.imagePaths[0]);
+
               return (
-                <View key={item.id || idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 }}>
-                  {item.thumbnailPath || item.imagePath ? (
-                    <Pressable onPress={() => setActiveViewerImage(item.imagePath || item.thumbnailPath || '')}>
+                <Pressable
+                  key={item.id || idx}
+                  onPress={() => {
+                    setSelectedItemIndex(idx);
+                    setActiveImageIndex(0);
+                  }}
+                  style={[
+                    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 10 },
+                    isSelected && {
+                      backgroundColor: colors.accent,
+                      borderWidth: 1.5,
+                      borderColor: '#C06070',
+                    }
+                  ]}
+                >
+                  {hasImages ? (
+                    <View>
                       <Image
-                        source={{ uri: item.thumbnailPath || item.imagePath }}
+                        source={{ uri: displayUri }}
                         style={{ width: 50, height: 50, borderRadius: 8, backgroundColor: colors.accent }}
                         contentFit="cover"
                       />
-                    </Pressable>
+                    </View>
                   ) : (
                     <View style={{ width: 50, height: 50, borderRadius: 8, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                       <Feather name="package" size={20} color="#C06070" />
@@ -315,7 +373,7 @@ export default function OrderDetailScreen() {
                       </Text>
                     ) : null}
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -570,4 +628,16 @@ const styles = StyleSheet.create({
   sendBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFoundText: { fontSize: 16, fontFamily: 'Inter_400Regular' },
+  dotContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
 });

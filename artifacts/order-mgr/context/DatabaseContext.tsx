@@ -122,6 +122,12 @@ function loadOrdersFromDb(): Order[] {
         }];
       }
 
+      parsedItems = parsedItems.map(item => ({
+        ...item,
+        imagePaths: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
+        thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : [])
+      }));
+
       return {
         ...r,
         isCustom: r.isCustom === 1 ? 1 : 0,
@@ -168,27 +174,32 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             AsyncStorage.getItem(PRODUCTS_KEY),
             AsyncStorage.getItem(CUSTOMERS_KEY),
           ]);
-          const parsedOrders = os ? JSON.parse(os) : [];
-          const sanitizedOrders = parsedOrders.map((o: any) => {
-            let parsedItems = o.items || [];
-            if (parsedItems.length === 0 && (o.customName || o.productId)) {
-              parsedItems = [{
-                id: 'legacy-' + o.id,
-                productId: o.productId || '',
-                productName: o.customName || '',
-                size: o.size || '',
-                price: o.price || 0,
-                quantity: 1,
-                imagePath: o.referenceImagePath || '',
-                thumbnailPath: o.thumbnailPath || '',
-                isCustom: !!o.isCustom
-              }];
-            }
-            return {
-              ...o,
-              items: parsedItems
-            };
-          });
+            const parsedOrders = os ? JSON.parse(os) : [];
+            const sanitizedOrders = parsedOrders.map((o: any) => {
+              let parsedItems = o.items || [];
+              if (parsedItems.length === 0 && (o.customName || o.productId)) {
+                parsedItems = [{
+                  id: 'legacy-' + o.id,
+                  productId: o.productId || '',
+                  productName: o.customName || '',
+                  size: o.size || '',
+                  price: o.price || 0,
+                  quantity: 1,
+                  imagePath: o.referenceImagePath || '',
+                  thumbnailPath: o.thumbnailPath || '',
+                  isCustom: !!o.isCustom
+                }];
+              }
+              parsedItems = parsedItems.map((item: any) => ({
+                ...item,
+                imagePaths: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
+                thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : [])
+              }));
+              return {
+                ...o,
+                items: parsedItems
+              };
+            });
           setOrders(sanitizedOrders);
           setProducts(ps ? JSON.parse(ps) : []);
           setCustomers(cs ? JSON.parse(cs) : []);
@@ -269,13 +280,19 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
          full.price, full.paymentStatus, full.amountPaid, full.status,
          full.trackingLink, full.notes, createdAt, full.isCustom ? 1 : 0, full.size ?? '', full.customerId ?? '', JSON.stringify(full.items || [])]
       );
+      const loaded = loadOrdersFromDb();
+      setOrders(loaded);
+    } else {
+      setOrders(prev => {
+        const next = [full, ...prev];
+        AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
+        return next;
+      });
     }
-    await persistOrders([full, ...orders]);
     return id;
-  }, [orders]);
+  }, []);
 
   const updateOrder = useCallback(async (id: string, updates: Partial<Order>) => {
-    const next = orders.map(o => o.id === id ? { ...o, ...updates } : o);
     if (!IS_WEB && db) {
       const u = { ...updates };
       if (u.items) {
@@ -287,15 +304,30 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         const vals = fields.map(f => (u as any)[f]);
         db.runSync(`UPDATE orders SET ${set} WHERE id=?`, [...vals, id]);
       }
+      const loaded = loadOrdersFromDb();
+      setOrders(loaded);
+    } else {
+      setOrders(prev => {
+        const next = prev.map(o => o.id === id ? { ...o, ...updates } : o);
+        AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
+        return next;
+      });
     }
-    await persistOrders(next);
-  }, [orders]);
+  }, []);
 
   const deleteOrder = useCallback(async (id: string) => {
-    const next = orders.filter(o => o.id !== id);
-    if (!IS_WEB && db) db.runSync('DELETE FROM orders WHERE id=?', [id]);
-    await persistOrders(next);
-  }, [orders]);
+    if (!IS_WEB && db) {
+      db.runSync('DELETE FROM orders WHERE id=?', [id]);
+      const loaded = loadOrdersFromDb();
+      setOrders(loaded);
+    } else {
+      setOrders(prev => {
+        const next = prev.filter(o => o.id !== id);
+        AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+  }, []);
 
   const getOrder = useCallback((id: string) => orders.find(o => o.id === id), [orders]);
 

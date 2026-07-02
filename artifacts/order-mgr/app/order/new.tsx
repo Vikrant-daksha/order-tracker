@@ -52,17 +52,15 @@ export default function NewOrderScreen() {
   const [email, setEmail] = useState(existingContact[2] || '');
   const [address, setAddress] = useState(existing?.address || '');
   const [orderDate, setOrderDate] = useState(existing?.orderDate || today());
-  const [dueDate, setDueDate] = useState(existing?.dueDate || '');
-
-  interface OrderItemState {
+  const [dueDate, setDueDate] = useState(existing?.dueDate || '');  interface OrderItemState {
     id: string;
     productId: string;
     productName: string;
     size: string;
     price: string;
     quantity: string;
-    imageUri: string;
-    thumbUri: string;
+    imageUris: string[];
+    thumbUris: string[];
     isCustom: boolean;
   }
 
@@ -78,8 +76,8 @@ export default function NewOrderScreen() {
           size: item.size || '',
           price: String(item.price || ''),
           quantity: String(item.quantity || 1),
-          imageUri: item.imagePath || '',
-          thumbUri: item.thumbnailPath || '',
+          imageUris: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
+          thumbUris: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : []),
           isCustom: item.isCustom,
         }));
       } else {
@@ -90,8 +88,8 @@ export default function NewOrderScreen() {
           size: existing.size || '',
           price: existing.price ? String(existing.price) : '',
           quantity: '1',
-          imageUri: existing.referenceImagePath || '',
-          thumbUri: existing.thumbnailPath || '',
+          imageUris: existing.referenceImagePath ? [existing.referenceImagePath] : [],
+          thumbUris: existing.thumbnailPath ? [existing.thumbnailPath] : [],
           isCustom: existing.isCustom === 1,
         }];
       }
@@ -103,8 +101,8 @@ export default function NewOrderScreen() {
       size: '',
       price: '',
       quantity: '1',
-      imageUri: '',
-      thumbUri: '',
+      imageUris: [],
+      thumbUris: [],
       isCustom: false,
     }];
   });
@@ -141,7 +139,7 @@ export default function NewOrderScreen() {
       setIsSearching(false);
       return;
     }
-
+    
     setIsSearching(true);
     const timer = setTimeout(() => {
       const match = (igHandle ? findCustomerByIg(igHandle) : null) || (phone ? findCustomerByPhone(phone) : null);
@@ -184,7 +182,7 @@ export default function NewOrderScreen() {
     if (parsed.address) setAddress(parsed.address);
     if (parsed.orderDate) setOrderDate(parsed.orderDate);
     if (parsed.dueDate) setDueDate(parsed.dueDate);
-
+    
     setItems(prev => {
       const next = [...prev];
       if (next.length > 0) {
@@ -200,26 +198,92 @@ export default function NewOrderScreen() {
   }, []);
 
   async function pickImage(index: number) {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9 });
-    if (!res.canceled && res.assets[0]) {
+    const currentCount = items[index].imageUris.length;
+    if (currentCount >= 5) {
+      Alert.alert('Limit Reached', 'You can only upload up to 5 photos per product.');
+      return;
+    }
+
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.9,
+      allowsMultipleSelection: true,
+      selectionLimit: 5 - currentCount,
+    });
+
+    if (!res.canceled && res.assets && res.assets.length > 0) {
       setSaving(true);
       try {
-        const saved = await saveImage(res.assets[0].uri);
+        const newImages: string[] = [];
+        const newThumbs: string[] = [];
+        for (const asset of res.assets) {
+          const saved = await saveImage(asset.uri);
+          newImages.push(saved.fullPath);
+          newThumbs.push(saved.thumbnailPath);
+          pickedImagesRef.current.push(saved);
+        }
         setItems(prev => {
           const next = [...prev];
           next[index] = {
             ...next[index],
-            imageUri: saved.fullPath,
-            thumbUri: saved.thumbnailPath,
+            imageUris: [...next[index].imageUris, ...newImages],
+            thumbUris: [...next[index].thumbUris, ...newThumbs],
           };
           return next;
         });
-        pickedImagesRef.current.push(saved);
       } finally {
         setSaving(false);
       }
     }
   }
+
+  const moveImage = (itemIndex: number, imgIndex: number, direction: 'left' | 'right') => {
+    setItems(prev => {
+      const next = [...prev];
+      const item = next[itemIndex];
+      const targetIdx = direction === 'left' ? imgIndex - 1 : imgIndex + 1;
+
+      if (targetIdx < 0 || targetIdx >= item.imageUris.length) return prev;
+
+      const nextImageUris = [...item.imageUris];
+      const tempUri = nextImageUris[imgIndex];
+      nextImageUris[imgIndex] = nextImageUris[targetIdx];
+      nextImageUris[targetIdx] = tempUri;
+
+      const nextThumbUris = [...item.thumbUris];
+      const tempThumb = nextThumbUris[imgIndex];
+      nextThumbUris[imgIndex] = nextThumbUris[targetIdx];
+      nextThumbUris[targetIdx] = tempThumb;
+
+      next[itemIndex] = {
+        ...item,
+        imageUris: nextImageUris,
+        thumbUris: nextThumbUris,
+      };
+      return next;
+    });
+  };
+
+  const deletePickedImage = (itemIndex: number, imgIndex: number) => {
+    setItems(prev => {
+      const next = [...prev];
+      const targetImg = next[itemIndex].imageUris[imgIndex];
+      const targetThumb = next[itemIndex].thumbUris[imgIndex];
+      
+      next[itemIndex] = {
+        ...next[itemIndex],
+        imageUris: next[itemIndex].imageUris.filter((_, i) => i !== imgIndex),
+        thumbUris: next[itemIndex].thumbUris.filter((_, i) => i !== imgIndex),
+      };
+
+      pickedImagesRef.current = pickedImagesRef.current.filter(
+        img => img.fullPath !== targetImg
+      );
+      
+      deleteImage(targetImg, targetThumb);
+      return next;
+    });
+  };
 
   async function handleSave() {
     if (!customerName.trim()) {
@@ -246,8 +310,8 @@ export default function NewOrderScreen() {
             const pVal = parseFloat(item.price) || 0;
             const newPid = await addProduct({
               name: item.productName.trim(),
-              imagePath: item.imageUri,
-              thumbnailPath: item.thumbUri,
+              imagePath: item.imageUris[0] || '',
+              thumbnailPath: item.thumbUris[0] || '',
               defaultPrice: pVal,
               category: '',
             });
@@ -295,8 +359,10 @@ export default function NewOrderScreen() {
       size: item.size.trim() || undefined,
       price: parseFloat(item.price) || 0,
       quantity: parseInt(item.quantity) || 1,
-      imagePath: item.imageUri || undefined,
-      thumbnailPath: item.thumbUri || undefined,
+      imagePath: item.imageUris[0] || undefined,
+      thumbnailPath: item.thumbUris[0] || undefined,
+      imagePaths: item.imageUris,
+      thumbnailPaths: item.thumbUris,
       isCustom: item.isCustom,
     }));
 
@@ -479,8 +545,8 @@ export default function NewOrderScreen() {
                         productName: name,
                         productId: product ? product.id : '',
                         price: product && !item.price ? String(product.defaultPrice) : item.price,
-                        imageUri: product && product.imagePath ? product.imagePath : item.imageUri,
-                        thumbUri: product && product.thumbnailPath ? product.thumbnailPath : item.thumbUri,
+                        imageUris: product && product.imagePath ? [product.imagePath] : item.imageUris,
+                        thumbUris: product && product.thumbnailPath ? [product.thumbnailPath] : item.thumbUris,
                         isCustom: product ? false : item.isCustom,
                       };
                       return next;
@@ -563,33 +629,75 @@ export default function NewOrderScreen() {
                   colors={colors}
                 />
 
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4, marginBottom: 6 }]}>Reference Photo</Text>
-                <Pressable
-                  onPress={() => pickImage(index)}
-                  style={[
-                    styles.imagePicker,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      height: 150,
-                      borderRadius: 12,
-                      borderStyle: 'dashed',
-                      borderWidth: 1,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      overflow: 'hidden',
-                    },
-                  ]}
-                >
-                  {item.imageUri ? (
-                    <Image source={{ uri: item.imageUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                  ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Feather name="camera" size={16} color={colors.mutedForeground} />
-                      <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.mutedForeground }}>Add image</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4, marginBottom: 6 }]}>Reference Photos</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 4 }}>
+                  {item.imageUris.map((uri, imgIdx) => (
+                    <View key={uri} style={{ alignItems: 'center', gap: 6 }}>
+                      <View style={{ width: 80, height: 80, borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
+                        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                        <Pressable
+                          onPress={() => deletePickedImage(index, imgIdx)}
+                          style={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 4,
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Feather name="x" size={10} color="#fff" />
+                        </Pressable>
+                      </View>
+                      {item.imageUris.length > 1 && (
+                        <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', alignItems: 'center' }}>
+                          {imgIdx > 0 ? (
+                            <Pressable
+                              onPress={() => moveImage(index, imgIdx, 'left')}
+                              style={{ padding: 4, backgroundColor: colors.accent, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
+                            >
+                              <Feather name="chevron-left" size={12} color="#C06070" />
+                            </Pressable>
+                          ) : (
+                            <View style={{ width: 22, height: 22 }} />
+                          )}
+                          {imgIdx < item.imageUris.length - 1 ? (
+                            <Pressable
+                              onPress={() => moveImage(index, imgIdx, 'right')}
+                              style={{ padding: 4, backgroundColor: colors.accent, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
+                            >
+                              <Feather name="chevron-right" size={12} color="#C06070" />
+                            </Pressable>
+                          ) : (
+                            <View style={{ width: 22, height: 22 }} />
+                          )}
+                        </View>
+                      )}
                     </View>
+                  ))}
+                  {item.imageUris.length < 5 && (
+                    <Pressable
+                      onPress={() => pickImage(index)}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderStyle: 'dashed',
+                        backgroundColor: colors.card,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        alignSelf: 'flex-start',
+                      }}
+                    >
+                      <Feather name="plus" size={18} color={colors.mutedForeground} />
+                    </Pressable>
                   )}
-                </Pressable>
+                </ScrollView>
               </FormSection>
             ))}
 
@@ -602,8 +710,8 @@ export default function NewOrderScreen() {
                   size: '',
                   price: '',
                   quantity: '1',
-                  imageUri: '',
-                  thumbUri: '',
+                  imageUris: [],
+                  thumbUris: [],
                   isCustom: false,
                 }]);
               }}

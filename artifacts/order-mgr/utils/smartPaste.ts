@@ -117,7 +117,7 @@ function disambiguateContactTokens(text: string): { email?: string; instagram?: 
 function extractPhone(text: string): string | undefined {
   // Priority 1: explicitly labeled phone lines (trust the label fully)
   const labeled = text.match(
-    /(?:phone|mobile|mob|whatsapp|contact|call|ph)[.\s:]*([+\d][\d\s\-().]{7,18}\d)/i
+    /(?:phone(?:\s*(?:no\.?|num(?:ber)?))?|mobile(?:\s*(?:no\.?|num(?:ber)?))?|whatsapp(?:\s*no\.?)?|contact(?:\s*(?:no\.?|num(?:ber)?))?|mob|ph|no\.?|num(?:ber)?)[.\s:-]*([+\d][\d\s\-().]{7,18}\d)/i
   );
   if (labeled) {
     const cleaned = labeled[1].replace(/[\s\-().]/g, '');
@@ -161,7 +161,7 @@ function extractPhone(text: string): string | undefined {
 function extractPincode(text: string): string | undefined {
   // Priority 1: explicitly labeled — supports "pin: 401203", "pin: 401 203", "pin: 401-203"
   const labeled = text.match(
-    /(?:pin(?:code)?|zip|postal)[.\s:]*(\d{3}[\s\-]?\d{3})(?!\d)/i
+    /(?:pin(?:\s*code)?|zip(?:\s*code)?|postal(?:\s*code)?)[.\s:-]*(\d{3}[\s\-]?\d{3})(?!\d)/i
   );
   if (labeled) {
     // Normalize: strip the optional space/dash between the two 3-digit groups
@@ -183,7 +183,7 @@ function extractAddress(lines: string[]): string | undefined {
   // 1. Labeled single-line
   for (const line of lines) {
     const labeled = line.match(
-      /(?:address|addr|delivery\s+address|ship(?:ping)?\s+(?:to|address)|deliver\s+to)[.\s:]+(.+)/i
+      /(?:address|addr|add\.?|delivery\s*(?:addr(?:ess)?)?|ship(?:ping)?\s*(?:to|addr(?:ess)?)?|deliver\s*to)[.\s:-]+(.+)/i
     );
     if (labeled && labeled[1].trim().length > 4) return labeled[1].trim();
   }
@@ -210,8 +210,8 @@ function extractAddress(lines: string[]): string | undefined {
 // ── Name Extraction ──────────────────────────────────────────────────────────
 
 function looksLikeName(s: string): boolean {
-  // Proper name: 1-4 words, each starting with uppercase, no digits/symbols
-  return /^[A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+){0,3}$/.test(s.trim()) && s.trim().length >= 3;
+  // Relaxed name match: allow alphabets, spaces, and optional dots (minimum 3, max 40 chars)
+  return /^[a-zA-Z][a-zA-Z\s.]{2,40}$/.test(s.trim());
 }
 
 // ── Main Parser ──────────────────────────────────────────────────────────────
@@ -227,7 +227,7 @@ export function parseOrderText(text: string): ParsedOrder {
     // Customer name — labeled
     if (!result.customerName) {
       const nm = line.match(
-        /^(?:name|customer(?:\s+name)?|from|buyer|client|ship\s+to|deliver(?:y)?\s+to)[.\s:]+([A-Za-z][A-Za-z\s]{1,40})/i
+        /^(?:name|customer(?:\s+name)?|from|buyer|client|ship\s*to|deliver(?:y)?\s*to)[.\s:-]+([A-Za-z\s]{1,40})/i
       );
       if (nm) result.customerName = nm[1].trim();
     }
@@ -267,13 +267,13 @@ export function parseOrderText(text: string): ParsedOrder {
 
     // Product / item
     if (!result.customName) {
-      const itemM = line.match(/(?:item|product|order|qty|quantity|x\d)[.\s:]+([^,\n]+)/i);
+      const itemM = line.match(/(?:item|product|order|qty|quantity|x\d)[.\s:-]+([^,\n]+)/i);
       if (itemM) result.customName = itemM[1].trim();
     }
 
     // Order reference
     if (!result.orderRef) {
-      const refM = line.match(/(?:order\s*(?:#|no|ref|id|number))[.\s:]*([A-Z0-9\-]+)/i);
+      const refM = line.match(/(?:order\s*(?:#|no|ref|id|number))[.\s:-]*([A-Z0-9\-]+)/i);
       if (refM) result.orderRef = refM[1].trim();
     }
   }
@@ -281,6 +281,31 @@ export function parseOrderText(text: string): ParsedOrder {
   // ── Pass 2: Address ───────────────────────────────────────────────────────
   if (!result.address) {
     result.address = extractAddress(lines);
+  }
+  if (!result.address && lines.length > 0) {
+    const addressCandidateLines = lines.filter(line => {
+      const l = line.toLowerCase();
+      if (result.customerName && l.includes(result.customerName.toLowerCase())) return false;
+      if (result.phone && l.includes(result.phone.replace(/\s+/g, ''))) return false;
+      if (result.contactInfo && l.includes(result.contactInfo.toLowerCase())) return false;
+      if (/^\+?\d[\d\s\-()]+$/.test(line)) return false;
+      return true;
+    });
+
+    if (addressCandidateLines.length > 0) {
+      const cleanedAddressLines = addressCandidateLines.map(line => {
+        let clean = line;
+        if (result.pincode) {
+          clean = clean.replace(new RegExp(`(?:pin(?:code)?|zip|postal)[.\\s:-]*${result.pincode}`, 'i'), '');
+          clean = clean.replace(result.pincode, '');
+        }
+        return clean.replace(/^[,\s\-]+|[,\s\-]+$/g, '').trim();
+      }).filter(Boolean);
+
+      if (cleanedAddressLines.length > 0) {
+        result.address = cleanedAddressLines.join(', ');
+      }
+    }
   }
 
   // ── Pass 3: Pincode ───────────────────────────────────────────────────────

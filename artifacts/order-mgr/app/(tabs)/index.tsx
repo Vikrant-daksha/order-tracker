@@ -59,6 +59,7 @@ export default function HomeScreen() {
   const { orders } = useDatabase();
   const [attentionPage, setAttentionPage] = useState(1);
   const [listScrollEnabled, setListScrollEnabled] = useState(true);
+  const [dueFilter, setDueFilter] = useState<'withDue' | 'noDue'>('withDue');
 
   const active = useMemo(() => orders.filter(o => o.status !== 'Delivered'), [orders]);
   const overdue = useMemo(() => active.filter(isOverdue), [active]);
@@ -75,12 +76,51 @@ export default function HomeScreen() {
 
   const workingOn = useMemo(() => orders.filter(o => !!o.workingOn), [orders]);
 
+  const noDueListSorted = useMemo(() => {
+    return active
+      .filter(o => !o.dueDate && !o.workingOn)
+      .sort((a, b) => {
+        const ad = a.orderDate || '';
+        const bd = b.orderDate || '';
+        if (ad === bd) {
+          return a.id.localeCompare(b.id);
+        }
+        return ad.localeCompare(bd);
+      });
+  }, [active]);
+
+  const withDueCount = useMemo(() => {
+    const overdueList = overdue.filter(o => !o.workingOn);
+    const todayList = dueToday.filter(o => !isOverdue(o) && !o.workingOn);
+    const tomorrowList = dueTomorrow.filter(o => !o.workingOn);
+    const tomorrowDateStr = (() => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow.toISOString().split('T')[0];
+    })();
+    const upcomingList = dueThisWeek.filter(o =>
+      o.dueDate !== new Date().toISOString().split('T')[0] &&
+      o.dueDate !== tomorrowDateStr &&
+      !o.workingOn
+    );
+    return overdueList.length + todayList.length + tomorrowList.length + upcomingList.length;
+  }, [overdue, dueToday, dueTomorrow, dueThisWeek]);
+
   type FlatListItem =
     | { type: 'header'; id: string; title: string }
     | { type: 'order'; id: string; order: Order; isOverdue: boolean };
 
   const listItems = useMemo(() => {
     const items: FlatListItem[] = [];
+
+    if (dueFilter === 'noDue') {
+      if (noDueListSorted.length > 0) {
+        items.push({ type: 'header', id: 'h-nodue', title: 'Orders Without Due Date' });
+        noDueListSorted.forEach(o => items.push({ type: 'order', id: o.id, order: o, isOverdue: false }));
+      }
+      return items;
+    }
+
     const overdueList = overdue.filter(o => !o.workingOn);
     const todayList = dueToday.filter(o => !isOverdue(o) && !o.workingOn);
     const tomorrowList = dueTomorrow.filter(o => !o.workingOn);
@@ -113,7 +153,7 @@ export default function HomeScreen() {
       upcomingList.forEach(o => items.push({ type: 'order', id: o.id, order: o, isOverdue: false }));
     }
     return items;
-  }, [overdue, dueToday, dueTomorrow, dueThisWeek]);
+  }, [dueFilter, overdue, dueToday, dueTomorrow, dueThisWeek, noDueListSorted]);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -228,6 +268,46 @@ export default function HomeScreen() {
               colors={colors}
               style={{ marginTop: 6 }}
             />
+
+            {/* Filter Tabs for Due vs No Due */}
+            <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 12 }}>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setDueFilter('withDue');
+                }}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  backgroundColor: dueFilter === 'withDue' ? '#C06070' : colors.card,
+                  borderWidth: 1,
+                  borderColor: dueFilter === 'withDue' ? '#C06070' : colors.border
+                }}
+              >
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: dueFilter === 'withDue' ? '#fff' : colors.mutedForeground }}>
+                  Due Dates ({withDueCount})
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setDueFilter('noDue');
+                }}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  backgroundColor: dueFilter === 'noDue' ? '#C06070' : colors.card,
+                  borderWidth: 1,
+                  borderColor: dueFilter === 'noDue' ? '#C06070' : colors.border
+                }}
+              >
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: dueFilter === 'noDue' ? '#fff' : colors.mutedForeground }}>
+                  No Due Date ({noDueListSorted.length})
+                </Text>
+              </Pressable>
+            </View>
           </>
         }
         ListEmptyComponent={
@@ -236,9 +316,13 @@ export default function HomeScreen() {
               <View style={[styles.emptyIconBox, { backgroundColor: colors.accent }]}>
                 <Feather name="check-circle" size={28} color="#C06070" />
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Nothing urgent</Text>
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                {dueFilter === 'noDue' ? 'All caught up' : 'Nothing urgent'}
+              </Text>
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                No overdue or upcoming orders — you're on top of things.
+                {dueFilter === 'noDue'
+                  ? "No active orders without due dates at the moment."
+                  : "No overdue or upcoming orders — you're on top of things."}
               </Text>
             </View>
           ) : null

@@ -11,6 +11,8 @@ export interface OrderItem {
   quantity: number;
   imagePath?: string;
   thumbnailPath?: string;
+  imagePaths?: string[];
+  thumbnailPaths?: string[];
   isCustom: boolean;
 }
 
