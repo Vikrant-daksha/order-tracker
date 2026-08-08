@@ -202,11 +202,40 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             });
           setOrders(sanitizedOrders);
           setProducts(ps ? JSON.parse(ps) : []);
-          setCustomers(cs ? JSON.parse(cs) : []);
+          const parsedCustomers = cs ? JSON.parse(cs) : [];
+          let customerUpdated = false;
+          const sanitizedCustomers = parsedCustomers.map((c: any) => {
+            if (c.igHandle && c.igHandle.includes('@')) {
+              customerUpdated = true;
+              return { ...c, igHandle: c.igHandle.replace(/@/g, '').trim() };
+            }
+            return c;
+          });
+          if (customerUpdated) {
+            persistCustomers(sanitizedCustomers);
+          } else {
+            setCustomers(sanitizedCustomers);
+          }
         } else {
           initDb();
           let loadedOrders = loadOrdersFromDb();
           let loadedCustomers = loadCustomersFromDb();
+
+          let customerUpdated = false;
+          loadedCustomers = loadedCustomers.map(c => {
+            if (c.igHandle && c.igHandle.includes('@')) {
+              customerUpdated = true;
+              const cleaned = c.igHandle.replace(/@/g, '').trim();
+              if (!IS_WEB && db) {
+                db.runSync('UPDATE customers SET igHandle=? WHERE id=?', [cleaned, c.id]);
+              }
+              return { ...c, igHandle: cleaned };
+            }
+            return c;
+          });
+          if (customerUpdated) {
+            persistCustomers(loadedCustomers);
+          }
           
           if (loadedCustomers.length === 0 && loadedOrders.length > 0 && db) {
             const map: Record<string, any> = {};
@@ -374,7 +403,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt'>): Promise<string> => {
     const id = genId();
     const createdAt = new Date().toISOString();
-    const full: Customer = { ...customer, id, createdAt } as Customer;
+    const cleanIg = customer.igHandle ? customer.igHandle.replace(/@/g, '').trim() : '';
+    const full: Customer = { ...customer, igHandle: cleanIg, id, createdAt } as Customer;
     if (!IS_WEB && db) {
       db.runSync(
         'INSERT INTO customers (id,name,igHandle,phone,email,address,createdAt) VALUES (?,?,?,?,?,?,?)',
@@ -386,12 +416,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   }, [customers]);
 
   const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>) => {
-    const next = customers.map(c => c.id === id ? { ...c, ...updates } : c);
+    const cleanUpdates = { ...updates };
+    if (cleanUpdates.igHandle !== undefined) {
+      cleanUpdates.igHandle = cleanUpdates.igHandle ? cleanUpdates.igHandle.replace(/@/g, '').trim() : '';
+    }
+    const next = customers.map(c => c.id === id ? { ...c, ...cleanUpdates } : c);
     if (!IS_WEB && db) {
-      const fields = Object.keys(updates).filter(k => k !== 'id' && k !== 'createdAt');
+      const fields = Object.keys(cleanUpdates).filter(k => k !== 'id' && k !== 'createdAt');
       if (fields.length > 0) {
         const set = fields.map(f => `${f}=?`).join(',');
-        const vals = fields.map(f => (updates as any)[f]);
+        const vals = fields.map(f => (cleanUpdates as any)[f]);
         db.runSync(`UPDATE customers SET ${set} WHERE id=?`, [...vals, id]);
       }
     }

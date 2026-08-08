@@ -1,6 +1,13 @@
+import model from "wink-eng-lite-web-model";
+import winkNlp from "wink-nlp";
+
+const nlp = winkNlp(model);
+const its = nlp.its;
+const as = nlp.as;
+
 export interface ParsedOrder {
   customerName?: string;
-  contactInfo?: string;  // Instagram handle (for backward compat)
+  contactInfo?: string; // Instagram handle (for backward compat)
   phone?: string;
   address?: string;
   pincode?: string;
@@ -25,7 +32,7 @@ function extractDate(text: string): string | undefined {
     if (m) {
       try {
         const d = new Date(m[0]);
-        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
       } catch {}
     }
   }
@@ -36,12 +43,14 @@ function extractDate(text: string): string | undefined {
 
 function extractPrice(text: string): number | undefined {
   const m =
-    text.match(/(?:total|price|amount|cost|pay(?:ment)?|rs\.?|inr|₹)\s*[:=]?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i) ||
+    text.match(
+      /(?:total|price|amount|cost|pay(?:ment)?|rs\.?|inr|₹)\s*[:=]?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i,
+    ) ||
     text.match(/₹\s*([0-9,]+(?:\.[0-9]{1,2})?)/) ||
     text.match(/([0-9,]+(?:\.[0-9]{1,2})?)\s*(?:rs\.?|inr|rupees?)/i) ||
     text.match(/(?:usd|\$|£|€)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i);
   if (m) {
-    const val = parseFloat(m[1].replace(/,/g, ''));
+    const val = parseFloat(m[1].replace(/,/g, ""));
     if (!isNaN(val) && val > 0) return val;
   }
   return undefined;
@@ -75,15 +84,19 @@ function extractInstagram(text: string): string | undefined {
 //   - token has text BEFORE @ and a valid TLD AFTER →  Email
 //   - "mygmail@" or "my.name@" (no domain/TLD) →  neither (ignored)
 
-function disambiguateContactTokens(text: string): { email?: string; instagram?: string } {
+function disambiguateContactTokens(text: string): {
+  email?: string;
+  instagram?: string;
+} {
   const result: { email?: string; instagram?: string } = {};
 
   // Split on whitespace/commas to get individual tokens
+
   const tokens = text.split(/[\s,;|]+/);
   for (const token of tokens) {
-    if (!token.includes('@')) continue;
+    if (!token.includes("@")) continue;
 
-    const atIndex = token.indexOf('@');
+    const atIndex = token.indexOf("@");
 
     if (atIndex === 0) {
       // @ is the FIRST character → Instagram handle
@@ -94,7 +107,9 @@ function disambiguateContactTokens(text: string): { email?: string; instagram?: 
     } else {
       // @ is in the middle → potential email (must have valid domain + TLD)
       if (!result.email) {
-        const m = token.match(/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/);
+        const m = token.match(
+          /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/,
+        );
         if (m) result.email = token;
         // Note: "mygmail@" or "my.name@domain" (no TLD) won't match — correctly ignored
       }
@@ -117,17 +132,17 @@ function disambiguateContactTokens(text: string): { email?: string; instagram?: 
 function extractPhone(text: string): string | undefined {
   // Priority 1: explicitly labeled phone lines (trust the label fully)
   const labeled = text.match(
-    /(?:phone(?:\s*(?:no\.?|num(?:ber)?))?|mobile(?:\s*(?:no\.?|num(?:ber)?))?|whatsapp(?:\s*no\.?)?|contact(?:\s*(?:no\.?|num(?:ber)?))?|mob|ph|no\.?|num(?:ber)?)[.\s:-]*([+\d][\d\s\-().]{7,18}\d)/i
+    /(?:phone(?:\s*(?:no\.?|num(?:ber)?))?|mobile(?:\s*(?:no\.?|num(?:ber)?))?|whatsapp(?:\s*no\.?)?|contact(?:\s*(?:no\.?|num(?:ber)?))?|mob|ph|no\.?|num(?:ber)?)[.\s:-]*([+\d][\d\s\-().]{7,18}\d)/i,
   );
   if (labeled) {
-    const cleaned = labeled[1].replace(/[\s\-().]/g, '');
+    const cleaned = labeled[1].replace(/[\s\-().]/g, "");
     // Must be ≥7 digits (rules out 6-digit pincodes even if someone labels wrong)
     if (cleaned.length >= 7) return labeled[1].trim();
   }
 
   // Priority 2: +91 country code (consecutive or lightly spaced)
   const withCode = text.match(/(?<![0-9])(\+91[\s\-]?)([6-9]\d{9})(?![0-9])/);
-  if (withCode) return (withCode[1].trim() + ' ' + withCode[2]).trim();
+  if (withCode) return (withCode[1].trim() + " " + withCode[2]).trim();
 
   // Priority 3: plain Indian 10-digit — MUST start with 6-9, exactly 10 consecutive digits
   //   e.g. 9876543210  — NOT 401203 (starts with 4), NOT 98192 94752 (has space → handled below)
@@ -136,15 +151,20 @@ function extractPhone(text: string): string | undefined {
 
   // Priority 4: space/dash-formatted Indian — "98192 94752" (5+5), "94752-98192" etc.
   //   First half must start with 6-9 to stay in Indian number territory.
-  const spacedIndian = text.match(/(?<![0-9])([6-9]\d{4})[\s\-](\d{5})(?![0-9])/);
-  if (spacedIndian) return (spacedIndian[1] + ' ' + spacedIndian[2]);
+  const spacedIndian = text.match(
+    /(?<![0-9])([6-9]\d{4})[\s\-](\d{5})(?![0-9])/,
+  );
+  if (spacedIndian) return spacedIndian[1] + " " + spacedIndian[2];
 
   // Priority 5: international with explicit + prefix (e.g. +1 415 555 0100)
   //   Require the leading + so we don't confuse random digit runs with phone numbers.
-  const international = text.match(/(?<![0-9])(\+[1-9]\d{0,3}[\s\-]?\d{4,14})(?![0-9])/);
+  const international = text.match(
+    /(?<![0-9])(\+[1-9]\d{0,3}[\s\-]?\d{4,14})(?![0-9])/,
+  );
   if (international) {
-    const cleaned = international[1].replace(/[\s\-]/g, '');
-    if (cleaned.length >= 8 && cleaned.length <= 16) return international[1].trim();
+    const cleaned = international[1].replace(/[\s\-]/g, "");
+    if (cleaned.length >= 8 && cleaned.length <= 16)
+      return international[1].trim();
   }
 
   return undefined;
@@ -161,11 +181,11 @@ function extractPhone(text: string): string | undefined {
 function extractPincode(text: string): string | undefined {
   // Priority 1: explicitly labeled — supports "pin: 401203", "pin: 401 203", "pin: 401-203"
   const labeled = text.match(
-    /(?:pin(?:\s*code)?|zip(?:\s*code)?|postal(?:\s*code)?)[.\s:-]*(\d{3}[\s\-]?\d{3})(?!\d)/i
+    /(?:pin(?:\s*code)?|zip(?:\s*code)?|postal(?:\s*code)?)[.\s:-]*(\d{3}[\s\-]?\d{3})(?!\d)/i,
   );
   if (labeled) {
     // Normalize: strip the optional space/dash between the two 3-digit groups
-    return labeled[1].replace(/[\s\-]/, '');
+    return labeled[1].replace(/[\s\-]/, "");
   }
 
   // Priority 2: Standalone 6 consecutive digits (first digit 1-9, not in a longer run)
@@ -183,13 +203,14 @@ function extractAddress(lines: string[]): string | undefined {
   // 1. Labeled single-line
   for (const line of lines) {
     const labeled = line.match(
-      /(?:address|addr|add\.?|delivery\s*(?:addr(?:ess)?)?|ship(?:ping)?\s*(?:to|addr(?:ess)?)?|deliver\s*to)[.\s:-]+(.+)/i
+      /(?:address|addr|add\.?|delivery\s*(?:addr(?:ess)?)?|ship(?:ping)?\s*(?:to|addr(?:ess)?)?|deliver\s*to)[.\s:-]+(.+)/i,
     );
     if (labeled && labeled[1].trim().length > 4) return labeled[1].trim();
   }
 
   // 2. Multi-line address block: collect lines that look address-like
-  const addressKeywords = /\b(flat|house|floor|plot|no\.|road|street|lane|nagar|colony|sector|phase|block|area|town|city|district|state|near|opp|behind|above|below|landmark)\b/i;
+  const addressKeywords =
+    /\b(flat|house|floor|plot|no\.|road|street|lane|nagar|colony|sector|phase|block|area|town|city|district|state|near|opp|behind|above|below|landmark)\b/i;
   const addressLines: string[] = [];
   let capturing = false;
   for (const line of lines) {
@@ -202,7 +223,7 @@ function extractAddress(lines: string[]): string | undefined {
       if (addressLines.length >= 4) break;
     }
   }
-  if (addressLines.length > 0) return addressLines.join(', ');
+  if (addressLines.length > 0) return addressLines.join(", ");
 
   return undefined;
 }
@@ -218,7 +239,13 @@ function looksLikeName(s: string): boolean {
 
 export function parseOrderText(text: string): ParsedOrder {
   const result: ParsedOrder = {};
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const doc = nlp.readDoc(text);
+
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   // ── Pass 1: Labeled fields ────────────────────────────────────────────────
   for (const line of lines) {
@@ -227,7 +254,7 @@ export function parseOrderText(text: string): ParsedOrder {
     // Customer name — labeled
     if (!result.customerName) {
       const nm = line.match(
-        /^(?:name|customer(?:\s+name)?|from|buyer|client|ship\s*to|deliver(?:y)?\s*to)[.\s:-]+([A-Za-z\s]{1,40})/i
+        /^(?:name|customer(?:\s+name)?|from|buyer|client|ship\s*to|deliver(?:y)?\s*to)[.\s:-]+([A-Za-z\s]{1,40})/i,
       );
       if (nm) result.customerName = nm[1].trim();
     }
@@ -240,7 +267,11 @@ export function parseOrderText(text: string): ParsedOrder {
     // Instagram — detected when line is explicitly labelled OR starts with @
     // (@ at start of token = Instagram, @ in middle = email — see disambiguateContactTokens)
     if (!result.contactInfo) {
-      if (lower.includes('ig') || lower.includes('instagram') || line.trimStart().startsWith('@')) {
+      if (
+        lower.includes("ig") ||
+        lower.includes("instagram") ||
+        line.trimStart().startsWith("@")
+      ) {
         const ig = extractInstagram(line);
         if (ig) result.contactInfo = ig;
       }
@@ -255,7 +286,9 @@ export function parseOrderText(text: string): ParsedOrder {
 
     // Due date
     if (!result.dueDate) {
-      if (/due|deliver|ship\s*date|deadline|needed\s+by|expected/i.test(lower)) {
+      if (
+        /due|deliver|ship\s*date|deadline|needed\s+by|expected/i.test(lower)
+      ) {
         result.dueDate = extractDate(line);
       }
     }
@@ -267,78 +300,116 @@ export function parseOrderText(text: string): ParsedOrder {
 
     // Product / item
     if (!result.customName) {
-      const itemM = line.match(/(?:item|product|order|qty|quantity|x\d)[.\s:-]+([^,\n]+)/i);
+      const itemM = line.match(
+        /(?:item|product|order|qty|quantity|x\d)[.\s:-]+([^,\n]+)/i,
+      );
       if (itemM) result.customName = itemM[1].trim();
     }
 
     // Order reference
     if (!result.orderRef) {
-      const refM = line.match(/(?:order\s*(?:#|no|ref|id|number))[.\s:-]*([A-Z0-9\-]+)/i);
+      const refM = line.match(
+        /(?:order\s*(?:#|no|ref|id|number))[.\s:-]*([A-Z0-9\-]+)/i,
+      );
       if (refM) result.orderRef = refM[1].trim();
     }
   }
 
-  // ── Pass 2: Address ───────────────────────────────────────────────────────
-  if (!result.address) {
-    result.address = extractAddress(lines);
-  }
-  if (!result.address && lines.length > 0) {
-    const addressCandidateLines = lines.filter(line => {
-      const l = line.toLowerCase();
-      if (result.customerName && l.includes(result.customerName.toLowerCase())) return false;
-      if (result.phone && l.includes(result.phone.replace(/\s+/g, ''))) return false;
-      if (result.contactInfo && l.includes(result.contactInfo.toLowerCase())) return false;
-      if (/^\+?\d[\d\s\-()]+$/.test(line)) return false;
-      return true;
+  // ── Pass 2: Metadata Fallbacks (to assist in filtering address candidates) ──
+
+  // Contact: use wink-nlp token scanning to find emails and Instagram handles
+  if (!result.contactInfo) {
+    let email: string | undefined;
+    let instagram: string | undefined;
+
+    doc.tokens().each((token: any) => {
+      const val = token.out();
+      const type = token.out(its.type);
+      if (type === "email" || /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(val)) {
+        email = val;
+      } else if (val.startsWith("@") && val.length > 1) {
+        instagram = val;
+      }
     });
 
-    if (addressCandidateLines.length > 0) {
-      const cleanedAddressLines = addressCandidateLines.map(line => {
-        let clean = line;
-        if (result.pincode) {
-          clean = clean.replace(new RegExp(`(?:pin(?:code)?|zip|postal)[.\\s:-]*${result.pincode}`, 'i'), '');
-          clean = clean.replace(result.pincode, '');
-        }
-        return clean.replace(/^[,\s\-]+|[,\s\-]+$/g, '').trim();
-      }).filter(Boolean);
-
-      if (cleanedAddressLines.length > 0) {
-        result.address = cleanedAddressLines.join(', ');
-      }
-    }
-  }
-
-  // ── Pass 3: Pincode ───────────────────────────────────────────────────────
-  if (!result.pincode) {
-    result.pincode = extractPincode(text);
-    // Append pincode to address if found but not already in there
-    if (result.pincode && result.address && !result.address.includes(result.pincode)) {
-      result.address = result.address + ' - ' + result.pincode;
-    }
-  }
-
-  // ── Fallbacks ─────────────────────────────────────────────────────────────
-
-  // Contact: use token-level disambiguation to correctly separate email from Instagram.
-  // Rule: @ at START of token = Instagram handle; @ in MIDDLE with TLD = email.
-  // This prevents "mygmail@" being treated as Instagram and "@shop.fashion" as email.
-  if (!result.contactInfo) {
-    const { email, instagram } = disambiguateContactTokens(text);
     result.contactInfo = email || instagram;
   }
+
   // Phone fallback over full text
   if (!result.phone) {
     result.phone = extractPhone(text);
   }
 
-  // Name fallback: greeting
+  // Name fallback: greeting with proper nouns via NLP
   if (!result.customerName) {
-    const greet = text.match(/(?:hi|hello|dear|hey)[,\s]+([A-Z][a-zA-Z\s]{1,25})/i);
+    let greetingName: string | undefined;
+    doc.sentences().each((sentence: any) => {
+      if (greetingName) return;
+      const tokens = sentence.tokens();
+      const length = tokens.length();
+      for (let i = 0; i < length - 1; i++) {
+        const t = tokens.itemAt(i);
+        const val = t.out().toLowerCase();
+        if (["hi", "hello", "hey", "dear"].includes(val)) {
+          const nameTokens: string[] = [];
+          let j = i + 1;
+          // Skip punctuation
+          while (j < length && tokens.itemAt(j).out(its.type) === "punctuation") {
+            j++;
+          }
+          while (j < length && tokens.itemAt(j).out(its.pos) === "PROPN") {
+            nameTokens.push(tokens.itemAt(j).out());
+            j++;
+          }
+          if (nameTokens.length > 0) {
+            greetingName = nameTokens.join(" ");
+            break;
+          }
+        }
+      }
+    });
+    if (greetingName) {
+      result.customerName = greetingName;
+    }
+  }
+
+  // Name fallback: regex greeting (as a backup if POS tag fails on input text casing)
+  if (!result.customerName) {
+    const greet = text.match(
+      /(?:hi|hello|dear|hey)[,\s]+([A-Z][a-zA-Z\s]{1,25})/i,
+    );
     if (greet) result.customerName = greet[1].trim();
   }
-  // Name fallback: first line if it looks like a name
+
+  // Name fallback: first line if it consists of proper nouns/nouns
   if (!result.customerName && lines.length > 0) {
-    const firstLineClean = lines[0].replace(/^(name|customer)[:\s]+/i, '').trim();
+    const firstLineClean = lines[0]
+      .replace(/^(name|customer)[:\s]+/i, "")
+      .trim();
+
+    const lineDoc = nlp.readDoc(firstLineClean);
+    const tokens = lineDoc.tokens();
+    const nonPunct = tokens.filter((t: any) => t.out(its.type) !== "punctuation");
+
+    if (nonPunct.length() > 0 && nonPunct.length() <= 3) {
+      let allNouns = true;
+      nonPunct.each((t: any) => {
+        const pos = t.out(its.pos);
+        if (pos !== "PROPN" && pos !== "NOUN") {
+          allNouns = false;
+        }
+      });
+      if (allNouns) {
+        result.customerName = nonPunct.out().join(" ");
+      }
+    }
+  }
+
+  // Name fallback: regex looksLikeName on first line (as final backup)
+  if (!result.customerName && lines.length > 0) {
+    const firstLineClean = lines[0]
+      .replace(/^(name|customer)[:\s]+/i, "")
+      .trim();
     if (looksLikeName(firstLineClean)) {
       result.customerName = firstLineClean;
     }
@@ -348,10 +419,73 @@ export function parseOrderText(text: string): ParsedOrder {
   if (!result.orderDate) result.orderDate = extractDate(text);
   if (!result.price) result.price = extractPrice(text);
 
+  // ── Pass 3: Address ───────────────────────────────────────────────────────
+  if (!result.address) {
+    result.address = extractAddress(lines);
+  }
+  if (!result.address && lines.length > 0) {
+    const addressCandidateLines = lines.filter((line) => {
+      const l = line.toLowerCase();
+      // Filter out lines containing resolved metadata to avoid matching them as addresses
+      if (result.customerName && l.includes(result.customerName.toLowerCase()))
+        return false;
+      if (result.phone && l.includes(result.phone.replace(/\s+/g, "")))
+        return false;
+      if (result.contactInfo && l.includes(result.contactInfo.toLowerCase()))
+        return false;
+      if (result.customName && l.includes(result.customName.toLowerCase()))
+        return false;
+      if (result.price && l.includes(result.price.toString()))
+        return false;
+      // Filter out patterns typical for price, quantity, labels, greeting
+      if (/^\+?\d[\d\s\-()]+$/.test(line)) return false;
+      if (/price|total|cost|₹|\$/i.test(l)) return false;
+      if (/item|product|qty|quantity/i.test(l)) return false;
+      if (/^(hi|hello|hey|dear)/i.test(l)) return false;
+      return true;
+    });
+
+    if (addressCandidateLines.length > 0) {
+      const cleanedAddressLines = addressCandidateLines
+        .map((line) => {
+          let clean = line;
+          if (result.pincode) {
+            clean = clean.replace(
+              new RegExp(
+                `(?:pin(?:code)?|zip|postal)[.\\s:-]*${result.pincode}`,
+                "i",
+              ),
+              "",
+            );
+            clean = clean.replace(result.pincode, "");
+          }
+          return clean.replace(/^[,\s\-]+|[,\s\-]+$/g, "").trim();
+        })
+        .filter(Boolean);
+
+      if (cleanedAddressLines.length > 0) {
+        result.address = cleanedAddressLines.join(", ");
+      }
+    }
+  }
+
+  // ── Pass 4: Pincode ───────────────────────────────────────────────────────
+  if (!result.pincode) {
+    result.pincode = extractPincode(text);
+    // Append pincode to address if found but not already in there
+    if (
+      result.pincode &&
+      result.address &&
+      !result.address.includes(result.pincode)
+    ) {
+      result.address = result.address + " - " + result.pincode;
+    }
+  }
+
   // Notes: append order ref
   const noteLines: string[] = [];
   if (result.orderRef) noteLines.push(`Ref: ${result.orderRef}`);
-  result.notes = noteLines.join('\n');
+  result.notes = noteLines.join("\n");
 
   return result;
 }

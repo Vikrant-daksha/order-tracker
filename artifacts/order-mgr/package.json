@@ -65,6 +65,8 @@
     "expo-sharing": "~14.0.8",
     "expo-sqlite": "~16.0.10",
     "expo-task-manager": "~14.0.9",
-    "react-native-image-pan-zoom": "^2.1.12"
+    "react-native-image-pan-zoom": "^2.1.12",
+    "wink-eng-lite-web-model": "^1.8.1",
+    "wink-nlp": "^2.4.0"
   }
 }
