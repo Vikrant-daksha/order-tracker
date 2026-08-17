@@ -373,7 +373,7 @@ function WorkingCard({ order, colors, router }: { order: Order; colors: any; rou
 
   function handleReadyToShip() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    updateOrder(order.id, { status: 'Shipped', workingOn: 0 });
+    updateOrder(order.id, { status: 'Completed', workingOn: 0 });
   }
 
   function handleStopWorking() {

@@ -1,6 +1,6 @@
 export type OrderSource = 'Instagram' | 'Facebook' | 'WhatsApp' | 'Website' | 'Email' | 'Manual';
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
-export type OrderStatus = 'Confirmed' | 'Shipped' | 'Delivered';
+export type OrderStatus = 'Confirmed' | 'Completed' | 'Shipped' | 'Delivered';
 
 export interface OrderItem {
   id: string;

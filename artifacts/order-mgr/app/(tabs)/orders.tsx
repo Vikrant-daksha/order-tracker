@@ -21,7 +21,7 @@ import { Order, OrderStatus } from '@/types';
 
 
 type FilterOption = 'All' | OrderStatus;
-const FILTERS: FilterOption[] = ['All', 'Confirmed', 'Shipped', 'Delivered'];
+const FILTERS: FilterOption[] = ['All', 'Confirmed', 'Completed', 'Shipped', 'Delivered'];
 
 function isOverdue(order: Order) {
   if (!order.dueDate || order.status === 'Delivered') return false;

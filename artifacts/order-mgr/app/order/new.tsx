@@ -28,7 +28,7 @@ import { saveImage, deleteImage } from '@/utils/imageUtils';
 import { cancelOrderReminder, scheduleOrderReminder } from '@/utils/notifications';
 
 const SOURCES: OrderSource[] = ['Instagram', 'Facebook', 'WhatsApp', 'Website', 'Email', 'Manual'];
-const STATUSES: OrderStatus[] = ['Confirmed', 'Shipped', 'Delivered'];
+const STATUSES: OrderStatus[] = ['Confirmed', 'Completed', 'Shipped', 'Delivered'];
 const PAYMENT_STATUSES: PaymentStatus[] = ['Unpaid', 'Partial', 'Paid'];
 
 function today() { return new Date().toISOString().split('T')[0]; }

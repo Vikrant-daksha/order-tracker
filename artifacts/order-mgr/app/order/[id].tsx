@@ -131,7 +131,7 @@ export default function OrderDetailScreen() {
   }
 
   async function handleAdvanceStatus() {
-    const next: Record<string, string> = { Confirmed: 'Shipped', Shipped: 'Delivered' };
+    const next: Record<string, string> = { Confirmed: 'Completed', Completed: 'Shipped', Shipped: 'Delivered' };
     const nextStatus = next[activeOrder.status];
     if (!nextStatus) return;
     await updateOrder(activeOrder.id, { status: nextStatus as any });
@@ -142,7 +142,7 @@ export default function OrderDetailScreen() {
   }
 
   async function handleRevertStatus() {
-    const prev: Record<string, string> = { Delivered: 'Shipped', Shipped: 'Confirmed' };
+    const prev: Record<string, string> = { Delivered: 'Shipped', Shipped: 'Completed', Completed: 'Confirmed' };
     const prevStatus = prev[activeOrder.status];
     if (!prevStatus) return;
     await updateOrder(activeOrder.id, { status: prevStatus as any });
@@ -165,7 +165,7 @@ export default function OrderDetailScreen() {
     ]);
   }
 
-  const STATUSES = ['Confirmed', 'Shipped', 'Delivered'];
+  const STATUSES = ['Confirmed', 'Completed', 'Shipped', 'Delivered'];
   const statusIndex = STATUSES.indexOf(order.status);
 
   return (
@@ -447,7 +447,7 @@ export default function OrderDetailScreen() {
                 style={[styles.advanceBtn, { flex: 2, backgroundColor: colors.primary }]}
               >
                 <Text style={[styles.advanceBtnText, { color: colors.primaryForeground }]} adjustsFontSizeToFit numberOfLines={1}>
-                  Mark as {order.status === 'Confirmed' ? 'Shipped' : 'Delivered'}
+                  Mark as {({ Confirmed: 'Completed', Completed: 'Shipped', Shipped: 'Delivered' } as Record<string,string>)[order.status] ?? ''}
                 </Text>
                 <Feather name="arrow-right" size={16} color={colors.primaryForeground} />
               </Pressable>

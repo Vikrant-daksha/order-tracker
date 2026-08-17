@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
   PanResponder,
@@ -63,6 +63,11 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
     toggleWorkingOn(order.id);
   }, [order.id, toggleWorkingOn]);
 
+  // Keep a ref that always points to the latest handleToggle so the
+  // panResponder (created once via useRef) never captures a stale closure.
+  const handleToggleRef = useRef(handleToggle);
+  useEffect(() => { handleToggleRef.current = handleToggle; }, [handleToggle]);
+
   const snapBack = useCallback(() => {
     Animated.spring(translateX, {
       toValue: 0,
@@ -95,8 +100,9 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
 
       onPanResponderRelease: (_, g) => {
         if (g.dx <= -SWIPE_THRESHOLD) {
-          // Trigger toggle immediately for zero-delay feel
-          handleToggle();
+          // Always use the ref so we call the latest handleToggle,
+          // not the stale one captured at panResponder creation time.
+          handleToggleRef.current();
 
           // Smoothly snap back card to 0
           Animated.spring(translateX, {

@@ -9,7 +9,7 @@ import { useColors } from '@/hooks/useColors';
 import { useDatabase } from '@/context/DatabaseContext';
 import { Order, OrderStatus } from '@/types';
 
-const COLUMNS: OrderStatus[] = ['Confirmed', 'Shipped', 'Delivered'];
+const COLUMNS: OrderStatus[] = ['Confirmed', 'Completed', 'Shipped', 'Delivered'];
 
 function isOverdue(order: Order) {
   if (!order.dueDate || order.status === 'Delivered') return false;
@@ -24,7 +24,7 @@ export default function KanbanScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const grouped = useMemo(() => {
-    const map: Record<OrderStatus, Order[]> = { Confirmed: [], Shipped: [], Delivered: [] };
+    const map: Record<OrderStatus, Order[]> = { Confirmed: [], Completed: [], Shipped: [], Delivered: [] };
     for (const o of orders) {
       if (map[o.status]) map[o.status].push(o);
     }
@@ -32,7 +32,7 @@ export default function KanbanScreen() {
   }, [orders]);
 
   async function advanceStatus(order: Order) {
-    const next: Record<string, OrderStatus> = { Confirmed: 'Shipped', Shipped: 'Delivered' };
+    const next: Record<string, OrderStatus> = { Confirmed: 'Completed', Completed: 'Shipped', Shipped: 'Delivered' };
     const nextStatus = next[order.status];
     if (!nextStatus) return;
     await updateOrder(order.id, { status: nextStatus });
@@ -41,11 +41,13 @@ export default function KanbanScreen() {
 
   const colColors = {
     Confirmed: colors.confirmed,
+    Completed: colors.completed,
     Shipped: colors.shipped,
     Delivered: colors.delivered,
   };
   const colTextColors = {
     Confirmed: colors.confirmedText,
+    Completed: colors.completedText,
     Shipped: colors.shippedText,
     Delivered: colors.deliveredText,
   };

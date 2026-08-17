@@ -13,6 +13,7 @@ export function StatusPill({ status, size = 'md' }: StatusPillProps) {
 
   const config = {
     Confirmed: { bg: colors.confirmed, text: colors.confirmedText },
+    Completed: { bg: colors.completed, text: colors.completedText },
     Shipped: { bg: colors.shipped, text: colors.shippedText },
     Delivered: { bg: colors.delivered, text: colors.deliveredText },
   };

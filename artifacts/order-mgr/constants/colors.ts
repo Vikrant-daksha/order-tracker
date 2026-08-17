@@ -20,6 +20,8 @@ const colors = {
     input: "#E5E5EA",
     confirmed: "#F8BCCD",
     confirmedText: "#8B4D5C",
+    completed: "#E8D5FF",
+    completedText: "#6B3FA0",
     shipped: "#BFD8FF",
     shippedText: "#1A5FA8",
     delivered: "#B8F0D0",
