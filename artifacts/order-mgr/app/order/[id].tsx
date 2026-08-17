@@ -242,7 +242,22 @@ export default function OrderDetailScreen() {
           </View>
         ) : null}
 
-        {/* Customer Info Card */}
+        {/* Size badge — shown below carousel when selected item has a size */}
+        {selectedItem?.size ? (
+          <View style={[
+            styles.sizeBadgeRow,
+            { backgroundColor: colors.card, borderColor: colors.border }
+          ]}>
+            <View style={[styles.sizeBadge, { backgroundColor: colors.accent }]}>
+              <Feather name="maximize-2" size={12} color="#C06070" />
+              <Text style={[styles.sizeBadgeLabel, { color: colors.mutedForeground }]}>SIZE</Text>
+              <Text style={[styles.sizeBadgeValue, { color: colors.foreground }]}>
+                {selectedItem.size}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.customerHeader}>
             <View style={[styles.sourceIcon, { backgroundColor: colors.accent }]}>
@@ -352,9 +367,17 @@ export default function OrderDetailScreen() {
                         Qty: {item.quantity}
                       </Text>
                       {item.size ? (
-                        <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.mutedForeground }}>
-                          • Size: {item.size}
-                        </Text>
+                        <View style={[
+                          styles.sizeInlineChip,
+                          { backgroundColor: isSelected ? '#C06070' : colors.accent }
+                        ]}>
+                          <Text style={[
+                            styles.sizeInlineText,
+                            { color: isSelected ? '#fff' : '#C06070' }
+                          ]}>
+                            {item.size}
+                          </Text>
+                        </View>
                       ) : null}
                       {item.isCustom ? (
                         <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: '#C06070', backgroundColor: colors.accent, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
@@ -640,4 +663,40 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  sizeBadgeRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  sizeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flex: 1,
+  },
+  sizeBadgeLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 1.2,
+  },
+  sizeBadgeValue: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    flex: 1,
+  },
+  sizeInlineChip: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  sizeInlineText: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 0.3,
+  },
 });
+

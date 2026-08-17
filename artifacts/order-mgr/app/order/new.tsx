@@ -199,8 +199,8 @@ export default function NewOrderScreen() {
 
   async function pickImage(index: number) {
     const currentCount = items[index].imageUris.length;
-    if (currentCount >= 5) {
-      Alert.alert('Limit Reached', 'You can only upload up to 5 photos per product.');
+    if (currentCount >= 4) {
+      Alert.alert('Limit Reached', 'You can only upload up to 4 photos per product.');
       return;
     }
 
@@ -208,7 +208,7 @@ export default function NewOrderScreen() {
       mediaTypes: ['images'],
       quality: 0.9,
       allowsMultipleSelection: true,
-      selectionLimit: 5 - currentCount,
+      selectionLimit: 4 - currentCount,
     });
 
     if (!res.canceled && res.assets && res.assets.length > 0) {
@@ -428,11 +428,12 @@ export default function NewOrderScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? topPad + 44 : 0}
       >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.body, { paddingBottom: 30 }]}
+          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 120 }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
@@ -616,7 +617,7 @@ export default function NewOrderScreen() {
                 </View>
 
                 <FieldInput
-                  label="Size"
+                  label="Size / Dimensions (Custom)"
                   value={item.size}
                   onChange={(val: string) => {
                     setItems(prev => {
@@ -625,11 +626,11 @@ export default function NewOrderScreen() {
                       return next;
                     });
                   }}
-                  placeholder="e.g. XL, 10x12..."
+                  placeholder="e.g. 10x12 in, A4, XL, 32-waist..."
                   colors={colors}
                 />
 
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4, marginBottom: 6 }]}>Reference Photos</Text>
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4, marginBottom: 6 }]}>Reference Photos <Text style={{ fontSize: 11 }}>(max 4)</Text></Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 4 }}>
                   {item.imageUris.map((uri, imgIdx) => (
                     <View key={uri} style={{ alignItems: 'center', gap: 6 }}>
@@ -678,7 +679,7 @@ export default function NewOrderScreen() {
                       )}
                     </View>
                   ))}
-                  {item.imageUris.length < 5 && (
+                  {item.imageUris.length < 4 && (
                     <Pressable
                       onPress={() => pickImage(index)}
                       style={{
@@ -930,7 +931,7 @@ const styles = StyleSheet.create({
   pasteBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   saveBtn: { borderRadius: 100, paddingHorizontal: 18, paddingVertical: 8 },
   saveBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  body: { padding: 16, gap: 20, paddingBottom: 60 },
+  body: { padding: 16, gap: 20 },
   section: { gap: 10 },
   sectionTitle: { fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8 },
   sectionBody: { gap: 12 },
