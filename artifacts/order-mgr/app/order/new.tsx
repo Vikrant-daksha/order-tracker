@@ -1,11 +1,31 @@
-import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { DatePickerField } from "@/components/DatePickerField";
+import { ProductAutocomplete } from "@/components/ProductAutocomplete";
+import { SmartPasteModal } from "@/components/SmartPasteModal";
+import { useDatabase } from "@/context/DatabaseContext";
+import { useColors } from "@/hooks/useColors";
 import {
+  Customer,
+  Order,
+  OrderSource,
+  OrderStatus,
+  PaymentStatus,
+} from "@/types";
+import { deleteImage, saveImage } from "@/utils/imageUtils";
+import {
+  cancelOrderReminder,
+  scheduleOrderReminder,
+} from "@/utils/notifications";
+import { ParsedOrder } from "@/utils/smartPaste";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -13,46 +33,66 @@ import {
   Text,
   TextInput,
   View,
-  KeyboardAvoidingView,
-  ActivityIndicator,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DatePickerField } from '@/components/DatePickerField';
-import { ProductAutocomplete } from '@/components/ProductAutocomplete';
-import { SmartPasteModal } from '@/components/SmartPasteModal';
-import { useColors } from '@/hooks/useColors';
-import { useDatabase } from '@/context/DatabaseContext';
-import { Order, OrderSource, OrderStatus, PaymentStatus, Customer } from '@/types';
-import { ParsedOrder } from '@/utils/smartPaste';
-import { saveImage, deleteImage } from '@/utils/imageUtils';
-import { cancelOrderReminder, scheduleOrderReminder } from '@/utils/notifications';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const SOURCES: OrderSource[] = ['Instagram', 'Facebook', 'WhatsApp', 'Website', 'Email', 'Manual'];
-const STATUSES: OrderStatus[] = ['Confirmed', 'Completed', 'Shipped', 'Delivered'];
-const PAYMENT_STATUSES: PaymentStatus[] = ['Unpaid', 'Partial', 'Paid'];
+const SOURCES: OrderSource[] = [
+  "Instagram",
+  "Facebook",
+  "WhatsApp",
+  "Website",
+  "Email",
+  "Manual",
+];
+const STATUSES: OrderStatus[] = [
+  "Confirmed",
+  "Completed",
+  "Shipped",
+  "Delivered",
+];
+const PAYMENT_STATUSES: PaymentStatus[] = ["Unpaid", "Partial", "Paid"];
 
-function today() { return new Date().toISOString().split('T')[0]; }
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
 
 export default function NewOrderScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { addOrder, updateOrder, getOrder, products, addProduct, findProductByName, customers, addCustomer, updateCustomer, findCustomerByIg, findCustomerByPhone } = useDatabase();
+  const {
+    addOrder,
+    updateOrder,
+    getOrder,
+    products,
+    addProduct,
+    findProductByName,
+    customers,
+    addCustomer,
+    updateCustomer,
+    findCustomerByIg,
+    findCustomerByPhone,
+  } = useDatabase();
 
   const existing = id ? getOrder(id) : undefined;
   const isEditing = !!existing;
 
-  const [source, setSource] = useState<OrderSource>(existing?.source || 'Instagram');
-  const [customerName, setCustomerName] = useState(existing?.customerName || '');
+  const [source, setSource] = useState<OrderSource>(
+    existing?.source || "Instagram",
+  );
+  const [customerName, setCustomerName] = useState(
+    existing?.customerName || "",
+  );
   // contactInfo is stored as "ig\nphone\nemail" — split on load
-  const existingContact = (existing?.contactInfo || '').split('\n');
-  const [igHandle, setIgHandle] = useState(existingContact[0] || '');
-  const [phone, setPhone] = useState(existingContact[1] || '');
-  const [email, setEmail] = useState(existingContact[2] || '');
-  const [address, setAddress] = useState(existing?.address || '');
+  const existingContact = (existing?.contactInfo || "").split("\n");
+  const [igHandle, setIgHandle] = useState(existingContact[0] || "");
+  const [phone, setPhone] = useState(existingContact[1] || "");
+  const [email, setEmail] = useState(existingContact[2] || "");
+  const [address, setAddress] = useState(existing?.address || "");
   const [orderDate, setOrderDate] = useState(existing?.orderDate || today());
-  const [dueDate, setDueDate] = useState(existing?.dueDate || '');  interface OrderItemState {
+  const [dueDate, setDueDate] = useState(existing?.dueDate || "");
+  interface OrderItemState {
     id: string;
     productId: string;
     productName: string;
@@ -61,57 +101,87 @@ export default function NewOrderScreen() {
     quantity: string;
     imageUris: string[];
     thumbUris: string[];
+    sizeImageUris: string[];
+    sizeThumbUris: string[];
     isCustom: boolean;
   }
 
-  const genId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+  const genId = () =>
+    Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 
   const [items, setItems] = useState<OrderItemState[]>(() => {
     if (isEditing && existing) {
       if (existing.items && existing.items.length > 0) {
-        return existing.items.map(item => ({
+        return existing.items.map((item) => ({
           id: item.id,
-          productId: item.productId || '',
-          productName: item.productName || '',
-          size: item.size || '',
-          price: String(item.price || ''),
+          productId: item.productId || "",
+          productName: item.productName || "",
+          size: item.size || "",
+          price: String(item.price || ""),
           quantity: String(item.quantity || 1),
-          imageUris: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
-          thumbUris: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : []),
+          imageUris:
+            item.imagePaths || (item.imagePath ? [item.imagePath] : []),
+          thumbUris:
+            item.thumbnailPaths ||
+            (item.thumbnailPath ? [item.thumbnailPath] : []),
+          sizeImageUris:
+            item.sizeImagePaths ||
+            (item.sizeImagePath ? [item.sizeImagePath] : []),
+          sizeThumbUris:
+            item.sizeThumbnailPaths ||
+            (item.sizeThumbnailPath ? [item.sizeThumbnailPath] : []),
           isCustom: item.isCustom,
         }));
       } else {
-        return [{
-          id: 'legacy-' + existing.id,
-          productId: existing.productId || '',
-          productName: existing.customName || '',
-          size: existing.size || '',
-          price: existing.price ? String(existing.price) : '',
-          quantity: '1',
-          imageUris: existing.referenceImagePath ? [existing.referenceImagePath] : [],
-          thumbUris: existing.thumbnailPath ? [existing.thumbnailPath] : [],
-          isCustom: existing.isCustom === 1,
-        }];
+        return [
+          {
+            id: "legacy-" + existing.id,
+            productId: existing.productId || "",
+            productName: existing.customName || "",
+            size: existing.size || "",
+            price: existing.price ? String(existing.price) : "",
+            quantity: "1",
+            imageUris: existing.referenceImagePath
+              ? [existing.referenceImagePath]
+              : [],
+            thumbUris: existing.thumbnailPath ? [existing.thumbnailPath] : [],
+            sizeImageUris: existing.sizeImagePaths || (existing.sizeImagePath ? [existing.sizeImagePath] : []),
+            sizeThumbUris: existing.sizeThumbnailPaths || (existing.sizeThumbnailPath ? [existing.sizeThumbnailPath] : []),
+            isCustom: existing.isCustom === 1,
+          },
+        ];
       }
     }
-    return [{
-      id: genId(),
-      productId: '',
-      productName: '',
-      size: '',
-      price: '',
-      quantity: '1',
-      imageUris: [],
-      thumbUris: [],
-      isCustom: false,
-    }];
+    return [
+      {
+        id: genId(),
+        productId: "",
+        productName: "",
+        size: "",
+        price: "",
+        quantity: "1",
+        imageUris: [],
+        thumbUris: [],
+        sizeImageUris: [],
+        sizeThumbUris: [],
+        isCustom: false,
+      },
+    ];
   });
 
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(existing?.paymentStatus || 'Unpaid');
-  const [amountPaid, setAmountPaid] = useState(existing?.amountPaid ? String(existing.amountPaid) : '');
-  const [status, setStatus] = useState<OrderStatus>(existing?.status || 'Confirmed');
-  const [trackingLink, setTrackingLink] = useState(existing?.trackingLink || '');
-  const [notes, setNotes] = useState(existing?.notes || '');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
+    existing?.paymentStatus || "Unpaid",
+  );
+  const [amountPaid, setAmountPaid] = useState(
+    existing?.amountPaid ? String(existing.amountPaid) : "",
+  );
+  const [status, setStatus] = useState<OrderStatus>(
+    existing?.status || "Confirmed",
+  );
+  const [trackingLink, setTrackingLink] = useState(
+    existing?.trackingLink || "",
+  );
+  const [notes, setNotes] = useState(existing?.notes || "");
   const [saving, setSaving] = useState(false);
   const [pasteVisible, setPasteVisible] = useState(false);
   const [linkedCustomer, setLinkedCustomer] = useState<Customer | null>(null);
@@ -120,13 +190,13 @@ export default function NewOrderScreen() {
     return items.reduce((sum, item) => {
       const p = parseFloat(item.price) || 0;
       const q = parseInt(item.quantity) || 1;
-      return sum + (p * q);
+      return sum + p * q;
     }, 0);
   }, [items]);
 
   useEffect(() => {
     if (isEditing && existing?.customerId) {
-      const c = customers.find(x => x.id === existing.customerId);
+      const c = customers.find((x) => x.id === existing.customerId);
       if (c) setLinkedCustomer(c);
     }
   }, [isEditing, existing, customers]);
@@ -139,11 +209,17 @@ export default function NewOrderScreen() {
       setIsSearching(false);
       return;
     }
-    
+
     setIsSearching(true);
     const timer = setTimeout(() => {
-      const match = (igHandle ? findCustomerByIg(igHandle) : null) || (phone ? findCustomerByPhone(phone) : null);
-      if (match && match.id !== linkedCustomer?.id && !unlinkedIds.current.has(match.id)) {
+      const match =
+        (igHandle ? findCustomerByIg(igHandle) : null) ||
+        (phone ? findCustomerByPhone(phone) : null);
+      if (
+        match &&
+        match.id !== linkedCustomer?.id &&
+        !unlinkedIds.current.has(match.id)
+      ) {
         setLinkedCustomer(match);
         if (!customerName) setCustomerName(match.name);
         if (match.email && !email) setEmail(match.email);
@@ -160,20 +236,22 @@ export default function NewOrderScreen() {
     };
   }, [igHandle, phone, isEditing, findCustomerByIg, findCustomerByPhone]);
 
-  const pickedImagesRef = useRef<{ fullPath: string; thumbnailPath: string }[]>([]);
+  const pickedImagesRef = useRef<{ fullPath: string; thumbnailPath: string }[]>(
+    [],
+  );
   const imageSavedToOrder = useRef(false);
 
   useEffect(() => {
     return () => {
       if (!imageSavedToOrder.current && pickedImagesRef.current.length > 0) {
-        pickedImagesRef.current.forEach(img => {
+        pickedImagesRef.current.forEach((img) => {
           deleteImage(img.fullPath, img.thumbnailPath);
         });
       }
     };
   }, []);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === "web" ? 67 : insets.top;
 
   const handleParsed = useCallback((parsed: ParsedOrder) => {
     if (parsed.customerName) setCustomerName(parsed.customerName);
@@ -182,8 +260,8 @@ export default function NewOrderScreen() {
     if (parsed.address) setAddress(parsed.address);
     if (parsed.orderDate) setOrderDate(parsed.orderDate);
     if (parsed.dueDate) setDueDate(parsed.dueDate);
-    
-    setItems(prev => {
+
+    setItems((prev) => {
       const next = [...prev];
       if (next.length > 0) {
         next[0] = {
@@ -199,16 +277,19 @@ export default function NewOrderScreen() {
 
   async function pickImage(index: number) {
     const currentCount = items[index].imageUris.length;
-    if (currentCount >= 4) {
-      Alert.alert('Limit Reached', 'You can only upload up to 4 photos per product.');
+    if (currentCount >= 10) {
+      Alert.alert(
+        "Limit Reached",
+        "You can only upload up to 10 photos per product.",
+      );
       return;
     }
 
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       quality: 0.9,
       allowsMultipleSelection: true,
-      selectionLimit: 4 - currentCount,
+      selectionLimit: 10 - currentCount,
     });
 
     if (!res.canceled && res.assets && res.assets.length > 0) {
@@ -222,7 +303,7 @@ export default function NewOrderScreen() {
           newThumbs.push(saved.thumbnailPath);
           pickedImagesRef.current.push(saved);
         }
-        setItems(prev => {
+        setItems((prev) => {
           const next = [...prev];
           next[index] = {
             ...next[index],
@@ -237,11 +318,15 @@ export default function NewOrderScreen() {
     }
   }
 
-  const moveImage = (itemIndex: number, imgIndex: number, direction: 'left' | 'right') => {
-    setItems(prev => {
+  const moveImage = (
+    itemIndex: number,
+    imgIndex: number,
+    direction: "left" | "right",
+  ) => {
+    setItems((prev) => {
       const next = [...prev];
       const item = next[itemIndex];
-      const targetIdx = direction === 'left' ? imgIndex - 1 : imgIndex + 1;
+      const targetIdx = direction === "left" ? imgIndex - 1 : imgIndex + 1;
 
       if (targetIdx < 0 || targetIdx >= item.imageUris.length) return prev;
 
@@ -265,11 +350,11 @@ export default function NewOrderScreen() {
   };
 
   const deletePickedImage = (itemIndex: number, imgIndex: number) => {
-    setItems(prev => {
+    setItems((prev) => {
       const next = [...prev];
       const targetImg = next[itemIndex].imageUris[imgIndex];
       const targetThumb = next[itemIndex].thumbUris[imgIndex];
-      
+
       next[itemIndex] = {
         ...next[itemIndex],
         imageUris: next[itemIndex].imageUris.filter((_, i) => i !== imgIndex),
@@ -277,9 +362,104 @@ export default function NewOrderScreen() {
       };
 
       pickedImagesRef.current = pickedImagesRef.current.filter(
-        img => img.fullPath !== targetImg
+        (img) => img.fullPath !== targetImg,
       );
-      
+
+      deleteImage(targetImg, targetThumb);
+      return next;
+    });
+  };
+
+  async function pickSizeImage(index: number) {
+    const currentCount = items[index].sizeImageUris.length;
+    if (currentCount >= 10) {
+      Alert.alert(
+        "Limit Reached",
+        "You can only upload up to 10 size photos per product.",
+      );
+      return;
+    }
+
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.9,
+      allowsMultipleSelection: true,
+      selectionLimit: 10 - currentCount,
+    });
+
+    if (!res.canceled && res.assets && res.assets.length > 0) {
+      setSaving(true);
+      try {
+        const newImages: string[] = [];
+        const newThumbs: string[] = [];
+        for (const asset of res.assets) {
+          const saved = await saveImage(asset.uri);
+          newImages.push(saved.fullPath);
+          newThumbs.push(saved.thumbnailPath);
+          pickedImagesRef.current.push(saved);
+        }
+        setItems((prev) => {
+          const next = [...prev];
+          next[index] = {
+            ...next[index],
+            sizeImageUris: [...next[index].sizeImageUris, ...newImages],
+            sizeThumbUris: [...next[index].sizeThumbUris, ...newThumbs],
+          };
+          return next;
+        });
+      } finally {
+        setSaving(false);
+      }
+    }
+  }
+
+  const moveSizeImage = (
+    itemIndex: number,
+    imgIndex: number,
+    direction: "left" | "right",
+  ) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const item = next[itemIndex];
+      const targetIdx = direction === "left" ? imgIndex - 1 : imgIndex + 1;
+
+      if (targetIdx < 0 || targetIdx >= item.sizeImageUris.length) return prev;
+
+      const nextImageUris = [...item.sizeImageUris];
+      const tempUri = nextImageUris[imgIndex];
+      nextImageUris[imgIndex] = nextImageUris[targetIdx];
+      nextImageUris[targetIdx] = tempUri;
+
+      const nextThumbUris = [...item.sizeThumbUris];
+      const tempThumb = nextThumbUris[imgIndex];
+      nextThumbUris[imgIndex] = nextThumbUris[targetIdx];
+      nextThumbUris[targetIdx] = tempThumb;
+
+      next[itemIndex] = {
+        ...item,
+        sizeImageUris: nextImageUris,
+        sizeThumbUris: nextThumbUris,
+      };
+      return next;
+    });
+  };
+
+  const deletePickedSizeImage = (itemIndex: number, imgIndex: number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const targetImg = next[itemIndex].sizeImageUris[imgIndex];
+      const targetThumb = next[itemIndex].sizeThumbUris[imgIndex];
+
+      next[itemIndex] = {
+        ...next[itemIndex],
+        sizeImageUris: next[itemIndex].sizeImageUris.filter((_, i) => i !== imgIndex),
+        sizeThumbUris: next[itemIndex].sizeThumbUris.filter((_, i) => i !== imgIndex),
+      };
+
+      pickedImagesRef.current = pickedImagesRef.current.filter(
+        (img) => img.fullPath !== targetImg,
+      );
+
       deleteImage(targetImg, targetThumb);
       return next;
     });
@@ -287,13 +467,16 @@ export default function NewOrderScreen() {
 
   async function handleSave() {
     if (!customerName.trim()) {
-      Alert.alert('Required', 'Please enter a customer name.');
+      Alert.alert("Required", "Please enter a customer name.");
       return;
     }
 
-    const emptyNameIndex = items.findIndex(item => !item.productName.trim());
+    const emptyNameIndex = items.findIndex((item) => !item.productName.trim());
     if (emptyNameIndex >= 0) {
-      Alert.alert('Required', `Please enter a product name for Product #${emptyNameIndex + 1}.`);
+      Alert.alert(
+        "Required",
+        `Please enter a product name for Product #${emptyNameIndex + 1}.`,
+      );
       return;
     }
 
@@ -310,10 +493,10 @@ export default function NewOrderScreen() {
             const pVal = parseFloat(item.price) || 0;
             const newPid = await addProduct({
               name: item.productName.trim(),
-              imagePath: item.imageUris[0] || '',
-              thumbnailPath: item.thumbUris[0] || '',
+              imagePath: item.imageUris[0] || "",
+              thumbnailPath: item.thumbUris[0] || "",
               defaultPrice: pVal,
-              category: '',
+              category: "",
             });
             resolvedProductId = newPid;
           }
@@ -326,7 +509,7 @@ export default function NewOrderScreen() {
       await saveOrderData(resolvedItems);
     } catch (err) {
       console.error("Could not save order:", err);
-      Alert.alert('Error', 'Could not save order.');
+      Alert.alert("Error", "Could not save order.");
       setSaving(false);
     }
   }
@@ -340,7 +523,7 @@ export default function NewOrderScreen() {
         igHandle: igHandle.trim(),
         phone: phone.trim(),
         email: email.trim(),
-        address: address.trim()
+        address: address.trim(),
       });
     } else {
       cid = await addCustomer({
@@ -348,11 +531,11 @@ export default function NewOrderScreen() {
         igHandle: igHandle.trim(),
         phone: phone.trim(),
         email: email.trim(),
-        address: address.trim()
+        address: address.trim(),
       });
     }
 
-    const orderItems = resolvedItems.map(item => ({
+    const orderItems = resolvedItems.map((item) => ({
       id: item.id,
       productId: item.productId || undefined,
       productName: item.productName.trim(),
@@ -363,6 +546,10 @@ export default function NewOrderScreen() {
       thumbnailPath: item.thumbUris[0] || undefined,
       imagePaths: item.imageUris,
       thumbnailPaths: item.thumbUris,
+      sizeImagePath: item.sizeImageUris[0] || undefined,
+      sizeThumbnailPath: item.sizeThumbUris[0] || undefined,
+      sizeImagePaths: item.sizeImageUris,
+      sizeThumbnailPaths: item.sizeThumbUris,
       isCustom: item.isCustom,
     }));
 
@@ -372,25 +559,34 @@ export default function NewOrderScreen() {
       summarizedName = `${firstItem.productName} (+${orderItems.length - 1} items)`;
     }
 
-    const data: Omit<Order, 'id' | 'createdAt'> = {
+    const data: Omit<Order, "id" | "createdAt"> = {
       source,
       customerName: customerName.trim(),
-      contactInfo: [igHandle.trim(), phone.trim(), email.trim()].join('\n'),
+      contactInfo: [igHandle.trim(), phone.trim(), email.trim()].join("\n"),
       address: address.trim(),
       orderDate,
       dueDate,
-      productId: firstItem.productId || '',
+      productId: firstItem.productId || "",
       customName: summarizedName,
-      referenceImagePath: firstItem.imagePath || '',
-      thumbnailPath: firstItem.thumbnailPath || '',
+      referenceImagePath: firstItem.imagePath || "",
+      thumbnailPath: firstItem.thumbnailPath || "",
       price: totalPrice,
       paymentStatus,
-      amountPaid: paymentStatus === 'Partial' ? (parseFloat(amountPaid) || 0) : paymentStatus === 'Paid' ? totalPrice : 0,
+      amountPaid:
+        paymentStatus === "Partial"
+          ? parseFloat(amountPaid) || 0
+          : paymentStatus === "Paid"
+            ? totalPrice
+            : 0,
       status,
       trackingLink: trackingLink.trim(),
       notes: notes.trim(),
       isCustom: firstItem.isCustom ? 1 : 0,
-      size: firstItem.size || '',
+      size: firstItem.size || "",
+      sizeImagePath: firstItem.sizeImagePath || "",
+      sizeThumbnailPath: firstItem.sizeThumbnailPath || "",
+      sizeImagePaths: firstItem.sizeImagePaths || [],
+      sizeThumbnailPaths: firstItem.sizeThumbnailPaths || [],
       customerId: cid,
       items: orderItems,
     };
@@ -404,8 +600,13 @@ export default function NewOrderScreen() {
       savedId = await addOrder(data);
     }
 
-    if (dueDate && status !== 'Delivered') {
-      await scheduleOrderReminder(savedId, data.customerName, data.customName, dueDate);
+    if (dueDate && status !== "Delivered") {
+      await scheduleOrderReminder(
+        savedId,
+        data.customerName,
+        data.customName,
+        dueDate,
+      );
     }
 
     imageSavedToOrder.current = true;
@@ -416,57 +617,141 @@ export default function NewOrderScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: topPad + 8, borderBottomColor: colors.border },
+        ]}
+      >
         <Pressable onPress={() => router.back()}>
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={[styles.title, { color: colors.foreground }]}>{isEditing ? 'Edit Order' : 'New Order'}</Text>
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            {isEditing ? "Edit Order" : "New Order"}
+          </Text>
         </View>
         <View style={{ width: 22 }} />
       </View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? topPad + 44 : 0}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === "ios" ? topPad + 44 : 80}
       >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 120 }]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          contentContainerStyle={[
+            styles.body,
+            { paddingBottom: insets.bottom + 32 },
+          ]}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
         >
           {/* Source */}
           <FormSection title="Source">
-            <SourceDropdown value={source} onChange={setSource} colors={colors} />
+            <SourceDropdown
+              value={source}
+              onChange={setSource}
+              colors={colors}
+            />
           </FormSection>
 
           {/* Customer */}
           <FormSection title="Customer">
             {linkedCustomer && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accent, padding: 8, borderRadius: 8, marginBottom: 10 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  backgroundColor: colors.accent,
+                  padding: 8,
+                  borderRadius: 8,
+                  marginBottom: 10,
+                }}
+              >
                 <Feather name="user-check" size={16} color="#C06070" />
-                <Text style={{ flex: 1, fontSize: 13, color: '#C06070', fontFamily: 'Inter_500Medium' }}>Linked to existing customer: {linkedCustomer.name}</Text>
-                <Pressable onPress={() => { unlinkedIds.current.add(linkedCustomer.id); setLinkedCustomer(null); }}>
-                  <Text style={{ fontSize: 13, color: colors.destructive, fontFamily: 'Inter_500Medium' }}>Unlink</Text>
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 13,
+                    color: "#C06070",
+                    fontFamily: "Inter_500Medium",
+                  }}
+                >
+                  Linked to existing customer: {linkedCustomer.name}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    unlinkedIds.current.add(linkedCustomer.id);
+                    setLinkedCustomer(null);
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: colors.destructive,
+                      fontFamily: "Inter_500Medium",
+                    }}
+                  >
+                    Unlink
+                  </Text>
                 </Pressable>
               </View>
             )}
-            <FieldInput label="Name *" value={customerName} onChange={setCustomerName} placeholder="Customer name" colors={colors} />
+            <FieldInput
+              label="Name *"
+              value={customerName}
+              onChange={setCustomerName}
+              placeholder="Customer name"
+              colors={colors}
+            />
 
             <View style={{ gap: 6 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>Contact Info</Text>
-                {isSearching && <ActivityIndicator size="small" color="#C06070" />}
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    { color: colors.mutedForeground, marginBottom: 0 },
+                  ]}
+                >
+                  Contact Info
+                </Text>
+                {isSearching && (
+                  <ActivityIndicator size="small" color="#C06070" />
+                )}
               </View>
-              <View style={{ borderRadius: 10, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+              <View
+                style={{
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  overflow: "hidden",
+                }}
+              >
                 <TextInput
                   value={igHandle}
                   onChangeText={setIgHandle}
                   placeholder="@instagram"
                   placeholderTextColor={colors.mutedForeground}
-                  style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderWidth: 0, borderRadius: 0, borderBottomWidth: 1 }]}
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                      borderWidth: 0,
+                      borderRadius: 0,
+                      borderBottomWidth: 1,
+                    },
+                  ]}
                 />
                 <TextInput
                   value={phone}
@@ -474,7 +759,17 @@ export default function NewOrderScreen() {
                   placeholder="+91 98765 43210"
                   placeholderTextColor={colors.mutedForeground}
                   keyboardType="phone-pad"
-                  style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderWidth: 0, borderRadius: 0, borderBottomWidth: 1 }]}
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                      borderWidth: 0,
+                      borderRadius: 0,
+                      borderBottomWidth: 1,
+                    },
+                  ]}
                 />
                 <TextInput
                   value={email}
@@ -482,12 +777,28 @@ export default function NewOrderScreen() {
                   placeholder="google@gmail.com"
                   placeholderTextColor={colors.mutedForeground}
                   keyboardType="email-address"
-                  style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground, borderWidth: 0, borderRadius: 0 }]}
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                      borderWidth: 0,
+                      borderRadius: 0,
+                    },
+                  ]}
                 />
               </View>
             </View>
 
-            <FieldInput label="Delivery Address" value={address} onChange={setAddress} placeholder="Street, city, state, PIN code" colors={colors} multiline />
+            <FieldInput
+              label="Delivery Address"
+              value={address}
+              onChange={setAddress}
+              placeholder="Street, city, state, PIN code"
+              colors={colors}
+              multiline
+            />
           </FormSection>
 
           {/* Dates */}
@@ -506,10 +817,16 @@ export default function NewOrderScreen() {
               minDate={orderDate ? new Date(orderDate) : undefined}
             />
             {dueDate ? (
-              <View style={[styles.reminderNote, { backgroundColor: colors.accent }]}>
+              <View
+                style={[
+                  styles.reminderNote,
+                  { backgroundColor: colors.accent },
+                ]}
+              >
                 <Feather name="bell" size={13} color="#C06070" />
-                <Text style={[styles.reminderNoteText, { color: '#8B4D5C' }]}>
-                  You'll get a reminder 2 days before — {formatReminderDate(dueDate)}
+                <Text style={[styles.reminderNoteText, { color: "#8B4D5C" }]}>
+                  You'll get a reminder 2 days before —{" "}
+                  {formatReminderDate(dueDate)}
                 </Text>
               </View>
             ) : null}
@@ -521,16 +838,38 @@ export default function NewOrderScreen() {
               <FormSection
                 key={item.id}
                 title={
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1, marginRight: 8 }}>
-                    <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: colors.foreground }}>Product #{index + 1}</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flex: 1,
+                      marginRight: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontFamily: "Inter_600SemiBold",
+                        color: colors.foreground,
+                      }}
+                    >
+                      Product #{index + 1}
+                    </Text>
                     {items.length > 1 && (
                       <Pressable
                         onPress={() => {
-                          setItems(prev => prev.filter(x => x.id !== item.id));
+                          setItems((prev) =>
+                            prev.filter((x) => x.id !== item.id),
+                          );
                         }}
                         style={{ padding: 4 }}
                       >
-                        <Feather name="trash-2" size={18} color={colors.destructive} />
+                        <Feather
+                          name="trash-2"
+                          size={18}
+                          color={colors.destructive}
+                        />
                       </Pressable>
                     )}
                   </View>
@@ -539,15 +878,24 @@ export default function NewOrderScreen() {
                 <ProductAutocomplete
                   value={item.productName}
                   onChange={(name, product) => {
-                    setItems(prev => {
+                    setItems((prev) => {
                       const next = [...prev];
                       next[index] = {
                         ...next[index],
                         productName: name,
-                        productId: product ? product.id : '',
-                        price: product && !item.price ? String(product.defaultPrice) : item.price,
-                        imageUris: product && product.imagePath ? [product.imagePath] : item.imageUris,
-                        thumbUris: product && product.thumbnailPath ? [product.thumbnailPath] : item.thumbUris,
+                        productId: product ? product.id : "",
+                        price:
+                          product && !item.price
+                            ? String(product.defaultPrice)
+                            : item.price,
+                        imageUris:
+                          product && product.imagePath
+                            ? [product.imagePath]
+                            : item.imageUris,
+                        thumbUris:
+                          product && product.thumbnailPath
+                            ? [product.thumbnailPath]
+                            : item.thumbUris,
                         isCustom: product ? false : item.isCustom,
                       };
                       return next;
@@ -560,34 +908,52 @@ export default function NewOrderScreen() {
                 <View style={styles.customRow}>
                   <Pressable
                     onPress={() => {
-                      setItems(prev => {
+                      setItems((prev) => {
                         const next = [...prev];
-                        next[index] = { ...next[index], isCustom: !item.isCustom };
+                        next[index] = {
+                          ...next[index],
+                          isCustom: !item.isCustom,
+                        };
                         return next;
                       });
                     }}
                     style={[
                       styles.checkbox,
                       {
-                        borderColor: item.isCustom ? colors.primary : colors.border,
-                        backgroundColor: item.isCustom ? colors.primary : 'transparent',
+                        borderColor: item.isCustom
+                          ? colors.primary
+                          : colors.border,
+                        backgroundColor: item.isCustom
+                          ? colors.primary
+                          : "transparent",
                       },
                     ]}
                   >
-                    {item.isCustom && <Feather name="check" size={12} color={colors.primaryForeground} />}
+                    {item.isCustom && (
+                      <Feather
+                        name="check"
+                        size={12}
+                        color={colors.primaryForeground}
+                      />
+                    )}
                   </Pressable>
-                  <Text style={[styles.checkboxLabel, { color: colors.mutedForeground }]}>
+                  <Text
+                    style={[
+                      styles.checkboxLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
                     Mark as custom (don't add to catalog)
                   </Text>
                 </View>
 
-                <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flexDirection: "row", gap: 12 }}>
                   <View style={{ flex: 2 }}>
                     <FieldInput
                       label="Unit Price"
                       value={item.price}
                       onChange={(val: string) => {
-                        setItems(prev => {
+                        setItems((prev) => {
                           const next = [...prev];
                           next[index] = { ...next[index], price: val };
                           return next;
@@ -603,7 +969,7 @@ export default function NewOrderScreen() {
                       label="Qty"
                       value={item.quantity}
                       onChange={(val: string) => {
-                        setItems(prev => {
+                        setItems((prev) => {
                           const next = [...prev];
                           next[index] = { ...next[index], quantity: val };
                           return next;
@@ -620,7 +986,7 @@ export default function NewOrderScreen() {
                   label="Size / Dimensions (Custom)"
                   value={item.size}
                   onChange={(val: string) => {
-                    setItems(prev => {
+                    setItems((prev) => {
                       const next = [...prev];
                       next[index] = { ...next[index], size: val };
                       return next;
@@ -630,47 +996,104 @@ export default function NewOrderScreen() {
                   colors={colors}
                 />
 
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 4, marginBottom: 6 }]}>Reference Photos <Text style={{ fontSize: 11 }}>(max 4)</Text></Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 4 }}>
-                  {item.imageUris.map((uri, imgIdx) => (
-                    <View key={uri} style={{ alignItems: 'center', gap: 6 }}>
-                      <View style={{ width: 80, height: 80, borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
-                        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                {/* Custom Size / Measurement Photos */}
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    {
+                      color: colors.mutedForeground,
+                      marginTop: 4,
+                      marginBottom: 6,
+                    },
+                  ]}
+                >
+                  Custom Size / Measurement Photos <Text style={{ fontSize: 11 }}>(max 10)</Text>
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 12, paddingVertical: 4, marginBottom: 8 }}
+                >
+                  {item.sizeImageUris.map((uri, sImgIdx) => (
+                    <View key={uri} style={{ alignItems: "center", gap: 6 }}>
+                      <View
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          position: "relative",
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                        }}
+                      >
+                        <Image
+                          source={{ uri }}
+                          style={{ width: "100%", height: "100%" }}
+                          contentFit="cover"
+                        />
                         <Pressable
-                          onPress={() => deletePickedImage(index, imgIdx)}
+                          onPress={() => deletePickedSizeImage(index, sImgIdx)}
                           style={{
-                            position: 'absolute',
+                            position: "absolute",
                             top: 4,
                             right: 4,
-                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            backgroundColor: "rgba(0,0,0,0.6)",
                             width: 18,
                             height: 18,
                             borderRadius: 9,
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           <Feather name="x" size={10} color="#fff" />
                         </Pressable>
                       </View>
-                      {item.imageUris.length > 1 && (
-                        <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', alignItems: 'center' }}>
-                          {imgIdx > 0 ? (
+                      {item.sizeImageUris.length > 1 && (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            gap: 10,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          {sImgIdx > 0 ? (
                             <Pressable
-                              onPress={() => moveImage(index, imgIdx, 'left')}
-                              style={{ padding: 4, backgroundColor: colors.accent, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
+                              onPress={() => moveSizeImage(index, sImgIdx, "left")}
+                              style={{
+                                padding: 4,
+                                backgroundColor: colors.accent,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                              }}
                             >
-                              <Feather name="chevron-left" size={12} color="#C06070" />
+                              <Feather
+                                name="chevron-left"
+                                size={12}
+                                color="#C06070"
+                              />
                             </Pressable>
                           ) : (
                             <View style={{ width: 22, height: 22 }} />
                           )}
-                          {imgIdx < item.imageUris.length - 1 ? (
+                          {sImgIdx < item.sizeImageUris.length - 1 ? (
                             <Pressable
-                              onPress={() => moveImage(index, imgIdx, 'right')}
-                              style={{ padding: 4, backgroundColor: colors.accent, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
+                              onPress={() => moveSizeImage(index, sImgIdx, "right")}
+                              style={{
+                                padding: 4,
+                                backgroundColor: colors.accent,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                              }}
                             >
-                              <Feather name="chevron-right" size={12} color="#C06070" />
+                              <Feather
+                                name="chevron-right"
+                                size={12}
+                                color="#C06070"
+                              />
                             </Pressable>
                           ) : (
                             <View style={{ width: 22, height: 22 }} />
@@ -679,7 +1102,142 @@ export default function NewOrderScreen() {
                       )}
                     </View>
                   ))}
-                  {item.imageUris.length < 4 && (
+                  {item.sizeImageUris.length < 10 && (
+                    <Pressable
+                      onPress={() => pickSizeImage(index)}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderStyle: "dashed",
+                        backgroundColor: colors.card,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        alignSelf: "flex-start",
+                        gap: 3,
+                      }}
+                    >
+                      <Feather
+                        name="maximize-2"
+                        size={16}
+                        color="#C06070"
+                      />
+                      <Feather
+                        name="plus"
+                        size={14}
+                        color={colors.mutedForeground}
+                      />
+                    </Pressable>
+                  )}
+                </ScrollView>
+
+                {/* Reference Photos */}
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    {
+                      color: colors.mutedForeground,
+                      marginTop: 4,
+                      marginBottom: 6,
+                    },
+                  ]}
+                >
+                  Reference Photos <Text style={{ fontSize: 11 }}>(max 10)</Text>
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
+                >
+                  {item.imageUris.map((uri, imgIdx) => (
+                    <View key={uri} style={{ alignItems: "center", gap: 6 }}>
+                      <View
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          position: "relative",
+                        }}
+                      >
+                        <Image
+                          source={{ uri }}
+                          style={{ width: "100%", height: "100%" }}
+                          contentFit="cover"
+                        />
+                        <Pressable
+                          onPress={() => deletePickedImage(index, imgIdx)}
+                          style={{
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            backgroundColor: "rgba(0,0,0,0.6)",
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Feather name="x" size={10} color="#fff" />
+                        </Pressable>
+                      </View>
+                      {item.imageUris.length > 1 && (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            gap: 10,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          {imgIdx > 0 ? (
+                            <Pressable
+                              onPress={() => moveImage(index, imgIdx, "left")}
+                              style={{
+                                padding: 4,
+                                backgroundColor: colors.accent,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                              }}
+                            >
+                              <Feather
+                                name="chevron-left"
+                                size={12}
+                                color="#C06070"
+                              />
+                            </Pressable>
+                          ) : (
+                            <View style={{ width: 22, height: 22 }} />
+                          )}
+                          {imgIdx < item.imageUris.length - 1 ? (
+                            <Pressable
+                              onPress={() => moveImage(index, imgIdx, "right")}
+                              style={{
+                                padding: 4,
+                                backgroundColor: colors.accent,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                              }}
+                            >
+                              <Feather
+                                name="chevron-right"
+                                size={12}
+                                color="#C06070"
+                              />
+                            </Pressable>
+                          ) : (
+                            <View style={{ width: 22, height: 22 }} />
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                  {item.imageUris.length < 10 && (
                     <Pressable
                       onPress={() => pickImage(index)}
                       style={{
@@ -688,14 +1246,18 @@ export default function NewOrderScreen() {
                         borderRadius: 10,
                         borderWidth: 1,
                         borderColor: colors.border,
-                        borderStyle: 'dashed',
+                        borderStyle: "dashed",
                         backgroundColor: colors.card,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        alignSelf: 'flex-start',
+                        alignItems: "center",
+                        justifyContent: "center",
+                        alignSelf: "flex-start",
                       }}
                     >
-                      <Feather name="plus" size={18} color={colors.mutedForeground} />
+                      <Feather
+                        name="plus"
+                        size={18}
+                        color={colors.mutedForeground}
+                      />
                     </Pressable>
                   )}
                 </ScrollView>
@@ -704,86 +1266,161 @@ export default function NewOrderScreen() {
 
             <Pressable
               onPress={() => {
-                setItems(prev => [...prev, {
-                  id: genId(),
-                  productId: '',
-                  productName: '',
-                  size: '',
-                  price: '',
-                  quantity: '1',
-                  imageUris: [],
-                  thumbUris: [],
-                  isCustom: false,
-                }]);
+                setItems((prev) => [
+                  ...prev,
+                  {
+                    id: genId(),
+                    productId: "",
+                    productName: "",
+                    size: "",
+                    price: "",
+                    quantity: "1",
+                    imageUris: [],
+                    thumbUris: [],
+                    sizeImageUris: [],
+                    sizeThumbUris: [],
+                    isCustom: false,
+                  },
+                ]);
               }}
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
                 gap: 8,
                 padding: 14,
                 borderRadius: 12,
                 borderWidth: 1,
-                borderColor: '#C06070',
-                borderStyle: 'dashed',
+                borderColor: "#C06070",
+                borderStyle: "dashed",
                 marginHorizontal: 16,
                 backgroundColor: colors.accent,
               }}
             >
               <Feather name="plus" size={16} color="#C06070" />
-              <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#C06070' }}>Add Another Product</Text>
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontFamily: "Inter_600SemiBold",
+                  color: "#C06070",
+                }}
+              >
+                Add Another Product
+              </Text>
             </Pressable>
           </View>
 
           {/* Payment */}
           <FormSection title="Payment">
             <View style={{ marginBottom: 16 }}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>Total Price (Calculated)</Text>
-              <View style={{
-                backgroundColor: colors.accent,
-                padding: 14,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}>
-                <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: '#C06070' }}>₹{totalPrice.toFixed(2)}</Text>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: colors.mutedForeground, marginBottom: 4 },
+                ]}
+              >
+                Total Price (Calculated)
+              </Text>
+              <View
+                style={{
+                  backgroundColor: colors.accent,
+                  padding: 14,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontFamily: "Inter_700Bold",
+                    color: "#C06070",
+                  }}
+                >
+                  ₹{totalPrice.toFixed(2)}
+                </Text>
               </View>
             </View>
             <View style={{ gap: 6 }}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Payment Status</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+              >
+                Payment Status
+              </Text>
               <View style={styles.chipRow}>
-                {PAYMENT_STATUSES.map(ps => (
+                {PAYMENT_STATUSES.map((ps) => (
                   <Pressable
                     key={ps}
                     onPress={() => setPaymentStatus(ps)}
-                    style={[styles.chip, {
-                      backgroundColor: paymentStatus === ps ? colors.primary : colors.card,
-                      borderColor: paymentStatus === ps ? colors.primary : colors.border,
-                    }]}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor:
+                          paymentStatus === ps ? colors.primary : colors.card,
+                        borderColor:
+                          paymentStatus === ps ? colors.primary : colors.border,
+                      },
+                    ]}
                   >
-                    <Text style={[styles.chipText, { color: paymentStatus === ps ? colors.primaryForeground : colors.mutedForeground }]}>{ps}</Text>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color:
+                            paymentStatus === ps
+                              ? colors.primaryForeground
+                              : colors.mutedForeground,
+                        },
+                      ]}
+                    >
+                      {ps}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
             </View>
-            {paymentStatus === 'Partial' && (
-              <FieldInput label="Amount Paid" value={amountPaid} onChange={setAmountPaid} placeholder="0.00" keyboardType="decimal-pad" colors={colors} />
+            {paymentStatus === "Partial" && (
+              <FieldInput
+                label="Amount Paid"
+                value={amountPaid}
+                onChange={setAmountPaid}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                colors={colors}
+              />
             )}
           </FormSection>
 
           {/* Status */}
           <FormSection title="Order Status">
             <View style={styles.chipRow}>
-              {STATUSES.map(s => (
+              {STATUSES.map((s) => (
                 <Pressable
                   key={s}
                   onPress={() => setStatus(s)}
-                  style={[styles.chip, {
-                    backgroundColor: status === s ? colors.primary : colors.card,
-                    borderColor: status === s ? colors.primary : colors.border,
-                  }]}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor:
+                        status === s ? colors.primary : colors.card,
+                      borderColor:
+                        status === s ? colors.primary : colors.border,
+                    },
+                  ]}
                 >
-                  <Text style={[styles.chipText, { color: status === s ? colors.primaryForeground : colors.mutedForeground }]}>{s}</Text>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      {
+                        color:
+                          status === s
+                            ? colors.primaryForeground
+                            : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {s}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -791,62 +1428,153 @@ export default function NewOrderScreen() {
 
           {/* Tracking & Notes */}
           <FormSection title="Additional">
-            <FieldInput label="Tracking Link / Number" value={trackingLink} onChange={setTrackingLink} placeholder="Paste tracking URL..." colors={colors} />
+            <FieldInput
+              label="Tracking Link / Number"
+              value={trackingLink}
+              onChange={setTrackingLink}
+              placeholder="Paste tracking URL..."
+              colors={colors}
+            />
             <View style={{ gap: 6 }}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Notes</Text>
+              <Text
+                style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+              >
+                Notes
+              </Text>
               <TextInput
                 value={notes}
                 onChangeText={setNotes}
                 multiline
                 placeholder="Any extra notes..."
                 placeholderTextColor={colors.mutedForeground}
-                style={[styles.notesInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                style={[
+                  styles.notesInput,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                  },
+                ]}
               />
             </View>
           </FormSection>
         </ScrollView>
         {/* Sticky Action Buttons */}
-        <View style={{ padding: 16, paddingTop: 12, paddingBottom: Math.max(insets.bottom + 8, 16), borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.background }}>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View
+          style={{
+            padding: 16,
+            paddingTop: 12,
+            paddingBottom: Math.max(insets.bottom + 8, 16),
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.border,
+            backgroundColor: colors.background,
+          }}
+        >
+          <View style={{ flexDirection: "row", gap: 12 }}>
             {!isEditing && (
-              <Pressable onPress={() => setPasteVisible(true)} style={[styles.pasteBtn, { flex: 1, backgroundColor: colors.accent, justifyContent: 'center', paddingVertical: 14, borderRadius: 14 }]}>
+              <Pressable
+                onPress={() => setPasteVisible(true)}
+                style={[
+                  styles.pasteBtn,
+                  {
+                    flex: 1,
+                    backgroundColor: colors.accent,
+                    justifyContent: "center",
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                  },
+                ]}
+              >
                 <Feather name="clipboard" size={16} color="#C06070" />
-                <Text style={[styles.pasteBtnText, { color: '#C06070', fontSize: 16 }]}>Paste</Text>
+                <Text
+                  style={[
+                    styles.pasteBtnText,
+                    { color: "#C06070", fontSize: 16 },
+                  ]}
+                >
+                  Paste
+                </Text>
               </Pressable>
             )}
-            <Pressable onPress={handleSave} disabled={saving} style={[styles.saveBtn, { flex: 1, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 14 }]}>
-              <Text style={[styles.saveBtnText, { color: colors.primaryForeground, fontSize: 16 }]}>
-                {saving ? 'Saving...' : 'Save Order'}
+            <Pressable
+              onPress={handleSave}
+              disabled={saving}
+              style={[
+                styles.saveBtn,
+                {
+                  flex: 1,
+                  backgroundColor: colors.primary,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.saveBtnText,
+                  { color: colors.primaryForeground, fontSize: 16 },
+                ]}
+              >
+                {saving ? "Saving..." : "Save Order"}
               </Text>
             </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
 
-      <SmartPasteModal visible={pasteVisible} onClose={() => setPasteVisible(false)} onConfirm={handleParsed} />
+      <SmartPasteModal
+        visible={pasteVisible}
+        onClose={() => setPasteVisible(false)}
+        onConfirm={handleParsed}
+      />
     </View>
   );
 }
 
 function formatReminderDate(dueDate: string): string {
-  if (!dueDate) return '';
+  if (!dueDate) return "";
   const due = new Date(`${dueDate}T00:00:00`);
   const reminder = new Date(due);
   reminder.setDate(due.getDate() - 2);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   return `${months[reminder.getMonth()]} ${reminder.getDate()} at 10:00 AM`;
 }
 
-function FormSection({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
+function FormSection({
+  title,
+  children,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+}) {
   const colors = useColors();
   return (
     <View style={styles.section}>
-      {title && typeof title === 'string' ? (
-        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>{title.toUpperCase()}</Text>
+      {title && typeof title === "string" ? (
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+          {title.toUpperCase()}
+        </Text>
       ) : React.isValidElement(title) ? (
         title
       ) : title ? (
-        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>{String(title).toUpperCase()}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+          {String(title).toUpperCase()}
+        </Text>
       ) : null}
       <View style={styles.sectionBody}>{children}</View>
     </View>
@@ -854,21 +1582,45 @@ function FormSection({ title, children }: { title: React.ReactNode; children: Re
 }
 
 const SOURCE_ICONS: Record<string, string> = {
-  Instagram: 'instagram', Facebook: 'facebook', WhatsApp: 'message-circle',
-  Website: 'globe', Email: 'mail', Manual: 'edit-3',
+  Instagram: "instagram",
+  Facebook: "facebook",
+  WhatsApp: "message-circle",
+  Website: "globe",
+  Email: "mail",
+  Manual: "edit-3",
 };
 
-function SourceDropdown({ value, onChange, colors }: { value: OrderSource; onChange: (s: OrderSource) => void; colors: any }) {
+function SourceDropdown({
+  value,
+  onChange,
+  colors,
+}: {
+  value: OrderSource;
+  onChange: (s: OrderSource) => void;
+  colors: any;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <View style={{ zIndex: open ? 100 : 1 }}>
       <Pressable
-        onPress={() => setOpen(o => !o)}
-        style={[styles.dropdownTrigger, { backgroundColor: colors.card, borderColor: open ? colors.primary : colors.border }]}
+        onPress={() => setOpen((o) => !o)}
+        style={[
+          styles.dropdownTrigger,
+          {
+            backgroundColor: colors.card,
+            borderColor: open ? colors.primary : colors.border,
+          },
+        ]}
       >
         <Feather name={SOURCE_ICONS[value] as any} size={16} color="#C06070" />
-        <Text style={[styles.dropdownValue, { color: colors.foreground }]}>{value}</Text>
-        <Feather name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+        <Text style={[styles.dropdownValue, { color: colors.foreground }]}>
+          {value}
+        </Text>
+        <Feather
+          name={open ? "chevron-up" : "chevron-down"}
+          size={16}
+          color={colors.mutedForeground}
+        />
       </Pressable>
       {open && (
         <>
@@ -877,16 +1629,59 @@ function SourceDropdown({ value, onChange, colors }: { value: OrderSource; onCha
             onPress={() => setOpen(false)}
             pointerEvents="box-none"
           />
-          <View style={[styles.ddList, { backgroundColor: colors.card, borderColor: colors.border, position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200 }]}>
+          <View
+            style={[
+              styles.ddList,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                zIndex: 200,
+              },
+            ]}
+          >
             {SOURCES.map((s, i) => (
               <Pressable
                 key={s}
-                onPress={() => { onChange(s); setOpen(false); }}
-                style={[styles.ddItem, { borderBottomColor: colors.border, borderBottomWidth: i < SOURCES.length - 1 ? StyleSheet.hairlineWidth : 0 }]}
+                onPress={() => {
+                  onChange(s);
+                  setOpen(false);
+                }}
+                style={[
+                  styles.ddItem,
+                  {
+                    borderBottomColor: colors.border,
+                    borderBottomWidth:
+                      i < SOURCES.length - 1 ? StyleSheet.hairlineWidth : 0,
+                  },
+                ]}
               >
-                <Feather name={SOURCE_ICONS[s] as any} size={16} color={s === value ? '#C06070' : colors.mutedForeground} />
-                <Text style={[styles.ddItemText, { color: s === value ? colors.foreground : colors.mutedForeground, fontFamily: s === value ? 'Inter_600SemiBold' : 'Inter_400Regular' }]}>{s}</Text>
-                {s === value && <Feather name="check" size={14} color="#C06070" />}
+                <Feather
+                  name={SOURCE_ICONS[s] as any}
+                  size={16}
+                  color={s === value ? "#C06070" : colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.ddItemText,
+                    {
+                      color:
+                        s === value
+                          ? colors.foreground
+                          : colors.mutedForeground,
+                      fontFamily:
+                        s === value ? "Inter_600SemiBold" : "Inter_400Regular",
+                    },
+                  ]}
+                >
+                  {s}
+                </Text>
+                {s === value && (
+                  <Feather name="check" size={14} color="#C06070" />
+                )}
               </Pressable>
             ))}
           </View>
@@ -896,22 +1691,42 @@ function SourceDropdown({ value, onChange, colors }: { value: OrderSource; onCha
   );
 }
 
-function FieldInput({ label, value, onChange, placeholder, keyboardType, colors, multiline }: any) {
+function FieldInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  keyboardType,
+  colors,
+  multiline,
+}: any) {
   return (
     <View style={{ gap: 6 }}>
-      {label ? <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>{label}</Text> : null}
+      {label ? (
+        <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+          {label}
+        </Text>
+      ) : null}
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={colors.mutedForeground}
-        keyboardType={keyboardType || 'default'}
+        keyboardType={keyboardType || "default"}
         multiline={multiline}
         numberOfLines={multiline ? 6 : 1}
         style={[
           styles.textInput,
-          { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
-          multiline && { minHeight: 72, textAlignVertical: 'top', paddingTop: 12 },
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            color: colors.foreground,
+          },
+          multiline && {
+            minHeight: 72,
+            textAlignVertical: "top",
+            paddingTop: 12,
+          },
         ]}
       />
     </View>
@@ -922,55 +1737,122 @@ const styles = StyleSheet.create({
   nogap: { gap: 0 },
   container: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  title: { fontSize: 17, fontFamily: 'Inter_600SemiBold' },
-  headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  pasteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 7 },
-  pasteBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  title: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
+  headerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+  pasteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 100,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  pasteBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   saveBtn: { borderRadius: 100, paddingHorizontal: 18, paddingVertical: 8 },
-  saveBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  saveBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   body: { padding: 16, gap: 20 },
   section: { gap: 10 },
-  sectionTitle: { fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8 },
+  sectionTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+  },
   sectionBody: { gap: 12 },
-  chip: { borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1 },
-  chipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  fieldLabel: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  textInput: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: 'Inter_400Regular' },
-  customRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  checkboxLabel: { fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 },
-  imagePicker: { height: 100, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', overflow: 'hidden' },
-  imagePreview: { width: '100%', height: '100%' },
-  imageEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  imageEmptyText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  notesInput: { borderRadius: 10, borderWidth: 1, padding: 14, fontSize: 14, fontFamily: 'Inter_400Regular', minHeight: 90, textAlignVertical: 'top' },
+  chip: {
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+  },
+  chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  fieldLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  textInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  customRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxLabel: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  imagePicker: {
+    height: 100,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    overflow: "hidden",
+  },
+  imagePreview: { width: "100%", height: "100%" },
+  imageEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  imageEmptyText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  notesInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 14,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    minHeight: 90,
+    textAlignVertical: "top",
+  },
   reminderNote: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  reminderNoteText: { fontSize: 13, fontFamily: 'Inter_500Medium', flex: 1 },
+  reminderNoteText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
   dropdownTrigger: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
-  dropdownValue: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium' },
-  ddBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
+  dropdownValue: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium" },
+  ddBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)" },
   ddList: {
-    borderRadius: 14, borderWidth: 1,
-    overflow: 'hidden', marginTop: 4,
-    shadowColor: '#000',
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginTop: 4,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
   },
   ddItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   ddItemText: { flex: 1, fontSize: 15 },
 });

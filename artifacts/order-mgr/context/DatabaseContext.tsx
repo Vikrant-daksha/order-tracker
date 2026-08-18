@@ -125,7 +125,9 @@ function loadOrdersFromDb(): Order[] {
       parsedItems = parsedItems.map(item => ({
         ...item,
         imagePaths: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
-        thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : [])
+        thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : []),
+        sizeImagePaths: item.sizeImagePaths || (item.sizeImagePath ? [item.sizeImagePath] : []),
+        sizeThumbnailPaths: item.sizeThumbnailPaths || (item.sizeThumbnailPath ? [item.sizeThumbnailPath] : []),
       }));
 
       return {
@@ -193,7 +195,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
               parsedItems = parsedItems.map((item: any) => ({
                 ...item,
                 imagePaths: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
-                thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : [])
+                thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : []),
+                sizeImagePaths: item.sizeImagePaths || (item.sizeImagePath ? [item.sizeImagePath] : []),
+                sizeThumbnailPaths: item.sizeThumbnailPaths || (item.sizeThumbnailPath ? [item.sizeThumbnailPath] : []),
               }));
               return {
                 ...o,

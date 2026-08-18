@@ -1,11 +1,11 @@
-import { Order } from '@/types';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
-import { Platform } from 'react-native';
+import { Order } from "@/types";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import { Platform } from "react-native";
 
 function escape(val: string | number | undefined): string {
-  const s = String(val ?? '');
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+  const s = String(val ?? "");
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
@@ -13,12 +13,22 @@ function escape(val: string | number | undefined): string {
 
 export function buildCSV(orders: Order[]): string {
   const headers = [
-    'ID', 'Source', 'Customer Name', 'Contact Info', 'Order Date', 'Due Date',
-    'Product', 'Price', 'Payment Status', 'Amount Paid', 'Order Status',
-    'Tracking Link', 'Notes'
+    "ID",
+    "Source",
+    "Customer Name",
+    "Contact Info",
+    "Order Date",
+    "Due Date",
+    "Product",
+    "Price",
+    "Payment Status",
+    "Amount Paid",
+    "Order Status",
+    "Tracking Link",
+    "Notes",
   ];
 
-  const rows = orders.map(o => [
+  const rows = orders.map((o) => [
     escape(o.id),
     escape(o.source),
     escape(o.customerName),
@@ -34,15 +44,15 @@ export function buildCSV(orders: Order[]): string {
     escape(o.notes),
   ]);
 
-  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  return [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
 }
 
 export async function exportCSV(orders: Order[]) {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     const csv = buildCSV(orders);
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `orders_${Date.now()}.csv`;
     a.click();
@@ -52,21 +62,30 @@ export async function exportCSV(orders: Order[]) {
 
   const csv = buildCSV(orders);
   const path = `${FileSystem.cacheDirectory}orders_${Date.now()}.csv`;
-  await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+  await FileSystem.writeAsStringAsync(path, csv, {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
 
   const isAvailable = await Sharing.isAvailableAsync();
   if (isAvailable) {
-    await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export Orders CSV' });
+    await Sharing.shareAsync(path, {
+      mimeType: "text/csv",
+      dialogTitle: "Export Orders CSV",
+    });
   }
 }
 
 export async function exportBackup(orders: Order[], products: any[]) {
-  const data = JSON.stringify({ orders, products, exportedAt: new Date().toISOString() }, null, 2);
+  const data = JSON.stringify(
+    { orders, products, exportedAt: new Date().toISOString() },
+    null,
+    2,
+  );
 
-  if (Platform.OS === 'web') {
-    const blob = new Blob([data], { type: 'application/json' });
+  if (Platform.OS === "web") {
+    const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `orderflow_backup_${Date.now()}.json`;
     a.click();
@@ -75,9 +94,14 @@ export async function exportBackup(orders: Order[], products: any[]) {
   }
 
   const path = `${FileSystem.cacheDirectory}orderflow_backup_${Date.now()}.json`;
-  await FileSystem.writeAsStringAsync(path, data, { encoding: FileSystem.EncodingType.UTF8 });
+  await FileSystem.writeAsStringAsync(path, data, {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
   const isAvailable = await Sharing.isAvailableAsync();
   if (isAvailable) {
-    await Sharing.shareAsync(path, { mimeType: 'application/json', dialogTitle: 'Export Backup' });
+    await Sharing.shareAsync(path, {
+      mimeType: "application/json",
+      dialogTitle: "Export Backup",
+    });
   }
 }

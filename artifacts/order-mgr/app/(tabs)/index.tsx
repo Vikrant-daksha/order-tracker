@@ -36,15 +36,17 @@ function getTodayQuote(): string {
 }
 
 function isOverdue(order: Order) {
-  if (!order.dueDate || order.status === 'Delivered') return false;
+  if (!order.dueDate || order.status === 'Delivered' || order.status === 'Shipped') return false;
   return order.dueDate < new Date().toISOString().split('T')[0];
 }
 
 function isDueToday(order: Order) {
+  if (order.status === 'Shipped' || order.status === 'Delivered') return false;
   return order.dueDate === new Date().toISOString().split('T')[0];
 }
 
 function isDueThisWeek(order: Order) {
+  if (order.status === 'Shipped' || order.status === 'Delivered') return false;
   const today = new Date();
   const end = new Date(today);
   end.setDate(today.getDate() + 7);
@@ -65,7 +67,7 @@ export default function HomeScreen() {
   const overdue = useMemo(() => active.filter(isOverdue), [active]);
   const dueToday = useMemo(() => active.filter(isDueToday), [active]);
   const dueTomorrow = useMemo(() => active.filter(o => {
-    if (!o.dueDate || o.status === 'Delivered') return false;
+    if (!o.dueDate || o.status === 'Delivered' || o.status === 'Shipped') return false;
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return o.dueDate === tomorrow.toISOString().split('T')[0];

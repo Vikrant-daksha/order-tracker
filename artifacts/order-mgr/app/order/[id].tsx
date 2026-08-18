@@ -63,6 +63,9 @@ export default function OrderDetailScreen() {
   const [activeViewerImage, setActiveViewerImage] = useState<string | null>(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [galleryTab, setGalleryTab] = useState<'product' | 'size'>('product');
+  const carouselRef = React.useRef<ScrollView>(null);
+  const mainScrollRef = React.useRef<ScrollView>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -90,11 +93,52 @@ export default function OrderDetailScreen() {
     ? activeOrder.items[selectedItemIndex]
     : null;
 
-  const images = selectedItem
-    ? (selectedItem.imagePaths && selectedItem.imagePaths.length > 0
-        ? selectedItem.imagePaths
-        : (selectedItem.imagePath ? [selectedItem.imagePath] : []))
-    : (activeOrder.referenceImagePath ? [activeOrder.referenceImagePath] : []);
+  const productImages = React.useMemo(() => {
+    if (selectedItem) {
+      if (selectedItem.imagePaths && selectedItem.imagePaths.length > 0) {
+        return selectedItem.imagePaths;
+      }
+      if (selectedItem.imagePath) {
+        return [selectedItem.imagePath];
+      }
+      return [];
+    }
+    return activeOrder.referenceImagePath ? [activeOrder.referenceImagePath] : [];
+  }, [selectedItem, activeOrder.referenceImagePath]);
+
+  const sizeImages = React.useMemo(() => {
+    if (selectedItem) {
+      if (selectedItem.sizeImagePaths && selectedItem.sizeImagePaths.length > 0) {
+        return selectedItem.sizeImagePaths;
+      }
+      if (selectedItem.sizeImagePath) {
+        return [selectedItem.sizeImagePath];
+      }
+      return [];
+    }
+    if (activeOrder.sizeImagePaths && activeOrder.sizeImagePaths.length > 0) {
+      return activeOrder.sizeImagePaths;
+    }
+    if (activeOrder.sizeImagePath) {
+      return [activeOrder.sizeImagePath];
+    }
+    return [];
+  }, [selectedItem, activeOrder.sizeImagePaths, activeOrder.sizeImagePath]);
+
+  const hasProductImages = productImages.length > 0;
+  const hasSizeImages = sizeImages.length > 0;
+
+  const effectiveTab = (galleryTab === 'size' && hasSizeImages) || (!hasProductImages && hasSizeImages)
+    ? 'size'
+    : 'product';
+
+  const currentGalleryImages = effectiveTab === 'size' ? sizeImages : productImages;
+  const isViewingSize = effectiveTab === 'size';
+
+  React.useEffect(() => {
+    setActiveImageIndex(0);
+    carouselRef.current?.scrollTo({ x: 0, animated: false });
+  }, [selectedItemIndex, effectiveTab]);
 
   function handleSend() {
     const source = activeOrder.source;
@@ -188,13 +232,84 @@ export default function OrderDetailScreen() {
       </View>
 
       <ScrollView
+        ref={mainScrollRef}
         contentContainerStyle={{ padding: 16, paddingBottom: Platform.OS === 'web' ? 60 : insets.bottom + 30 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Cover Images Carousel — tap to open full-screen viewer */}
-        {images.length > 0 ? (
+        {currentGalleryImages.length > 0 ? (
           <View style={{ marginBottom: 16 }}>
+            {/* Gallery Type Segmented Switcher when both product and size photos exist */}
+            {hasProductImages && hasSizeImages && (
+              <View style={[styles.galleryTabContainer, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Pressable
+                  onPress={() => {
+                    setGalleryTab('product');
+                    setActiveImageIndex(0);
+                    carouselRef.current?.scrollTo({ x: 0, animated: false });
+                  }}
+                  style={[
+                    styles.galleryTabButton,
+                    effectiveTab === 'product' && [styles.galleryTabButtonActive, { backgroundColor: colors.card }]
+                  ]}
+                >
+                  <Feather
+                    name="image"
+                    size={13}
+                    color={effectiveTab === 'product' ? '#C06070' : colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.galleryTabText,
+                      { color: effectiveTab === 'product' ? colors.foreground : colors.mutedForeground },
+                      effectiveTab === 'product' && styles.galleryTabTextActive
+                    ]}
+                  >
+                    Product ({productImages.length})
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setGalleryTab('size');
+                    setActiveImageIndex(0);
+                    carouselRef.current?.scrollTo({ x: 0, animated: false });
+                  }}
+                  style={[
+                    styles.galleryTabButton,
+                    effectiveTab === 'size' && [styles.galleryTabButtonActive, { backgroundColor: colors.card }]
+                  ]}
+                >
+                  <Feather
+                    name="maximize-2"
+                    size={13}
+                    color={effectiveTab === 'size' ? '#C06070' : colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.galleryTabText,
+                      { color: effectiveTab === 'size' ? colors.foreground : colors.mutedForeground },
+                      effectiveTab === 'size' && styles.galleryTabTextActive
+                    ]}
+                  >
+                    Custom Size ({sizeImages.length})
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* If only custom size photos exist (no product photos), show a subtle header chip */}
+            {!hasProductImages && hasSizeImages && (
+              <View style={[styles.singleTypeHeaderBadge, { backgroundColor: colors.accent, borderColor: colors.border }]}>
+                <Feather name="maximize-2" size={13} color="#C06070" />
+                <Text style={[styles.singleTypeHeaderText, { color: '#8B4D5C' }]}>
+                  Custom Size Photos ({sizeImages.length})
+                </Text>
+              </View>
+            )}
+
             <ScrollView
+              ref={carouselRef}
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
@@ -206,9 +321,9 @@ export default function OrderDetailScreen() {
               scrollEventThrottle={16}
               style={{ width: CAROUSEL_WIDTH, height: CAROUSEL_WIDTH, borderRadius: colors.radius + 4, overflow: 'hidden' }}
             >
-              {images.map((img, i) => (
+              {currentGalleryImages.map((img, i) => (
                 <Pressable
-                  key={i}
+                  key={`${effectiveTab}-${i}`}
                   onPress={() => setActiveViewerImage(img)}
                   style={{ width: CAROUSEL_WIDTH, height: CAROUSEL_WIDTH }}
                 >
@@ -217,18 +332,29 @@ export default function OrderDetailScreen() {
                     style={{ width: '100%', height: '100%' }}
                     contentFit="cover"
                   />
+                  {/* Top-left image type badge */}
+                  <View style={styles.imageTypeBadgeOverlay}>
+                    <View style={[styles.imageTypeBadge, { backgroundColor: isViewingSize ? 'rgba(192, 96, 112, 0.9)' : 'rgba(0, 0, 0, 0.55)' }]}>
+                      <Feather name={isViewingSize ? "maximize-2" : "image"} size={11} color="#fff" />
+                      <Text style={styles.imageTypeBadgeText}>
+                        {isViewingSize ? `Size Photo ${i + 1}/${currentGalleryImages.length}` : `Product Photo ${i + 1}/${currentGalleryImages.length}`}
+                      </Text>
+                    </View>
+                  </View>
+
                   <View style={styles.zoomHintOverlay}>
                     <View style={styles.zoomHintBadge}>
                       <Feather name="zoom-in" size={13} color="#fff" />
-                      <Text style={styles.zoomHintText}>Tap to view ({i + 1}/{images.length})</Text>
+                      <Text style={styles.zoomHintText}>Tap to view ({i + 1}/{currentGalleryImages.length})</Text>
                     </View>
                   </View>
                 </Pressable>
               ))}
             </ScrollView>
-            {images.length > 1 && (
+
+            {currentGalleryImages.length > 1 && (
               <View style={styles.dotContainer}>
-                {images.map((_, i) => (
+                {currentGalleryImages.map((_, i) => (
                   <View
                     key={i}
                     style={[
@@ -239,22 +365,96 @@ export default function OrderDetailScreen() {
                 ))}
               </View>
             )}
+
+            {/* Thumbnail selector row for quick jump */}
+            {currentGalleryImages.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.thumbnailStrip}
+              >
+                {currentGalleryImages.map((thumb, idx) => {
+                  const isThumbActive = idx === activeImageIndex;
+                  return (
+                    <Pressable
+                      key={idx}
+                      onPress={() => {
+                        setActiveImageIndex(idx);
+                        carouselRef.current?.scrollTo({ x: idx * CAROUSEL_WIDTH, animated: true });
+                      }}
+                      style={[
+                        styles.thumbItem,
+                        { borderColor: isThumbActive ? '#C06070' : colors.border },
+                        isThumbActive && { borderWidth: 2 }
+                      ]}
+                    >
+                      <Image source={{ uri: thumb }} style={styles.thumbImage} contentFit="cover" />
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
         ) : null}
 
-        {/* Size badge — shown below carousel when selected item has a size */}
-        {selectedItem?.size ? (
-          <View style={[
-            styles.sizeBadgeRow,
-            { backgroundColor: colors.card, borderColor: colors.border }
-          ]}>
-            <View style={[styles.sizeBadge, { backgroundColor: colors.accent }]}>
-              <Feather name="maximize-2" size={12} color="#C06070" />
-              <Text style={[styles.sizeBadgeLabel, { color: colors.mutedForeground }]}>SIZE</Text>
-              <Text style={[styles.sizeBadgeValue, { color: colors.foreground }]}>
-                {selectedItem.size}
-              </Text>
-            </View>
+        {/* Size badge & Custom Size Photos */}
+        {(selectedItem?.size || sizeImages.length > 0) ? (
+          <View style={{ marginBottom: 12, gap: 8 }}>
+            {selectedItem?.size ? (
+              <View style={[
+                styles.sizeBadgeRow,
+                { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 0 }
+              ]}>
+                <View style={[styles.sizeBadge, { backgroundColor: colors.accent }]}>
+                  <Feather name="maximize-2" size={12} color="#C06070" />
+                  <Text style={[styles.sizeBadgeLabel, { color: colors.mutedForeground }]}>SIZE</Text>
+                  <Text style={[styles.sizeBadgeValue, { color: colors.foreground }]}>
+                    {selectedItem.size}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            {sizeImages.length > 0 ? (
+              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 0, padding: 12, gap: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Feather name="maximize-2" size={13} color="#C06070" />
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: colors.foreground }}>
+                      Custom Size / Measurement Photos ({sizeImages.length})
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      setGalleryTab('size');
+                      setActiveImageIndex(0);
+                      carouselRef.current?.scrollTo({ x: 0, animated: false });
+                      mainScrollRef.current?.scrollTo({ y: 0, animated: true });
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6, backgroundColor: colors.accent }}
+                  >
+                    <Feather name="arrow-up" size={11} color="#C06070" />
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#C06070' }}>View at top</Text>
+                  </Pressable>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {sizeImages.map((sImg, sIdx) => (
+                    <Pressable
+                      key={sIdx}
+                      onPress={() => {
+                        setGalleryTab('size');
+                        setActiveImageIndex(sIdx);
+                        carouselRef.current?.scrollTo({ x: sIdx * CAROUSEL_WIDTH, animated: false });
+                        setActiveViewerImage(sImg);
+                      }}
+                      style={{ width: 75, height: 75, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}
+                    >
+                      <Image source={{ uri: sImg }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -697,6 +897,89 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: 0.3,
+  },
+  galleryTabContainer: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 3,
+    marginBottom: 10,
+    gap: 4,
+  },
+  galleryTabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: 9,
+  },
+  galleryTabButtonActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  galleryTabText: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+  },
+  galleryTabTextActive: {
+    fontFamily: 'Inter_700Bold',
+  },
+  singleTypeHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  singleTypeHeaderText: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  imageTypeBadgeOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+  },
+  imageTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  imageTypeBadgeText: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#fff',
+  },
+  thumbnailStrip: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  thumbItem: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
   },
 });
 

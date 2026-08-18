@@ -13,6 +13,10 @@ export interface OrderItem {
   thumbnailPath?: string;
   imagePaths?: string[];
   thumbnailPaths?: string[];
+  sizeImagePath?: string;
+  sizeThumbnailPath?: string;
+  sizeImagePaths?: string[];
+  sizeThumbnailPaths?: string[];
   isCustom: boolean;
 }
 
@@ -37,6 +41,10 @@ export interface Order {
   createdAt: string;
   isCustom: number;
   size?: string;
+  sizeImagePath?: string;
+  sizeThumbnailPath?: string;
+  sizeImagePaths?: string[];
+  sizeThumbnailPaths?: string[];
   customerId?: string;
   workingOn?: number; // 1 = currently working on, 0 = not
   items?: OrderItem[];
