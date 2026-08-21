@@ -66,7 +66,12 @@ function initDb() {
       createdAt TEXT DEFAULT '',
       isCustom INTEGER DEFAULT 0,
       size TEXT DEFAULT '',
+      sizeImagePath TEXT DEFAULT '',
+      sizeThumbnailPath TEXT DEFAULT '',
+      sizeImagePaths TEXT DEFAULT '[]',
+      sizeThumbnailPaths TEXT DEFAULT '[]',
       customerId TEXT DEFAULT '',
+      workingOn INTEGER DEFAULT 0,
       items TEXT DEFAULT '[]'
     );
     CREATE TABLE IF NOT EXISTS products (
@@ -90,6 +95,10 @@ function initDb() {
   // Migration: add missing columns if they don't exist yet
   try { db.execSync(`ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN size TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeImagePath TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeThumbnailPath TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeImagePaths TEXT DEFAULT '[]'`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeThumbnailPaths TEXT DEFAULT '[]'`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN customerId TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`); } catch {}
@@ -106,6 +115,32 @@ function loadOrdersFromDb(): Order[] {
       } catch (err) {
         console.error("Failed to parse items JSON for order:", r.id, err);
       }
+
+      let parsedSizeImagePaths: string[] = [];
+      try {
+        if (r.sizeImagePaths) {
+          parsedSizeImagePaths = typeof r.sizeImagePaths === 'string' && r.sizeImagePaths.startsWith('[')
+            ? JSON.parse(r.sizeImagePaths)
+            : (Array.isArray(r.sizeImagePaths) ? r.sizeImagePaths : []);
+        } else if (r.sizeImagePath) {
+          parsedSizeImagePaths = [r.sizeImagePath];
+        }
+      } catch {
+        parsedSizeImagePaths = r.sizeImagePath ? [r.sizeImagePath] : [];
+      }
+
+      let parsedSizeThumbnailPaths: string[] = [];
+      try {
+        if (r.sizeThumbnailPaths) {
+          parsedSizeThumbnailPaths = typeof r.sizeThumbnailPaths === 'string' && r.sizeThumbnailPaths.startsWith('[')
+            ? JSON.parse(r.sizeThumbnailPaths)
+            : (Array.isArray(r.sizeThumbnailPaths) ? r.sizeThumbnailPaths : []);
+        } else if (r.sizeThumbnailPath) {
+          parsedSizeThumbnailPaths = [r.sizeThumbnailPath];
+        }
+      } catch {
+        parsedSizeThumbnailPaths = r.sizeThumbnailPath ? [r.sizeThumbnailPath] : [];
+      }
       
       // If there are no items but there are legacy product details, synthesize a single legacy item
       if (parsedItems.length === 0 && (r.customName || r.productId)) {
@@ -118,6 +153,10 @@ function loadOrdersFromDb(): Order[] {
           quantity: 1,
           imagePath: r.referenceImagePath || '',
           thumbnailPath: r.thumbnailPath || '',
+          sizeImagePath: r.sizeImagePath || '',
+          sizeThumbnailPath: r.sizeThumbnailPath || '',
+          sizeImagePaths: parsedSizeImagePaths,
+          sizeThumbnailPaths: parsedSizeThumbnailPaths,
           isCustom: r.isCustom === 1,
         }];
       }
@@ -134,6 +173,10 @@ function loadOrdersFromDb(): Order[] {
         ...r,
         isCustom: r.isCustom === 1 ? 1 : 0,
         workingOn: r.workingOn === 1 ? 1 : 0,
+        sizeImagePath: r.sizeImagePath || '',
+        sizeThumbnailPath: r.sizeThumbnailPath || '',
+        sizeImagePaths: parsedSizeImagePaths,
+        sizeThumbnailPaths: parsedSizeThumbnailPaths,
         items: parsedItems
       };
     });
@@ -299,6 +342,14 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     if (IS_WEB) await AsyncStorage.setItem(CUSTOMERS_KEY, JSON.stringify(next));
   }
 
+  const ORDER_DB_COLUMNS = new Set([
+    'source', 'customerName', 'contactInfo', 'address', 'orderDate', 'dueDate',
+    'productId', 'customName', 'referenceImagePath', 'thumbnailPath', 'price',
+    'paymentStatus', 'amountPaid', 'status', 'trackingLink', 'notes',
+    'isCustom', 'size', 'sizeImagePath', 'sizeThumbnailPath', 'sizeImagePaths',
+    'sizeThumbnailPaths', 'customerId', 'workingOn', 'items'
+  ]);
+
   const addOrder = useCallback(async (order: Omit<Order, 'id' | 'createdAt'>): Promise<string> => {
     const id = genId();
     const createdAt = new Date().toISOString();
@@ -306,12 +357,37 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
     if (!IS_WEB && db) {
       db.runSync(
-        `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,customerId,items)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [id, full.source, full.customerName, full.contactInfo, full.address ?? '', full.orderDate, full.dueDate,
-         full.productId, full.customName, full.referenceImagePath, full.thumbnailPath,
-         full.price, full.paymentStatus, full.amountPaid, full.status,
-         full.trackingLink, full.notes, createdAt, full.isCustom ? 1 : 0, full.size ?? '', full.customerId ?? '', JSON.stringify(full.items || [])]
+        `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          id,
+          full.source,
+          full.customerName,
+          full.contactInfo,
+          full.address ?? '',
+          full.orderDate,
+          full.dueDate,
+          full.productId,
+          full.customName,
+          full.referenceImagePath,
+          full.thumbnailPath,
+          full.price,
+          full.paymentStatus,
+          full.amountPaid,
+          full.status,
+          full.trackingLink,
+          full.notes,
+          createdAt,
+          full.isCustom ? 1 : 0,
+          full.size ?? '',
+          full.sizeImagePath ?? '',
+          full.sizeThumbnailPath ?? '',
+          JSON.stringify(full.sizeImagePaths || (full.sizeImagePath ? [full.sizeImagePath] : [])),
+          JSON.stringify(full.sizeThumbnailPaths || (full.sizeThumbnailPath ? [full.sizeThumbnailPath] : [])),
+          full.customerId ?? '',
+          full.workingOn ? 1 : 0,
+          JSON.stringify(full.items || []),
+        ]
       );
       const loaded = loadOrdersFromDb();
       setOrders(loaded);
@@ -327,14 +403,27 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrder = useCallback(async (id: string, updates: Partial<Order>) => {
     if (!IS_WEB && db) {
-      const u = { ...updates };
-      if (u.items) {
-        (u as any).items = JSON.stringify(u.items);
+      const u: any = { ...updates };
+      if (u.items !== undefined) {
+        u.items = JSON.stringify(u.items);
       }
-      const fields = Object.keys(u).filter(k => k !== 'id' && k !== 'createdAt');
+      if (u.sizeImagePaths !== undefined) {
+        u.sizeImagePaths = Array.isArray(u.sizeImagePaths) ? JSON.stringify(u.sizeImagePaths) : u.sizeImagePaths;
+      }
+      if (u.sizeThumbnailPaths !== undefined) {
+        u.sizeThumbnailPaths = Array.isArray(u.sizeThumbnailPaths) ? JSON.stringify(u.sizeThumbnailPaths) : u.sizeThumbnailPaths;
+      }
+      if (u.isCustom !== undefined) {
+        u.isCustom = u.isCustom ? 1 : 0;
+      }
+      if (u.workingOn !== undefined) {
+        u.workingOn = u.workingOn ? 1 : 0;
+      }
+
+      const fields = Object.keys(u).filter(k => ORDER_DB_COLUMNS.has(k));
       if (fields.length > 0) {
         const set = fields.map(f => `${f}=?`).join(',');
-        const vals = fields.map(f => (u as any)[f]);
+        const vals = fields.map(f => u[f] ?? '');
         db.runSync(`UPDATE orders SET ${set} WHERE id=?`, [...vals, id]);
       }
       const loaded = loadOrdersFromDb();
@@ -454,27 +543,73 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   }, [products]);
 
   const clearDeliveredImages = useCallback(async (): Promise<number> => {
-    const delivered = orders.filter(o => o.status === 'Delivered' && (o.referenceImagePath || o.thumbnailPath));
+    const delivered = orders.filter(o => o.status === 'Delivered' && (
+      o.referenceImagePath || o.thumbnailPath || o.sizeImagePath || o.sizeThumbnailPath ||
+      (o.sizeImagePaths && o.sizeImagePaths.length > 0) ||
+      (o.items && o.items.some(i => i.imagePath || i.thumbnailPath || i.sizeImagePath || (i.sizeImagePaths && i.sizeImagePaths.length > 0)))
+    ));
     let count = 0;
     for (const o of delivered) {
-      if (o.referenceImagePath || o.thumbnailPath) {
-        await updateOrder(o.id, { referenceImagePath: '', thumbnailPath: '' });
-        count++;
-      }
+      const updatedItems = (o.items || []).map(item => ({
+        ...item,
+        imagePath: '',
+        thumbnailPath: '',
+        imagePaths: [],
+        thumbnailPaths: [],
+        sizeImagePath: '',
+        sizeThumbnailPath: '',
+        sizeImagePaths: [],
+        sizeThumbnailPaths: []
+      }));
+      await updateOrder(o.id, {
+        referenceImagePath: '',
+        thumbnailPath: '',
+        sizeImagePath: '',
+        sizeThumbnailPath: '',
+        sizeImagePaths: [],
+        sizeThumbnailPaths: [],
+        items: updatedItems
+      });
+      count++;
     }
     return count;
   }, [orders, updateOrder]);
 
-  const importBackup = useCallback(async (data: { orders: Order[]; products: Product[] }) => {
+  const importBackup = useCallback(async (data: { orders: Order[]; products: Product[]; customers?: Customer[] }) => {
     if (!IS_WEB && db) {
       db.execSync('DELETE FROM orders; DELETE FROM products;');
       for (const o of data.orders) {
         db.runSync(
-          `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,customerId,items) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-          [o.id, o.source, o.customerName, o.contactInfo, o.address ?? '', o.orderDate, o.dueDate,
-           o.productId, o.customName, o.referenceImagePath, o.thumbnailPath,
-           o.price, o.paymentStatus, o.amountPaid, o.status,
-           o.trackingLink, o.notes, o.createdAt, o.isCustom ? 1 : 0, o.size ?? '', o.customerId ?? '', JSON.stringify(o.items || [])]
+          `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            o.id,
+            o.source,
+            o.customerName,
+            o.contactInfo,
+            o.address ?? '',
+            o.orderDate,
+            o.dueDate,
+            o.productId,
+            o.customName,
+            o.referenceImagePath,
+            o.thumbnailPath,
+            o.price,
+            o.paymentStatus,
+            o.amountPaid,
+            o.status,
+            o.trackingLink,
+            o.notes,
+            o.createdAt,
+            o.isCustom ? 1 : 0,
+            o.size ?? '',
+            o.sizeImagePath ?? '',
+            o.sizeThumbnailPath ?? '',
+            JSON.stringify(o.sizeImagePaths || (o.sizeImagePath ? [o.sizeImagePath] : [])),
+            JSON.stringify(o.sizeThumbnailPaths || (o.sizeThumbnailPath ? [o.sizeThumbnailPath] : [])),
+            o.customerId ?? '',
+            o.workingOn ? 1 : 0,
+            JSON.stringify(o.items || [])
+          ]
         );
       }
       for (const p of data.products) {
@@ -483,9 +618,21 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           [p.id, p.name, p.imagePath, p.thumbnailPath, p.defaultPrice, p.category]
         );
       }
+      if (data.customers) {
+        db.execSync('DELETE FROM customers;');
+        for (const c of data.customers) {
+          db.runSync(
+            'INSERT OR REPLACE INTO customers (id,name,igHandle,phone,email,address,createdAt) VALUES (?,?,?,?,?,?,?)',
+            [c.id, c.name, c.igHandle ?? '', c.phone ?? '', c.email ?? '', c.address ?? '', c.createdAt ?? '']
+          );
+        }
+      }
     }
     await persistOrders(data.orders);
     await persistProducts(data.products);
+    if (data.customers) {
+      await persistCustomers(data.customers);
+    }
   }, []);
 
   return (

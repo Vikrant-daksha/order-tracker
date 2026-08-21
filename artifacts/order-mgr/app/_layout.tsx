@@ -26,7 +26,10 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="order/new" options={{ headerShown: false, presentation: "modal" }} />
+      <Stack.Screen
+        name="order/new"
+        options={{ headerShown: false, presentation: "modal" }}
+      />
       <Stack.Screen name="kanban" options={{ headerShown: false }} />
       <Stack.Screen name="customers/index" options={{ headerShown: false }} />
       <Stack.Screen name="customers/[id]" options={{ headerShown: false }} />

@@ -25,6 +25,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -92,6 +93,29 @@ export default function NewOrderScreen() {
   const [address, setAddress] = useState(existing?.address || "");
   const [orderDate, setOrderDate] = useState(existing?.orderDate || today());
   const [dueDate, setDueDate] = useState(existing?.dueDate || "");
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        setIsKeyboardOpen(true);
+        setKeyboardHeight(e.endCoordinates.height);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setIsKeyboardOpen(false);
+        setKeyboardHeight(0);
+      },
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   interface OrderItemState {
     id: string;
     productId: string;
@@ -145,8 +169,12 @@ export default function NewOrderScreen() {
               ? [existing.referenceImagePath]
               : [],
             thumbUris: existing.thumbnailPath ? [existing.thumbnailPath] : [],
-            sizeImageUris: existing.sizeImagePaths || (existing.sizeImagePath ? [existing.sizeImagePath] : []),
-            sizeThumbUris: existing.sizeThumbnailPaths || (existing.sizeThumbnailPath ? [existing.sizeThumbnailPath] : []),
+            sizeImageUris:
+              existing.sizeImagePaths ||
+              (existing.sizeImagePath ? [existing.sizeImagePath] : []),
+            sizeThumbUris:
+              existing.sizeThumbnailPaths ||
+              (existing.sizeThumbnailPath ? [existing.sizeThumbnailPath] : []),
             isCustom: existing.isCustom === 1,
           },
         ];
@@ -452,8 +480,12 @@ export default function NewOrderScreen() {
 
       next[itemIndex] = {
         ...next[itemIndex],
-        sizeImageUris: next[itemIndex].sizeImageUris.filter((_, i) => i !== imgIndex),
-        sizeThumbUris: next[itemIndex].sizeThumbUris.filter((_, i) => i !== imgIndex),
+        sizeImageUris: next[itemIndex].sizeImageUris.filter(
+          (_, i) => i !== imgIndex,
+        ),
+        sizeThumbUris: next[itemIndex].sizeThumbUris.filter(
+          (_, i) => i !== imgIndex,
+        ),
       };
 
       pickedImagesRef.current = pickedImagesRef.current.filter(
@@ -634,731 +666,792 @@ export default function NewOrderScreen() {
         <View style={{ width: 22 }} />
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior="padding"
-        keyboardVerticalOffset={Platform.OS === "ios" ? topPad + 44 : 80}
+      <View
+        style={{
+          flex: 1,
+          paddingBottom: Platform.OS === "android" ? keyboardHeight : 0,
+        }}
       >
-        <ScrollView
+        <KeyboardAvoidingView
           style={{ flex: 1 }}
-          contentContainerStyle={[
-            styles.body,
-            { paddingBottom: insets.bottom + 32 },
-          ]}
-          keyboardShouldPersistTaps="always"
-          keyboardDismissMode="none"
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? topPad + 44 : 0}
         >
-          {/* Source */}
-          <FormSection title="Source">
-            <SourceDropdown
-              value={source}
-              onChange={setSource}
-              colors={colors}
-            />
-          </FormSection>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={[styles.body, { paddingBottom: 32 }]}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          >
+            {/* Source */}
+            <FormSection title="Source">
+              <SourceDropdown
+                value={source}
+                onChange={setSource}
+                colors={colors}
+              />
+            </FormSection>
 
-          {/* Customer */}
-          <FormSection title="Customer">
-            {linkedCustomer && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  backgroundColor: colors.accent,
-                  padding: 8,
-                  borderRadius: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <Feather name="user-check" size={16} color="#C06070" />
-                <Text
+            {/* Customer */}
+            <FormSection title="Customer">
+              {linkedCustomer && (
+                <View
                   style={{
-                    flex: 1,
-                    fontSize: 13,
-                    color: "#C06070",
-                    fontFamily: "Inter_500Medium",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    backgroundColor: colors.accent,
+                    padding: 8,
+                    borderRadius: 8,
+                    marginBottom: 10,
                   }}
                 >
-                  Linked to existing customer: {linkedCustomer.name}
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    unlinkedIds.current.add(linkedCustomer.id);
-                    setLinkedCustomer(null);
-                  }}
-                >
+                  <Feather name="user-check" size={16} color="#C06070" />
                   <Text
                     style={{
+                      flex: 1,
                       fontSize: 13,
-                      color: colors.destructive,
+                      color: "#C06070",
                       fontFamily: "Inter_500Medium",
                     }}
                   >
-                    Unlink
+                    Linked to existing customer: {linkedCustomer.name}
                   </Text>
-                </Pressable>
-              </View>
-            )}
-            <FieldInput
-              label="Name *"
-              value={customerName}
-              onChange={setCustomerName}
-              placeholder="Customer name"
-              colors={colors}
-            />
-
-            <View style={{ gap: 6 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Text
-                  style={[
-                    styles.fieldLabel,
-                    { color: colors.mutedForeground, marginBottom: 0 },
-                  ]}
-                >
-                  Contact Info
-                </Text>
-                {isSearching && (
-                  <ActivityIndicator size="small" color="#C06070" />
-                )}
-              </View>
-              <View
-                style={{
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  overflow: "hidden",
-                }}
-              >
-                <TextInput
-                  value={igHandle}
-                  onChangeText={setIgHandle}
-                  placeholder="@instagram"
-                  placeholderTextColor={colors.mutedForeground}
-                  style={[
-                    styles.textInput,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      color: colors.foreground,
-                      borderWidth: 0,
-                      borderRadius: 0,
-                      borderBottomWidth: 1,
-                    },
-                  ]}
-                />
-                <TextInput
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="+91 98765 43210"
-                  placeholderTextColor={colors.mutedForeground}
-                  keyboardType="phone-pad"
-                  style={[
-                    styles.textInput,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      color: colors.foreground,
-                      borderWidth: 0,
-                      borderRadius: 0,
-                      borderBottomWidth: 1,
-                    },
-                  ]}
-                />
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="google@gmail.com"
-                  placeholderTextColor={colors.mutedForeground}
-                  keyboardType="email-address"
-                  style={[
-                    styles.textInput,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      color: colors.foreground,
-                      borderWidth: 0,
-                      borderRadius: 0,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            <FieldInput
-              label="Delivery Address"
-              value={address}
-              onChange={setAddress}
-              placeholder="Street, city, state, PIN code"
-              colors={colors}
-              multiline
-            />
-          </FormSection>
-
-          {/* Dates */}
-          <FormSection title="Dates">
-            <DatePickerField
-              label="Order Date"
-              value={orderDate}
-              onChange={setOrderDate}
-              placeholder="Select order date"
-            />
-            <DatePickerField
-              label="Due / Ship Date"
-              value={dueDate}
-              onChange={setDueDate}
-              placeholder="Select due date"
-              minDate={orderDate ? new Date(orderDate) : undefined}
-            />
-            {dueDate ? (
-              <View
-                style={[
-                  styles.reminderNote,
-                  { backgroundColor: colors.accent },
-                ]}
-              >
-                <Feather name="bell" size={13} color="#C06070" />
-                <Text style={[styles.reminderNoteText, { color: "#8B4D5C" }]}>
-                  You'll get a reminder 2 days before —{" "}
-                  {formatReminderDate(dueDate)}
-                </Text>
-              </View>
-            ) : null}
-          </FormSection>
-
-          {/* Products / Items */}
-          <View style={{ gap: 16 }}>
-            {items.map((item, index) => (
-              <FormSection
-                key={item.id}
-                title={
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      flex: 1,
-                      marginRight: 8,
+                  <Pressable
+                    onPress={() => {
+                      unlinkedIds.current.add(linkedCustomer.id);
+                      setLinkedCustomer(null);
                     }}
                   >
                     <Text
                       style={{
-                        fontSize: 16,
-                        fontFamily: "Inter_600SemiBold",
-                        color: colors.foreground,
+                        fontSize: 13,
+                        color: colors.destructive,
+                        fontFamily: "Inter_500Medium",
                       }}
                     >
-                      Product #{index + 1}
+                      Unlink
                     </Text>
-                    {items.length > 1 && (
-                      <Pressable
-                        onPress={() => {
-                          setItems((prev) =>
-                            prev.filter((x) => x.id !== item.id),
-                          );
-                        }}
-                        style={{ padding: 4 }}
-                      >
-                        <Feather
-                          name="trash-2"
-                          size={18}
-                          color={colors.destructive}
-                        />
-                      </Pressable>
-                    )}
-                  </View>
-                }
-              >
-                <ProductAutocomplete
-                  value={item.productName}
-                  onChange={(name, product) => {
-                    setItems((prev) => {
-                      const next = [...prev];
-                      next[index] = {
-                        ...next[index],
-                        productName: name,
-                        productId: product ? product.id : "",
-                        price:
-                          product && !item.price
-                            ? String(product.defaultPrice)
-                            : item.price,
-                        imageUris:
-                          product && product.imagePath
-                            ? [product.imagePath]
-                            : item.imageUris,
-                        thumbUris:
-                          product && product.thumbnailPath
-                            ? [product.thumbnailPath]
-                            : item.thumbUris,
-                        isCustom: product ? false : item.isCustom,
-                      };
-                      return next;
-                    });
-                  }}
-                  products={products}
-                  placeholder="Search catalog or enter name..."
-                />
+                  </Pressable>
+                </View>
+              )}
+              <FieldInput
+                label="Name *"
+                value={customerName}
+                onChange={setCustomerName}
+                placeholder="Customer name"
+                colors={colors}
+              />
 
-                <View style={styles.customRow}>
-                  <Pressable
-                    onPress={() => {
+              <View style={{ gap: 6 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      { color: colors.mutedForeground, marginBottom: 0 },
+                    ]}
+                  >
+                    Contact Info
+                  </Text>
+                  {isSearching && (
+                    <ActivityIndicator size="small" color="#C06070" />
+                  )}
+                </View>
+                <View
+                  style={{
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    overflow: "hidden",
+                  }}
+                >
+                  <TextInput
+                    value={igHandle}
+                    onChangeText={setIgHandle}
+                    placeholder="@instagram"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={[
+                      styles.textInput,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                        borderWidth: 0,
+                        borderRadius: 0,
+                        borderBottomWidth: 1,
+                      },
+                    ]}
+                  />
+                  <TextInput
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="+91 98765 43210"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    style={[
+                      styles.textInput,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                        borderWidth: 0,
+                        borderRadius: 0,
+                        borderBottomWidth: 1,
+                      },
+                    ]}
+                  />
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="google@gmail.com"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="email-address"
+                    style={[
+                      styles.textInput,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                        borderWidth: 0,
+                        borderRadius: 0,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+
+              <FieldInput
+                label="Delivery Address"
+                value={address}
+                onChange={setAddress}
+                placeholder="Street, city, state, PIN code"
+                colors={colors}
+                multiline
+              />
+            </FormSection>
+
+            {/* Dates */}
+            <FormSection title="Dates">
+              <DatePickerField
+                label="Order Date"
+                value={orderDate}
+                onChange={setOrderDate}
+                placeholder="Select order date"
+              />
+              <DatePickerField
+                label="Due / Ship Date"
+                value={dueDate}
+                onChange={setDueDate}
+                placeholder="Select due date"
+                minDate={orderDate ? new Date(orderDate) : undefined}
+              />
+              {dueDate ? (
+                <View
+                  style={[
+                    styles.reminderNote,
+                    { backgroundColor: colors.accent },
+                  ]}
+                >
+                  <Feather name="bell" size={13} color="#C06070" />
+                  <Text style={[styles.reminderNoteText, { color: "#8B4D5C" }]}>
+                    You'll get a reminder 2 days before —{" "}
+                    {formatReminderDate(dueDate)}
+                  </Text>
+                </View>
+              ) : null}
+            </FormSection>
+
+            {/* Products / Items */}
+            <View style={{ gap: 16 }}>
+              {items.map((item, index) => (
+                <FormSection
+                  key={item.id}
+                  title={
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flex: 1,
+                        marginRight: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontFamily: "Inter_600SemiBold",
+                          color: colors.foreground,
+                        }}
+                      >
+                        Product #{index + 1}
+                      </Text>
+                      {items.length > 1 && (
+                        <Pressable
+                          onPress={() => {
+                            setItems((prev) =>
+                              prev.filter((x) => x.id !== item.id),
+                            );
+                          }}
+                          style={{ padding: 4 }}
+                        >
+                          <Feather
+                            name="trash-2"
+                            size={18}
+                            color={colors.destructive}
+                          />
+                        </Pressable>
+                      )}
+                    </View>
+                  }
+                >
+                  <ProductAutocomplete
+                    value={item.productName}
+                    onChange={(name, product) => {
                       setItems((prev) => {
                         const next = [...prev];
                         next[index] = {
                           ...next[index],
-                          isCustom: !item.isCustom,
+                          productName: name,
+                          productId: product ? product.id : "",
+                          price:
+                            product && !item.price
+                              ? String(product.defaultPrice)
+                              : item.price,
+                          imageUris:
+                            product && product.imagePath
+                              ? [product.imagePath]
+                              : item.imageUris,
+                          thumbUris:
+                            product && product.thumbnailPath
+                              ? [product.thumbnailPath]
+                              : item.thumbUris,
+                          isCustom: product ? false : item.isCustom,
                         };
                         return next;
                       });
                     }}
+                    products={products}
+                    placeholder="Search catalog or enter name..."
+                  />
+
+                  <View style={styles.customRow}>
+                    <Pressable
+                      onPress={() => {
+                        setItems((prev) => {
+                          const next = [...prev];
+                          next[index] = {
+                            ...next[index],
+                            isCustom: !item.isCustom,
+                          };
+                          return next;
+                        });
+                      }}
+                      style={[
+                        styles.checkbox,
+                        {
+                          borderColor: item.isCustom
+                            ? colors.primary
+                            : colors.border,
+                          backgroundColor: item.isCustom
+                            ? colors.primary
+                            : "transparent",
+                        },
+                      ]}
+                    >
+                      {item.isCustom && (
+                        <Feather
+                          name="check"
+                          size={12}
+                          color={colors.primaryForeground}
+                        />
+                      )}
+                    </Pressable>
+                    <Text
+                      style={[
+                        styles.checkboxLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      Mark as custom (don't add to catalog)
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <View style={{ flex: 2 }}>
+                      <FieldInput
+                        label="Unit Price"
+                        value={item.price}
+                        onChange={(val: string) => {
+                          setItems((prev) => {
+                            const next = [...prev];
+                            next[index] = { ...next[index], price: val };
+                            return next;
+                          });
+                        }}
+                        placeholder="0.00"
+                        keyboardType="decimal-pad"
+                        colors={colors}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <FieldInput
+                        label="Qty"
+                        value={item.quantity}
+                        onChange={(val: string) => {
+                          setItems((prev) => {
+                            const next = [...prev];
+                            next[index] = { ...next[index], quantity: val };
+                            return next;
+                          });
+                        }}
+                        placeholder="1"
+                        keyboardType="number-pad"
+                        colors={colors}
+                      />
+                    </View>
+                  </View>
+
+                  <FieldInput
+                    label="Size / Dimensions (Custom)"
+                    value={item.size}
+                    onChange={(val: string) => {
+                      setItems((prev) => {
+                        const next = [...prev];
+                        next[index] = { ...next[index], size: val };
+                        return next;
+                      });
+                    }}
+                    placeholder="e.g. 10x12 in, A4, XL, 32-waist..."
+                    colors={colors}
+                  />
+
+                  {/* Custom Size / Measurement Photos */}
+                  <Text
                     style={[
-                      styles.checkbox,
+                      styles.fieldLabel,
                       {
-                        borderColor: item.isCustom
-                          ? colors.primary
-                          : colors.border,
-                        backgroundColor: item.isCustom
-                          ? colors.primary
-                          : "transparent",
+                        color: colors.mutedForeground,
+                        marginTop: 4,
+                        marginBottom: 6,
                       },
                     ]}
                   >
-                    {item.isCustom && (
-                      <Feather
-                        name="check"
-                        size={12}
-                        color={colors.primaryForeground}
-                      />
-                    )}
-                  </Pressable>
-                  <Text
-                    style={[
-                      styles.checkboxLabel,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    Mark as custom (don't add to catalog)
+                    Custom Size / Measurement Photos{" "}
+                    <Text style={{ fontSize: 11 }}>(max 10)</Text>
                   </Text>
-                </View>
-
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <View style={{ flex: 2 }}>
-                    <FieldInput
-                      label="Unit Price"
-                      value={item.price}
-                      onChange={(val: string) => {
-                        setItems((prev) => {
-                          const next = [...prev];
-                          next[index] = { ...next[index], price: val };
-                          return next;
-                        });
-                      }}
-                      placeholder="0.00"
-                      keyboardType="decimal-pad"
-                      colors={colors}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <FieldInput
-                      label="Qty"
-                      value={item.quantity}
-                      onChange={(val: string) => {
-                        setItems((prev) => {
-                          const next = [...prev];
-                          next[index] = { ...next[index], quantity: val };
-                          return next;
-                        });
-                      }}
-                      placeholder="1"
-                      keyboardType="number-pad"
-                      colors={colors}
-                    />
-                  </View>
-                </View>
-
-                <FieldInput
-                  label="Size / Dimensions (Custom)"
-                  value={item.size}
-                  onChange={(val: string) => {
-                    setItems((prev) => {
-                      const next = [...prev];
-                      next[index] = { ...next[index], size: val };
-                      return next;
-                    });
-                  }}
-                  placeholder="e.g. 10x12 in, A4, XL, 32-waist..."
-                  colors={colors}
-                />
-
-                {/* Custom Size / Measurement Photos */}
-                <Text
-                  style={[
-                    styles.fieldLabel,
-                    {
-                      color: colors.mutedForeground,
-                      marginTop: 4,
-                      marginBottom: 6,
-                    },
-                  ]}
-                >
-                  Custom Size / Measurement Photos <Text style={{ fontSize: 11 }}>(max 10)</Text>
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 12, paddingVertical: 4, marginBottom: 8 }}
-                >
-                  {item.sizeImageUris.map((uri, sImgIdx) => (
-                    <View key={uri} style={{ alignItems: "center", gap: 6 }}>
-                      <View
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      gap: 12,
+                      paddingVertical: 4,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {item.sizeImageUris.map((uri, sImgIdx) => (
+                      <View key={uri} style={{ alignItems: "center", gap: 6 }}>
+                        <View
+                          style={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: 10,
+                            overflow: "hidden",
+                            position: "relative",
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                          }}
+                        >
+                          <Image
+                            source={{ uri }}
+                            style={{ width: "100%", height: "100%" }}
+                            contentFit="cover"
+                          />
+                          <Pressable
+                            onPress={() =>
+                              deletePickedSizeImage(index, sImgIdx)
+                            }
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                              backgroundColor: "rgba(0,0,0,0.6)",
+                              width: 18,
+                              height: 18,
+                              borderRadius: 9,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Feather name="x" size={10} color="#fff" />
+                          </Pressable>
+                        </View>
+                        {item.sizeImageUris.length > 1 && (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              gap: 10,
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
+                          >
+                            {sImgIdx > 0 ? (
+                              <Pressable
+                                onPress={() =>
+                                  moveSizeImage(index, sImgIdx, "left")
+                                }
+                                style={{
+                                  padding: 4,
+                                  backgroundColor: colors.accent,
+                                  borderRadius: 6,
+                                  borderWidth: 1,
+                                  borderColor: colors.border,
+                                }}
+                              >
+                                <Feather
+                                  name="chevron-left"
+                                  size={12}
+                                  color="#C06070"
+                                />
+                              </Pressable>
+                            ) : (
+                              <View style={{ width: 22, height: 22 }} />
+                            )}
+                            {sImgIdx < item.sizeImageUris.length - 1 ? (
+                              <Pressable
+                                onPress={() =>
+                                  moveSizeImage(index, sImgIdx, "right")
+                                }
+                                style={{
+                                  padding: 4,
+                                  backgroundColor: colors.accent,
+                                  borderRadius: 6,
+                                  borderWidth: 1,
+                                  borderColor: colors.border,
+                                }}
+                              >
+                                <Feather
+                                  name="chevron-right"
+                                  size={12}
+                                  color="#C06070"
+                                />
+                              </Pressable>
+                            ) : (
+                              <View style={{ width: 22, height: 22 }} />
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                    {item.sizeImageUris.length < 10 && (
+                      <Pressable
+                        onPress={() => pickSizeImage(index)}
                         style={{
                           width: 80,
                           height: 80,
                           borderRadius: 10,
-                          overflow: "hidden",
-                          position: "relative",
                           borderWidth: 1,
                           borderColor: colors.border,
+                          borderStyle: "dashed",
+                          backgroundColor: colors.card,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          alignSelf: "flex-start",
+                          gap: 3,
                         }}
                       >
-                        <Image
-                          source={{ uri }}
-                          style={{ width: "100%", height: "100%" }}
-                          contentFit="cover"
+                        <Feather name="maximize-2" size={16} color="#C06070" />
+                        <Feather
+                          name="plus"
+                          size={14}
+                          color={colors.mutedForeground}
                         />
-                        <Pressable
-                          onPress={() => deletePickedSizeImage(index, sImgIdx)}
-                          style={{
-                            position: "absolute",
-                            top: 4,
-                            right: 4,
-                            backgroundColor: "rgba(0,0,0,0.6)",
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Feather name="x" size={10} color="#fff" />
-                        </Pressable>
-                      </View>
-                      {item.sizeImageUris.length > 1 && (
+                      </Pressable>
+                    )}
+                  </ScrollView>
+
+                  {/* Reference Photos */}
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      {
+                        color: colors.mutedForeground,
+                        marginTop: 4,
+                        marginBottom: 6,
+                      },
+                    ]}
+                  >
+                    Reference Photos{" "}
+                    <Text style={{ fontSize: 11 }}>(max 10)</Text>
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
+                  >
+                    {item.imageUris.map((uri, imgIdx) => (
+                      <View key={uri} style={{ alignItems: "center", gap: 6 }}>
                         <View
                           style={{
-                            flexDirection: "row",
-                            gap: 10,
-                            justifyContent: "center",
-                            alignItems: "center",
+                            width: 80,
+                            height: 80,
+                            borderRadius: 10,
+                            overflow: "hidden",
+                            position: "relative",
                           }}
                         >
-                          {sImgIdx > 0 ? (
-                            <Pressable
-                              onPress={() => moveSizeImage(index, sImgIdx, "left")}
-                              style={{
-                                padding: 4,
-                                backgroundColor: colors.accent,
-                                borderRadius: 6,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                              }}
-                            >
-                              <Feather
-                                name="chevron-left"
-                                size={12}
-                                color="#C06070"
-                              />
-                            </Pressable>
-                          ) : (
-                            <View style={{ width: 22, height: 22 }} />
-                          )}
-                          {sImgIdx < item.sizeImageUris.length - 1 ? (
-                            <Pressable
-                              onPress={() => moveSizeImage(index, sImgIdx, "right")}
-                              style={{
-                                padding: 4,
-                                backgroundColor: colors.accent,
-                                borderRadius: 6,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                              }}
-                            >
-                              <Feather
-                                name="chevron-right"
-                                size={12}
-                                color="#C06070"
-                              />
-                            </Pressable>
-                          ) : (
-                            <View style={{ width: 22, height: 22 }} />
-                          )}
+                          <Image
+                            source={{ uri }}
+                            style={{ width: "100%", height: "100%" }}
+                            contentFit="cover"
+                          />
+                          <Pressable
+                            onPress={() => deletePickedImage(index, imgIdx)}
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                              backgroundColor: "rgba(0,0,0,0.6)",
+                              width: 18,
+                              height: 18,
+                              borderRadius: 9,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Feather name="x" size={10} color="#fff" />
+                          </Pressable>
                         </View>
-                      )}
-                    </View>
-                  ))}
-                  {item.sizeImageUris.length < 10 && (
-                    <Pressable
-                      onPress={() => pickSizeImage(index)}
-                      style={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderStyle: "dashed",
-                        backgroundColor: colors.card,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        alignSelf: "flex-start",
-                        gap: 3,
-                      }}
-                    >
-                      <Feather
-                        name="maximize-2"
-                        size={16}
-                        color="#C06070"
-                      />
-                      <Feather
-                        name="plus"
-                        size={14}
-                        color={colors.mutedForeground}
-                      />
-                    </Pressable>
-                  )}
-                </ScrollView>
-
-                {/* Reference Photos */}
-                <Text
-                  style={[
-                    styles.fieldLabel,
-                    {
-                      color: colors.mutedForeground,
-                      marginTop: 4,
-                      marginBottom: 6,
-                    },
-                  ]}
-                >
-                  Reference Photos <Text style={{ fontSize: 11 }}>(max 10)</Text>
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
-                >
-                  {item.imageUris.map((uri, imgIdx) => (
-                    <View key={uri} style={{ alignItems: "center", gap: 6 }}>
-                      <View
+                        {item.imageUris.length > 1 && (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              gap: 10,
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
+                          >
+                            {imgIdx > 0 ? (
+                              <Pressable
+                                onPress={() => moveImage(index, imgIdx, "left")}
+                                style={{
+                                  padding: 4,
+                                  backgroundColor: colors.accent,
+                                  borderRadius: 6,
+                                  borderWidth: 1,
+                                  borderColor: colors.border,
+                                }}
+                              >
+                                <Feather
+                                  name="chevron-left"
+                                  size={12}
+                                  color="#C06070"
+                                />
+                              </Pressable>
+                            ) : (
+                              <View style={{ width: 22, height: 22 }} />
+                            )}
+                            {imgIdx < item.imageUris.length - 1 ? (
+                              <Pressable
+                                onPress={() =>
+                                  moveImage(index, imgIdx, "right")
+                                }
+                                style={{
+                                  padding: 4,
+                                  backgroundColor: colors.accent,
+                                  borderRadius: 6,
+                                  borderWidth: 1,
+                                  borderColor: colors.border,
+                                }}
+                              >
+                                <Feather
+                                  name="chevron-right"
+                                  size={12}
+                                  color="#C06070"
+                                />
+                              </Pressable>
+                            ) : (
+                              <View style={{ width: 22, height: 22 }} />
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                    {item.imageUris.length < 10 && (
+                      <Pressable
+                        onPress={() => pickImage(index)}
                         style={{
                           width: 80,
                           height: 80,
                           borderRadius: 10,
-                          overflow: "hidden",
-                          position: "relative",
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          borderStyle: "dashed",
+                          backgroundColor: colors.card,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          alignSelf: "flex-start",
                         }}
                       >
-                        <Image
-                          source={{ uri }}
-                          style={{ width: "100%", height: "100%" }}
-                          contentFit="cover"
+                        <Feather
+                          name="plus"
+                          size={18}
+                          color={colors.mutedForeground}
                         />
-                        <Pressable
-                          onPress={() => deletePickedImage(index, imgIdx)}
-                          style={{
-                            position: "absolute",
-                            top: 4,
-                            right: 4,
-                            backgroundColor: "rgba(0,0,0,0.6)",
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Feather name="x" size={10} color="#fff" />
-                        </Pressable>
-                      </View>
-                      {item.imageUris.length > 1 && (
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            gap: 10,
-                            justifyContent: "center",
-                            alignItems: "center",
-                          }}
-                        >
-                          {imgIdx > 0 ? (
-                            <Pressable
-                              onPress={() => moveImage(index, imgIdx, "left")}
-                              style={{
-                                padding: 4,
-                                backgroundColor: colors.accent,
-                                borderRadius: 6,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                              }}
-                            >
-                              <Feather
-                                name="chevron-left"
-                                size={12}
-                                color="#C06070"
-                              />
-                            </Pressable>
-                          ) : (
-                            <View style={{ width: 22, height: 22 }} />
-                          )}
-                          {imgIdx < item.imageUris.length - 1 ? (
-                            <Pressable
-                              onPress={() => moveImage(index, imgIdx, "right")}
-                              style={{
-                                padding: 4,
-                                backgroundColor: colors.accent,
-                                borderRadius: 6,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                              }}
-                            >
-                              <Feather
-                                name="chevron-right"
-                                size={12}
-                                color="#C06070"
-                              />
-                            </Pressable>
-                          ) : (
-                            <View style={{ width: 22, height: 22 }} />
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                  {item.imageUris.length < 10 && (
-                    <Pressable
-                      onPress={() => pickImage(index)}
-                      style={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderStyle: "dashed",
-                        backgroundColor: colors.card,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        alignSelf: "flex-start",
-                      }}
-                    >
-                      <Feather
-                        name="plus"
-                        size={18}
-                        color={colors.mutedForeground}
-                      />
-                    </Pressable>
-                  )}
-                </ScrollView>
-              </FormSection>
-            ))}
+                      </Pressable>
+                    )}
+                  </ScrollView>
+                </FormSection>
+              ))}
 
-            <Pressable
-              onPress={() => {
-                setItems((prev) => [
-                  ...prev,
-                  {
-                    id: genId(),
-                    productId: "",
-                    productName: "",
-                    size: "",
-                    price: "",
-                    quantity: "1",
-                    imageUris: [],
-                    thumbUris: [],
-                    sizeImageUris: [],
-                    sizeThumbUris: [],
-                    isCustom: false,
-                  },
-                ]);
-              }}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                padding: 14,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: "#C06070",
-                borderStyle: "dashed",
-                marginHorizontal: 16,
-                backgroundColor: colors.accent,
-              }}
-            >
-              <Feather name="plus" size={16} color="#C06070" />
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontFamily: "Inter_600SemiBold",
-                  color: "#C06070",
+              <Pressable
+                onPress={() => {
+                  setItems((prev) => [
+                    ...prev,
+                    {
+                      id: genId(),
+                      productId: "",
+                      productName: "",
+                      size: "",
+                      price: "",
+                      quantity: "1",
+                      imageUris: [],
+                      thumbUris: [],
+                      sizeImageUris: [],
+                      sizeThumbUris: [],
+                      isCustom: false,
+                    },
+                  ]);
                 }}
-              >
-                Add Another Product
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Payment */}
-          <FormSection title="Payment">
-            <View style={{ marginBottom: 16 }}>
-              <Text
-                style={[
-                  styles.fieldLabel,
-                  { color: colors.mutedForeground, marginBottom: 4 },
-                ]}
-              >
-                Total Price (Calculated)
-              </Text>
-              <View
                 style={{
-                  backgroundColor: colors.accent,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
                   padding: 14,
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: colors.border,
+                  borderColor: "#C06070",
+                  borderStyle: "dashed",
+                  marginHorizontal: 16,
+                  backgroundColor: colors.accent,
                 }}
               >
+                <Feather name="plus" size={16} color="#C06070" />
                 <Text
                   style={{
-                    fontSize: 18,
-                    fontFamily: "Inter_700Bold",
+                    fontSize: 14,
+                    fontFamily: "Inter_600SemiBold",
                     color: "#C06070",
                   }}
                 >
-                  ₹{totalPrice.toFixed(2)}
+                  Add Another Product
                 </Text>
-              </View>
+              </Pressable>
             </View>
-            <View style={{ gap: 6 }}>
-              <Text
-                style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-              >
-                Payment Status
-              </Text>
+
+            {/* Payment */}
+            <FormSection title="Payment">
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    { color: colors.mutedForeground, marginBottom: 4 },
+                  ]}
+                >
+                  Total Price (Calculated)
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: colors.accent,
+                    padding: 14,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontFamily: "Inter_700Bold",
+                      color: "#C06070",
+                    }}
+                  >
+                    ₹{totalPrice.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ gap: 6 }}>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+                >
+                  Payment Status
+                </Text>
+                <View style={styles.chipRow}>
+                  {PAYMENT_STATUSES.map((ps) => (
+                    <Pressable
+                      key={ps}
+                      onPress={() => setPaymentStatus(ps)}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor:
+                            paymentStatus === ps ? colors.primary : colors.card,
+                          borderColor:
+                            paymentStatus === ps
+                              ? colors.primary
+                              : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          {
+                            color:
+                              paymentStatus === ps
+                                ? colors.primaryForeground
+                                : colors.mutedForeground,
+                          },
+                        ]}
+                      >
+                        {ps}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              {paymentStatus === "Partial" && (
+                <FieldInput
+                  label="Amount Paid"
+                  value={amountPaid}
+                  onChange={setAmountPaid}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                  colors={colors}
+                />
+              )}
+            </FormSection>
+
+            {/* Status */}
+            <FormSection title="Order Status">
               <View style={styles.chipRow}>
-                {PAYMENT_STATUSES.map((ps) => (
+                {STATUSES.map((s) => (
                   <Pressable
-                    key={ps}
-                    onPress={() => setPaymentStatus(ps)}
+                    key={s}
+                    onPress={() => setStatus(s)}
                     style={[
                       styles.chip,
                       {
                         backgroundColor:
-                          paymentStatus === ps ? colors.primary : colors.card,
+                          status === s ? colors.primary : colors.card,
                         borderColor:
-                          paymentStatus === ps ? colors.primary : colors.border,
+                          status === s ? colors.primary : colors.border,
                       },
                     ]}
                   >
@@ -1367,162 +1460,119 @@ export default function NewOrderScreen() {
                         styles.chipText,
                         {
                           color:
-                            paymentStatus === ps
+                            status === s
                               ? colors.primaryForeground
                               : colors.mutedForeground,
                         },
                       ]}
                     >
-                      {ps}
+                      {s}
                     </Text>
                   </Pressable>
                 ))}
               </View>
-            </View>
-            {paymentStatus === "Partial" && (
+            </FormSection>
+
+            {/* Tracking & Notes */}
+            <FormSection title="Additional">
               <FieldInput
-                label="Amount Paid"
-                value={amountPaid}
-                onChange={setAmountPaid}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
+                label="Tracking Link / Number"
+                value={trackingLink}
+                onChange={setTrackingLink}
+                placeholder="Paste tracking URL..."
                 colors={colors}
               />
-            )}
-          </FormSection>
-
-          {/* Status */}
-          <FormSection title="Order Status">
-            <View style={styles.chipRow}>
-              {STATUSES.map((s) => (
-                <Pressable
-                  key={s}
-                  onPress={() => setStatus(s)}
+              <View style={{ gap: 6 }}>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+                >
+                  Notes
+                </Text>
+                <TextInput
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  placeholder="Any extra notes..."
+                  placeholderTextColor={colors.mutedForeground}
                   style={[
-                    styles.chip,
+                    styles.notesInput,
                     {
-                      backgroundColor:
-                        status === s ? colors.primary : colors.card,
-                      borderColor:
-                        status === s ? colors.primary : colors.border,
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                    },
+                  ]}
+                />
+              </View>
+            </FormSection>
+          </ScrollView>
+          {/* Sticky Action Buttons */}
+          <View
+            style={{
+              padding: 16,
+              paddingTop: 12,
+              paddingBottom: isKeyboardOpen
+                ? 60
+                : Math.max(insets.bottom + 12, 20),
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: colors.border,
+              backgroundColor: colors.background,
+            }}
+          >
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {!isEditing && (
+                <Pressable
+                  onPress={() => setPasteVisible(true)}
+                  style={[
+                    styles.pasteBtn,
+                    {
+                      flex: 1,
+                      backgroundColor: colors.accent,
+                      justifyContent: "center",
+                      paddingVertical: 14,
+                      borderRadius: 14,
                     },
                   ]}
                 >
+                  <Feather name="clipboard" size={16} color="#C06070" />
                   <Text
                     style={[
-                      styles.chipText,
-                      {
-                        color:
-                          status === s
-                            ? colors.primaryForeground
-                            : colors.mutedForeground,
-                      },
+                      styles.pasteBtnText,
+                      { color: "#C06070", fontSize: 16 },
                     ]}
                   >
-                    {s}
+                    Paste
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-          </FormSection>
-
-          {/* Tracking & Notes */}
-          <FormSection title="Additional">
-            <FieldInput
-              label="Tracking Link / Number"
-              value={trackingLink}
-              onChange={setTrackingLink}
-              placeholder="Paste tracking URL..."
-              colors={colors}
-            />
-            <View style={{ gap: 6 }}>
-              <Text
-                style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-              >
-                Notes
-              </Text>
-              <TextInput
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-                placeholder="Any extra notes..."
-                placeholderTextColor={colors.mutedForeground}
-                style={[
-                  styles.notesInput,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    color: colors.foreground,
-                  },
-                ]}
-              />
-            </View>
-          </FormSection>
-        </ScrollView>
-        {/* Sticky Action Buttons */}
-        <View
-          style={{
-            padding: 16,
-            paddingTop: 12,
-            paddingBottom: Math.max(insets.bottom + 8, 16),
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: colors.border,
-            backgroundColor: colors.background,
-          }}
-        >
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            {!isEditing && (
+              )}
               <Pressable
-                onPress={() => setPasteVisible(true)}
+                onPress={handleSave}
+                disabled={saving}
                 style={[
-                  styles.pasteBtn,
+                  styles.saveBtn,
                   {
                     flex: 1,
-                    backgroundColor: colors.accent,
+                    backgroundColor: colors.primary,
                     justifyContent: "center",
+                    alignItems: "center",
                     paddingVertical: 14,
                     borderRadius: 14,
                   },
                 ]}
               >
-                <Feather name="clipboard" size={16} color="#C06070" />
                 <Text
                   style={[
-                    styles.pasteBtnText,
-                    { color: "#C06070", fontSize: 16 },
+                    styles.saveBtnText,
+                    { color: colors.primaryForeground, fontSize: 16 },
                   ]}
                 >
-                  Paste
+                  {saving ? "Saving..." : "Save Order"}
                 </Text>
               </Pressable>
-            )}
-            <Pressable
-              onPress={handleSave}
-              disabled={saving}
-              style={[
-                styles.saveBtn,
-                {
-                  flex: 1,
-                  backgroundColor: colors.primary,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  paddingVertical: 14,
-                  borderRadius: 14,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.saveBtnText,
-                  { color: colors.primaryForeground, fontSize: 16 },
-                ]}
-              >
-                {saving ? "Saving..." : "Save Order"}
-              </Text>
-            </Pressable>
+            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
 
       <SmartPasteModal
         visible={pasteVisible}
