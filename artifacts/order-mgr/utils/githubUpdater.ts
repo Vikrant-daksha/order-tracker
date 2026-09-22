@@ -5,8 +5,9 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
+
 
 const GITHUB_OWNER   = 'Vikrant-daksha';
 const GITHUB_REPO    = 'order-tracker';
@@ -79,15 +80,21 @@ export async function downloadAndInstall(
 ): Promise<void> {
   if (Platform.OS !== 'android') return;
 
-  const localUri = `${FileSystem.cacheDirectory}orderflow_update.apk`;
-  const existing = await FileSystem.getInfoAsync(localUri);
-  if (existing.exists) await FileSystem.deleteAsync(localUri, { idempotent: true });
+  const fileUri = `${FileSystem.cacheDirectory}orderflow_update.apk`;
 
+  // Remove stale APK if present
+  const fileInfo = await FileSystem.getInfoAsync(fileUri);
+  if (fileInfo.exists) {
+    await FileSystem.deleteAsync(fileUri, { idempotent: true });
+  }
+
+  // Download with progress updates
   const downloadResumable = FileSystem.createDownloadResumable(
     apkUrl,
-    localUri,
+    fileUri,
     {},
-    ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+    (downloadProgress) => {
+      const { totalBytesWritten, totalBytesExpectedToWrite } = downloadProgress;
       const pct = totalBytesExpectedToWrite > 0
         ? totalBytesWritten / totalBytesExpectedToWrite
         : 0;
@@ -96,12 +103,18 @@ export async function downloadAndInstall(
   );
 
   const result = await downloadResumable.downloadAsync();
-  if (!result?.uri) throw new Error('Download failed');
+  if (!result?.uri) {
+    throw new Error('Download failed: No URI returned from downloadResumable');
+  }
 
-  const { startActivityAsync, ActivityAction } = await import('expo-intent-launcher');
-  await startActivityAsync(ActivityAction.INSTALL_PACKAGE, {
-    data: result.uri,
-    flags: 1,
+  // Generate content URI for Android intent (prevents FileUriExposedException)
+  const contentUri = await FileSystem.getContentUriAsync(result.uri);
+
+  // Launch the Android system package installer
+  const { startActivityAsync } = await import('expo-intent-launcher');
+  await startActivityAsync('android.intent.action.VIEW', {
+    data: contentUri,
+    flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
     type: 'application/vnd.android.package-archive',
   });
 }
