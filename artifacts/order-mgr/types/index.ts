@@ -2,6 +2,19 @@ export type OrderSource = 'Instagram' | 'Facebook' | 'WhatsApp' | 'Website' | 'E
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
 export type OrderStatus = 'Confirmed' | 'Completed' | 'Shipped' | 'Delivered';
 
+// Fixed default categories; custom ones are stored as plain strings
+export type ExpenseCategory = 'Supplies' | 'Packaging' | 'Shipping' | 'Marketing' | 'Equipment' | 'Other' | string;
+
+export interface Expense {
+  id: string;
+  amount: number;
+  category: ExpenseCategory;
+  note: string;
+  /** YYYY-MM-DD — the day this expense was incurred (determines which week/month it belongs to) */
+  date: string;
+  createdAt: string; // ISO timestamp for sorting
+}
+
 export interface OrderItem {
   id: string;
   productId?: string;

@@ -20,6 +20,7 @@
     },
     "android": {
       "package": "com.vikrant05.orderflow",
+      "permissions": ["REQUEST_INSTALL_PACKAGES"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#F8BCCD"
@@ -46,6 +47,15 @@
         {
           "photosPermission": "Allow OrderFlow to access your photos to attach product images.",
           "cameraPermission": "Allow OrderFlow to take product photos."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
         }
       ]
     ],

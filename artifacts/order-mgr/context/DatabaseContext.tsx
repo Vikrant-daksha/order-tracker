@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
-import { Order, OrderSource, OrderStatus, PaymentStatus, Product, Customer } from '@/types';
+import { Order, OrderSource, OrderStatus, PaymentStatus, Product, Customer, Expense, ExpenseCategory } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function genId() {
@@ -14,6 +14,7 @@ interface DatabaseContextType {
   orders: Order[];
   products: Product[];
   customers: Customer[];
+  expenses: Expense[];
   loading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => Promise<string>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
@@ -30,6 +31,9 @@ interface DatabaseContextType {
   findCustomerByPhone: (phone: string) => Customer | undefined;
   clearDeliveredImages: () => Promise<number>;
   importBackup: (data: { orders: Order[]; products: Product[]; customers?: Customer[] }) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<string>;
+  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | null>(null);
@@ -38,6 +42,7 @@ const IS_WEB = Platform.OS === 'web';
 const ORDERS_KEY = '@orderflow_orders';
 const PRODUCTS_KEY = '@orderflow_products';
 const CUSTOMERS_KEY = '@orderflow_customers';
+const EXPENSES_KEY = '@orderflow_expenses';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -89,6 +94,14 @@ function initDb() {
       phone TEXT DEFAULT '',
       email TEXT DEFAULT '',
       address TEXT DEFAULT '',
+      createdAt TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY,
+      amount REAL DEFAULT 0,
+      category TEXT DEFAULT 'Other',
+      note TEXT DEFAULT '',
+      date TEXT DEFAULT '',
       createdAt TEXT DEFAULT ''
     );
   `);
@@ -204,10 +217,20 @@ function loadCustomersFromDb(): Customer[] {
   }
 }
 
+function loadExpensesFromDb(): Expense[] {
+  if (IS_WEB || !db) return [];
+  try {
+    return db.getAllSync<Expense>('SELECT * FROM expenses ORDER BY date DESC, createdAt DESC');
+  } catch {
+    return [];
+  }
+}
+
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -249,6 +272,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             });
           setOrders(sanitizedOrders);
           setProducts(ps ? JSON.parse(ps) : []);
+          const es = await AsyncStorage.getItem(EXPENSES_KEY);
+          setExpenses(es ? JSON.parse(es) : []);
           const parsedCustomers = cs ? JSON.parse(cs) : [];
           let customerUpdated = false;
           const sanitizedCustomers = parsedCustomers.map((c: any) => {
@@ -317,6 +342,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           setOrders(loadedOrders);
           setProducts(loadProductsFromDb());
           setCustomers(loadedCustomers);
+          setExpenses(loadExpensesFromDb());
         }
       } catch (err) {
         console.error("Database initialization failed:", err);
@@ -340,6 +366,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   async function persistCustomers(next: Customer[]) {
     setCustomers(next);
     if (IS_WEB) await AsyncStorage.setItem(CUSTOMERS_KEY, JSON.stringify(next));
+  }
+
+  async function persistExpenses(next: Expense[]) {
+    setExpenses(next);
+    if (IS_WEB) await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(next));
   }
 
   const ORDER_DB_COLUMNS = new Set([
@@ -542,6 +573,45 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     return products.find(p => p.name.toLowerCase().includes(lower));
   }, [products]);
 
+  const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'createdAt'>): Promise<string> => {
+    const id = genId();
+    const createdAt = new Date().toISOString();
+    const full: Expense = { ...expense, id, createdAt };
+    if (!IS_WEB && db) {
+      db.runSync(
+        'INSERT INTO expenses (id,amount,category,note,date,createdAt) VALUES (?,?,?,?,?,?)',
+        [id, full.amount, full.category, full.note, full.date, createdAt]
+      );
+      setExpenses(loadExpensesFromDb());
+    } else {
+      await persistExpenses([full, ...expenses].sort((a, b) => b.date.localeCompare(a.date)));
+    }
+    return id;
+  }, [expenses]);
+
+  const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
+    if (!IS_WEB && db) {
+      const fields = Object.keys(updates).filter(k => k !== 'id' && k !== 'createdAt');
+      if (fields.length > 0) {
+        const set = fields.map(f => `${f}=?`).join(',');
+        const vals = fields.map(f => (updates as any)[f]);
+        db.runSync(`UPDATE expenses SET ${set} WHERE id=?`, [...vals, id]);
+      }
+      setExpenses(loadExpensesFromDb());
+    } else {
+      await persistExpenses(expenses.map(e => e.id === id ? { ...e, ...updates } : e));
+    }
+  }, [expenses]);
+
+  const deleteExpense = useCallback(async (id: string) => {
+    if (!IS_WEB && db) {
+      db.runSync('DELETE FROM expenses WHERE id=?', [id]);
+      setExpenses(loadExpensesFromDb());
+    } else {
+      await persistExpenses(expenses.filter(e => e.id !== id));
+    }
+  }, [expenses]);
+
   const clearDeliveredImages = useCallback(async (): Promise<number> => {
     const delivered = orders.filter(o => o.status === 'Delivered' && (
       o.referenceImagePath || o.thumbnailPath || o.sizeImagePath || o.sizeThumbnailPath ||
@@ -637,11 +707,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DatabaseContext.Provider value={{
-      orders, products, customers, loading,
+      orders, products, customers, expenses, loading,
       addOrder, updateOrder, deleteOrder, getOrder, toggleWorkingOn,
       addProduct, updateProduct, deleteProduct,
       addCustomer, updateCustomer, findCustomerByIg, findCustomerByPhone,
       findProductByName, clearDeliveredImages, importBackup,
+      addExpense, updateExpense, deleteExpense,
     }}>
       {children}
     </DatabaseContext.Provider>

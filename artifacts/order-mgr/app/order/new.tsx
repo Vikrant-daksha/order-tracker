@@ -1042,7 +1042,7 @@ export default function NewOrderScreen() {
                       },
                     ]}
                   >
-                    Custom Size / Measurement Photos{" "}
+                    Custom Size Photos{" "}
                     <Text style={{ fontSize: 11 }}>(max 10)</Text>
                   </Text>
                   <ScrollView
