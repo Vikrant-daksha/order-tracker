@@ -8,4 +8,11 @@ config.resolver.blockList = [
   /react-native_tmp_.*/,
 ];
 
+// Force Hermes-compatible transforms for ALL modules including node_modules.
+// Without this, libraries that use modern JS private class fields (#x, #y, etc.)
+// pass through Metro without being transpiled, and Hermes rejects them at
+// bytecode compilation time with "private properties are not supported".
+config.transformer = config.transformer || {};
+config.transformer.unstable_transformProfile = "hermes-stable";
+
 module.exports = config;
