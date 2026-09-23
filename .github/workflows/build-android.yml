@@ -40,6 +40,13 @@ jobs:
         with:
           version: 10.26.1
 
+      - name: Setup Android NDK & Accept Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.1.12297006" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.1.12297006" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.1.12297006" >> $GITHUB_ENV
+
       # ─────────────────────────────────────────────────────────────────
       # 3. Install ALL workspace dependencies from repo root
       # ─────────────────────────────────────────────────────────────────
