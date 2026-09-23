@@ -41,14 +41,13 @@ jobs:
           version: 10.26.1
 
       # ─────────────────────────────────────────────────────────────────
-      # 3. Install ALL workspace dependencies from the repo root
-      #    This ensures @workspace/* packages in /lib are resolved.
+      # 3. Install ALL workspace dependencies from repo root
       # ─────────────────────────────────────────────────────────────────
       - name: Install workspace dependencies (repo root)
         run: pnpm install --no-frozen-lockfile
 
       # ─────────────────────────────────────────────────────────────────
-      # 4. Expo Prebuild
+      # 4. Expo Prebuild — regenerates android/ fresh from current app.json
       # ─────────────────────────────────────────────────────────────────
       - name: Expo Prebuild
         working-directory: artifacts/order-mgr
@@ -57,22 +56,27 @@ jobs:
           EXPO_NO_TELEMETRY: "1"
 
       # ─────────────────────────────────────────────────────────────────
-      # 5. Pre-flight: run Metro bundler STANDALONE before Gradle
-      #    This step exists ONLY to surface the real JS error clearly.
-      #    When Gradle runs Metro internally, errors are swallowed behind
-      #    "node exited with code 1". Running it here shows the full error
-      #    in its own step so you can read it directly.
-      #    If this step passes, the Gradle bundle will pass too.
+      # 5. Pre-build the JS bundle ourselves (visible errors, no Gradle magic)
+      #
+      #    WHY: Gradle's createBundleReleaseJsAndAssets calls node from
+      #    inside android/ using paths resolved at evaluation time. With
+      #    pnpm workspaces this resolution can silently fail. By running
+      #    the bundle ourselves we:
+      #      a) See any Metro error directly
+      #      b) Pass the pre-built bundle to Gradle via BUNDLE_FILE env var
+      #         so Gradle skips its own bundling step entirely
       # ─────────────────────────────────────────────────────────────────
-      - name: Pre-flight JS bundle check (surface Metro errors)
+      - name: Build JS bundle (Metro)
         working-directory: artifacts/order-mgr
         run: |
+          mkdir -p android/app/build/generated/assets/createBundleReleaseJsAndAssets
+          mkdir -p android/app/build/generated/res/bundleReleaseJsAndAssets
           npx expo export:embed \
             --platform android \
             --dev false \
-            --bundle-output /tmp/preflight-bundle.js \
-            --assets-dest /tmp/preflight-assets \
-            --entry-file node_modules/expo-router/entry.js
+            --entry-file node_modules/expo-router/entry.js \
+            --bundle-output android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle \
+            --assets-dest android/app/build/generated/res/bundleReleaseJsAndAssets
         env:
           NODE_ENV: production
           EXPO_NO_TELEMETRY: "1"
@@ -86,7 +90,9 @@ jobs:
             > artifacts/order-mgr/android/app/my-release-key.keystore
 
       # ─────────────────────────────────────────────────────────────────
-      # 7. Gradle build
+      # 7. Gradle build — skips JS bundling since we pre-built it above
+      #    BUNDLING_SKIP tells the React Native Gradle plugin to use the
+      #    already-built bundle instead of calling Metro again.
       # ─────────────────────────────────────────────────────────────────
       - name: Make gradlew executable
         working-directory: artifacts/order-mgr/android
@@ -100,11 +106,12 @@ jobs:
             -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_STORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
             -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            -PbundleJsAndAssets=false \
             --no-daemon \
             --stacktrace
 
       # ─────────────────────────────────────────────────────────────────
-      # 8a. Upload to Actions tab (every run)
+      # 8a. Upload to Actions tab
       # ─────────────────────────────────────────────────────────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -115,7 +122,7 @@ jobs:
           retention-days: 14
 
       # ─────────────────────────────────────────────────────────────────
-      # 8b. Create GitHub Release + attach APK (only on v* tag pushes)
+      # 8b. Create GitHub Release (only on v* tags)
       # ─────────────────────────────────────────────────────────────────
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
