@@ -1,4 +1,4 @@
-﻿name: Build Android APK
+name: Build Android APK
 
 on:
   push:
@@ -74,7 +74,6 @@ jobs:
           npx expo export:embed \
             --platform android \
             --dev false \
-            --entry-file node_modules/expo-router/entry.js \
             --bundle-output android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle \
             --assets-dest android/app/build/generated/res/bundleReleaseJsAndAssets
         env:
