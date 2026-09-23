@@ -42,21 +42,13 @@ jobs:
 
       # ─────────────────────────────────────────────────────────────────
       # 3. Install ALL workspace dependencies from the repo root
-      #
-      #    WHY root?  The app imports @workspace/api-client-react which
-      #    lives in /lib.  pnpm needs the full workspace graph to resolve
-      #    those symlinks — installing only in artifacts/order-mgr misses
-      #    them and causes the Metro bundler to crash with "exit code 1".
-      #
-      #    --no-frozen-lockfile  because the lockfile was generated on
-      #    Windows/Replit and some platform-specific hashes differ on
-      #    the Linux runner.
+      #    This ensures @workspace/* packages in /lib are resolved.
       # ─────────────────────────────────────────────────────────────────
       - name: Install workspace dependencies (repo root)
         run: pnpm install --no-frozen-lockfile
 
       # ─────────────────────────────────────────────────────────────────
-      # 4. Expo Prebuild  (regenerates android/ from app.json + plugins)
+      # 4. Expo Prebuild
       # ─────────────────────────────────────────────────────────────────
       - name: Expo Prebuild
         working-directory: artifacts/order-mgr
@@ -65,7 +57,28 @@ jobs:
           EXPO_NO_TELEMETRY: "1"
 
       # ─────────────────────────────────────────────────────────────────
-      # 5. Decode release keystore
+      # 5. Pre-flight: run Metro bundler STANDALONE before Gradle
+      #    This step exists ONLY to surface the real JS error clearly.
+      #    When Gradle runs Metro internally, errors are swallowed behind
+      #    "node exited with code 1". Running it here shows the full error
+      #    in its own step so you can read it directly.
+      #    If this step passes, the Gradle bundle will pass too.
+      # ─────────────────────────────────────────────────────────────────
+      - name: Pre-flight JS bundle check (surface Metro errors)
+        working-directory: artifacts/order-mgr
+        run: |
+          npx expo export:embed \
+            --platform android \
+            --dev false \
+            --bundle-output /tmp/preflight-bundle.js \
+            --assets-dest /tmp/preflight-assets \
+            --entry-file node_modules/expo-router/entry.js
+        env:
+          NODE_ENV: production
+          EXPO_NO_TELEMETRY: "1"
+
+      # ─────────────────────────────────────────────────────────────────
+      # 6. Decode release keystore
       # ─────────────────────────────────────────────────────────────────
       - name: Decode Android Keystore
         run: |
@@ -73,9 +86,7 @@ jobs:
             > artifacts/order-mgr/android/app/my-release-key.keystore
 
       # ─────────────────────────────────────────────────────────────────
-      # 6. Gradle build with signing injected via -P flags
-      #    --stacktrace is included so ANY future failure shows the real
-      #    error instead of the generic "node exited with code 1" message.
+      # 7. Gradle build
       # ─────────────────────────────────────────────────────────────────
       - name: Make gradlew executable
         working-directory: artifacts/order-mgr/android
@@ -93,7 +104,7 @@ jobs:
             --stacktrace
 
       # ─────────────────────────────────────────────────────────────────
-      # 7a. Upload to Actions tab (every run)
+      # 8a. Upload to Actions tab (every run)
       # ─────────────────────────────────────────────────────────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -104,7 +115,7 @@ jobs:
           retention-days: 14
 
       # ─────────────────────────────────────────────────────────────────
-      # 7b. Create GitHub Release + attach APK (only on v* tag pushes)
+      # 8b. Create GitHub Release + attach APK (only on v* tag pushes)
       # ─────────────────────────────────────────────────────────────────
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
