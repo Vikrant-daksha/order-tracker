@@ -193,16 +193,6 @@ export default function OrdersScreen() {
           </View>
         }
       />
-
-      <Pressable
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push('/order/new' as any);
-        }}
-        style={[styles.fab, { backgroundColor: colors.primary, bottom: (Platform.OS === 'web' ? 34 : insets.bottom) + 80 }]}
-      >
-        <Feather name="plus" size={26} color={colors.primaryForeground} />
-      </Pressable>
     </View>
   );
 }

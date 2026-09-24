@@ -1,11 +1,12 @@
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, Pressable, StyleSheet, View, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 function NativeTabLayout() {
@@ -19,9 +20,9 @@ function NativeTabLayout() {
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Orders</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="catalog">
-        <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
-        <Label>Catalog</Label>
+      <NativeTabs.Trigger name="new-order">
+        <Icon sf={{ default: "plus.circle.fill", selected: "plus.circle.fill" }} />
+        <Label>New</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="insights">
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
@@ -41,6 +42,7 @@ function ClassicTabLayout() {
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+  const router = useRouter();
 
   return (
     <Tabs
@@ -54,6 +56,7 @@ function ClassicTabLayout() {
           borderTopWidth: isWeb ? 1 : StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
           elevation: 0,
+          overflow: "visible",
           ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
@@ -93,15 +96,38 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="catalog"
+        name="new-order"
         options={{
-          title: "Catalog",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="square.grid.2x2" tintColor={color} size={24} />
-            ) : (
-              <Feather name="grid" size={22} color={color} />
-            ),
+          title: "New Order",
+          tabBarLabel: () => null,
+          tabBarButton: () => (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push("/order/new" as any);
+              }}
+              style={styles.centerBtnContainer}
+            >
+              <View
+                style={[
+                  styles.centerBtn,
+                  {
+                    backgroundColor: "#C06070",
+                    borderColor: isDark ? colors.card : "#FFFFFF",
+                  },
+                ]}
+              >
+                <Feather name="plus" size={26} color="#FFFFFF" />
+              </View>
+            </Pressable>
+          ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push("/order/new" as any);
+          },
         }}
       />
       <Tabs.Screen
@@ -142,3 +168,25 @@ export default function TabLayout() {
   }
   return <ClassicTabLayout />;
 }
+
+const styles = StyleSheet.create({
+  centerBtnContainer: {
+    top: -16,
+    justifyContent: "center",
+    alignItems: "center",
+    flex: 1,
+  },
+  centerBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    shadowColor: "#C06070",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+});

@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -24,6 +25,7 @@ import { saveImage } from '@/utils/imageUtils';
 export default function CatalogScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { products, addProduct, updateProduct, deleteProduct, orders } = useDatabase();
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -112,12 +114,15 @@ export default function CatalogScreen() {
         keyExtractor={p => p.id}
         numColumns={2}
         columnWrapperStyle={{ paddingHorizontal: 16, gap: G }}
-        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 100 : insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 40 : insets.bottom + 80 }}
         scrollEnabled={filtered.length > 0}
         ListHeaderComponent={
           <>
             <View style={[styles.header, { paddingTop: topPad + 8 }]}>
-              <Text style={[styles.title, { color: colors.foreground }]}>Catalog</Text>
+              <Pressable onPress={() => router.back()} hitSlop={10}>
+                <Feather name="arrow-left" size={22} color={colors.foreground} />
+              </Pressable>
+              <Text style={[styles.title, { color: colors.foreground }]}>Product Catalog</Text>
               <Text style={[styles.count, { color: colors.mutedForeground }]}>{products.length}</Text>
             </View>
             <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 16, marginBottom: 16 }]}>
@@ -165,7 +170,7 @@ export default function CatalogScreen() {
 
       <Pressable
         onPress={openAdd}
-        style={[styles.fab, { backgroundColor: colors.primary, bottom: (Platform.OS === 'web' ? 34 : insets.bottom) + 80 }]}
+        style={[styles.fab, { backgroundColor: colors.primary, bottom: (Platform.OS === 'web' ? 24 : insets.bottom) + 24 }]}
       >
         <Feather name="plus" size={26} color={colors.primaryForeground} />
       </Pressable>
@@ -222,8 +227,8 @@ export default function CatalogScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingBottom: 12 },
-  title: { fontSize: 28, fontFamily: 'Inter_700Bold', flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 12 },
+  title: { fontSize: 24, fontFamily: 'Inter_700Bold', flex: 1 },
   count: { fontSize: 16, fontFamily: 'Inter_500Medium' },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
   searchInput: { flex: 1, fontSize: 15, fontFamily: 'Inter_400Regular' },

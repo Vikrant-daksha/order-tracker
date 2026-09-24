@@ -36,7 +36,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { orders, products, clearDeliveredImages, importBackup } =
     useDatabase();
-  const { updateInfo, isChecking, recheckUpdate } = useUpdateContext();
+  const { updateInfo, isChecking, lastChecked, recheckUpdate } =
+    useUpdateContext();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -223,10 +224,15 @@ export default function ProfileScreen() {
             Total Orders
           </Text>
         </View>
-        <View
-          style={[
+        <Pressable
+          onPress={() => router.push("/catalog" as any)}
+          style={({ pressed }) => [
             styles.statBox,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              opacity: pressed ? 0.75 : 1,
+            },
           ]}
         >
           <Text style={[styles.statValue, { color: colors.foreground }]}>
@@ -235,11 +241,16 @@ export default function ProfileScreen() {
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
             Products
           </Text>
-        </View>
-        <View
-          style={[
+        </Pressable>
+        <Pressable
+          onPress={() => router.push("/customers" as any)}
+          style={({ pressed }) => [
             styles.statBox,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              opacity: pressed ? 0.75 : 1,
+            },
           ]}
         >
           <Text style={[styles.statValue, { color: colors.foreground }]}>
@@ -248,10 +259,17 @@ export default function ProfileScreen() {
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
             Customers
           </Text>
-        </View>
+        </Pressable>
       </View>
 
       {/* Menu Sections */}
+      <MenuItem
+        icon="grid"
+        label="Product Catalog"
+        subtitle="Manage products, prices & photos"
+        onPress={() => router.push("/catalog" as any)}
+        colors={colors}
+      />
       <MenuItem
         icon="users"
         label="Customer Profiles"
@@ -416,7 +434,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.menuSub, { color: colors.mutedForeground }]}>
                   {updateInfo?.hasUpdate
                     ? 'Tap to download & install'
-                    : 'Last checked: GitHub Releases'
+                    : formatLastChecked(lastChecked)
                   }
                 </Text>
               </View>
@@ -427,6 +445,23 @@ export default function ProfileScreen() {
       )}
     </ScrollView>
   );
+}
+
+function formatLastChecked(timestamp: number | null): string {
+  if (!timestamp) return "Last checked: Never";
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (isToday) {
+    return `Last checked: Today at ${timeStr}`;
+  }
+  const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return `Last checked: ${dateStr} at ${timeStr}`;
 }
 
 function MenuItem({ icon, label, subtitle, onPress, colors }: any) {
