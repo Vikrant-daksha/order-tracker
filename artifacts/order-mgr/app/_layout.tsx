@@ -17,22 +17,26 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DatabaseProvider } from "@/context/DatabaseContext";
 import { requestNotificationPermissions } from "@/utils/notifications";
-import { checkForUpdate, getLastCheckDate, UpdateInfo } from "@/utils/githubUpdater";
+import {
+  checkForUpdate,
+  getLastCheckDate,
+  UpdateInfo,
+} from "@/utils/githubUpdater";
 import { ChatBubble } from "@/components/ChatBubble";
 
 // ─── Update Context ─────────────────────────────────────────────────────────────
 // Share the update check result across the whole app (Profile screen uses it).
 interface UpdateContextValue {
-  updateInfo:    UpdateInfo | null;
-  isChecking:    boolean;
-  lastChecked:   number | null;
+  updateInfo: UpdateInfo | null;
+  isChecking: boolean;
+  lastChecked: number | null;
   recheckUpdate: () => Promise<void>;
 }
 
 export const UpdateContext = createContext<UpdateContextValue>({
-  updateInfo:    null,
-  isChecking:    false,
-  lastChecked:   null,
+  updateInfo: null,
+  isChecking: false,
+  lastChecked: null,
   recheckUpdate: async () => {},
 });
 
@@ -60,7 +64,6 @@ function RootLayoutNav() {
         <Stack.Screen name="customers/[id]" options={{ headerShown: false }} />
       </Stack>
       {/* Floating AI assistant bubble — appears on every screen above the tab bar */}
-      <ChatBubble />
     </View>
   );
 }
@@ -124,14 +127,14 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function recheckUpdate(force = false) {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== "android") return;
     setIsChecking(true);
     try {
       const info = await checkForUpdate(force);
       if (info) setUpdateInfo(info);
       await refreshLastChecked();
     } catch (e) {
-      console.warn('[Updater] check failed:', e);
+      console.warn("[Updater] check failed:", e);
     } finally {
       setIsChecking(false);
     }
@@ -144,7 +147,14 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <UpdateContext.Provider value={{ updateInfo, isChecking, lastChecked, recheckUpdate: () => recheckUpdate(true) }}>
+    <UpdateContext.Provider
+      value={{
+        updateInfo,
+        isChecking,
+        lastChecked,
+        recheckUpdate: () => recheckUpdate(true),
+      }}
+    >
       {children}
     </UpdateContext.Provider>
   );

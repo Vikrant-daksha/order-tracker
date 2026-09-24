@@ -10,10 +10,11 @@
  * - Keyboard-aware scrolling
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -25,11 +26,12 @@ import {
   TouchableOpacity,
   View,
   Animated,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { useColors } from '@/hooks/useColors';
-import { useDatabase } from '@/context/DatabaseContext';
-import { sendMessage, ChatMessage, getRemainingTokens } from '@/utils/aiClient';
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColors } from "@/hooks/useColors";
+import { useDatabase } from "@/context/DatabaseContext";
+import { sendMessage, ChatMessage, getRemainingTokens } from "@/utils/aiClient";
 
 // ─── Quick Prompts ────────────────────────────────────────────────────────────────
 
@@ -45,30 +47,44 @@ const QUICK_PROMPTS = [
 // ─── Tool name → friendly label ───────────────────────────────────────────────────
 
 const TOOL_LABELS: Record<string, string> = {
-  getOrderSummary: 'Checking orders',
-  getRevenueStats: 'Calculating revenue',
-  getTopProducts: 'Finding top products',
-  getPendingPayments: 'Checking payments',
-  getExpenseSummary: 'Checking expenses',
-  searchOrders: 'Searching orders',
-  getCustomerOrderHistory: 'Looking up customer',
-  createOrder: 'Creating order',
-  updateOrderStatus: 'Updating status',
-  markOrderPaid: 'Updating payment',
-  addExpense: 'Logging expense',
+  getOrderSummary: "Checking orders",
+  getRevenueStats: "Calculating revenue",
+  getTopProducts: "Finding top products",
+  getPendingPayments: "Checking payments",
+  getExpenseSummary: "Checking expenses",
+  searchOrders: "Searching orders",
+  getCustomerOrderHistory: "Looking up customer",
+  createOrder: "Creating order",
+  updateOrderStatus: "Updating status",
+  markOrderPaid: "Updating payment",
+  addExpense: "Logging expense",
 };
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────────
 
-function MessageBubble({ message, colors }: { message: ChatMessage; colors: any }) {
-  const isUser = message.role === 'user';
+function MessageBubble({
+  message,
+  colors,
+}: {
+  message: ChatMessage;
+  colors: any;
+}) {
+  const isUser = message.role === "user";
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(12)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
@@ -77,7 +93,7 @@ function MessageBubble({ message, colors }: { message: ChatMessage; colors: any 
       <Animated.View style={[styles.toolCallRow, { opacity: fadeAnim }]}>
         <ActivityIndicator size="small" color="#C06070" />
         <Text style={[styles.toolCallText, { color: colors.mutedForeground }]}>
-          {TOOL_LABELS[message.toolName || ''] || 'Working on it'}...
+          {TOOL_LABELS[message.toolName || ""] || "Working on it"}...
         </Text>
       </Animated.View>
     );
@@ -100,11 +116,19 @@ function MessageBubble({ message, colors }: { message: ChatMessage; colors: any 
         style={[
           styles.bubble,
           isUser
-            ? [styles.bubbleUser, { backgroundColor: '#F8BCCD' }]
-            : [styles.bubbleAI, { backgroundColor: colors.card, borderColor: colors.border }],
+            ? [styles.bubbleUser, { backgroundColor: "#F8BCCD" }]
+            : [
+                styles.bubbleAI,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ],
         ]}
       >
-        <Text style={[styles.bubbleText, { color: isUser ? '#5C2A38' : colors.foreground }]}>
+        <Text
+          style={[
+            styles.bubbleText,
+            { color: isUser ? "#5C2A38" : colors.foreground },
+          ]}
+        >
           {message.text}
         </Text>
       </View>
@@ -121,15 +145,37 @@ interface ChatModalProps {
 
 export function ChatModal({ visible, onClose }: ChatModalProps) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const db = useDatabase();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
   const [tokensRemaining, setTokensRemaining] = useState(50000);
   const [isFirstOpen, setIsFirstOpen] = useState(true);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => {
+        setIsKeyboardOpen(true);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setIsKeyboardOpen(false);
+      },
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Load token usage when modal opens
   useEffect(() => {
@@ -149,57 +195,60 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
     addExpense: db.addExpense,
   };
 
-  const handleSend = useCallback(async (text?: string) => {
-    const msg = (text || input).trim();
-    if (!msg || isLoading) return;
+  const handleSend = useCallback(
+    async (text?: string) => {
+      const msg = (text || input).trim();
+      if (!msg || isLoading) return;
 
-    setInput('');
-    setIsFirstOpen(false);
-    setIsLoading(true);
+      setInput("");
+      setIsFirstOpen(false);
+      setIsLoading(true);
 
-    const userMessage: ChatMessage = { role: 'user', text: msg };
-    setMessages(prev => [...prev, userMessage]);
+      const userMessage: ChatMessage = { role: "user", text: msg };
+      setMessages((prev) => [...prev, userMessage]);
 
-    try {
-      const { reply, tokensUsed, limitReached } = await sendMessage(
-        msg,
-        messages,
-        appData,
-        (toolName) => {
-          setActiveToolName(toolName);
-          // Add a visual tool-call indicator message
-          setMessages(prev => [
-            ...prev,
-            { role: 'model', text: '', isToolCall: true, toolName },
-          ]);
-        }
-      );
-
-      // Remove any tool-call indicator messages, add final reply
-      setMessages(prev => {
-        const withoutToolCalls = prev.filter(m => !m.isToolCall);
-        return [...withoutToolCalls, { role: 'model', text: reply }];
-      });
-
-      // Update token display
-      getRemainingTokens().then(setTokensRemaining);
-    } catch (err: any) {
-      setMessages(prev => {
-        const withoutToolCalls = prev.filter(m => !m.isToolCall);
-        return [
-          ...withoutToolCalls,
-          {
-            role: 'model',
-            text: `Sorry, something went wrong: ${err?.message ?? 'Please check your internet connection and try again.'}`,
+      try {
+        const { reply, tokensUsed, limitReached } = await sendMessage(
+          msg,
+          messages,
+          appData,
+          (toolName) => {
+            setActiveToolName(toolName);
+            // Add a visual tool-call indicator message
+            setMessages((prev) => [
+              ...prev,
+              { role: "model", text: "", isToolCall: true, toolName },
+            ]);
           },
-        ];
-      });
-    } finally {
-      setIsLoading(false);
-      setActiveToolName(null);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [input, messages, isLoading, appData]);
+        );
+
+        // Remove any tool-call indicator messages, add final reply
+        setMessages((prev) => {
+          const withoutToolCalls = prev.filter((m) => !m.isToolCall);
+          return [...withoutToolCalls, { role: "model", text: reply }];
+        });
+
+        // Update token display
+        getRemainingTokens().then(setTokensRemaining);
+      } catch (err: any) {
+        setMessages((prev) => {
+          const withoutToolCalls = prev.filter((m) => !m.isToolCall);
+          return [
+            ...withoutToolCalls,
+            {
+              role: "model",
+              text: `Sorry, something went wrong: ${err?.message ?? "Please check your internet connection and try again."}`,
+            },
+          ];
+        });
+      } finally {
+        setIsLoading(false);
+        setActiveToolName(null);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    },
+    [input, messages, isLoading, appData],
+  );
 
   const tokenPercent = Math.min(100, (tokensRemaining / 50000) * 100);
 
@@ -212,30 +261,52 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={0}
       >
         {/* ─── Header ─────────────────────────────────────────────────────────── */}
-        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.card,
+              borderBottomColor: colors.border,
+              paddingTop: Platform.OS === "web" ? 16 : insets.top + 10,
+            },
+          ]}
+        >
           <View style={styles.headerLeft}>
             <View style={styles.headerIconWrap}>
               <Text style={styles.headerIcon}>✨</Text>
             </View>
             <View>
-              <Text style={[styles.headerTitle, { color: colors.foreground }]}>AI Assistant</Text>
+              <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+                AI Assistant
+              </Text>
               <View style={styles.privacyRow}>
                 <Feather name="lock" size={10} color={colors.mutedForeground} />
-                <Text style={[styles.privacyLabel, { color: colors.mutedForeground }]}>
-                  {' '}Your data stays on device
+                <Text
+                  style={[
+                    styles.privacyLabel,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {" "}
+                  Your data stays on device
                 </Text>
               </View>
             </View>
           </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={10}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeBtn}
+            hitSlop={10}
+          >
             <Feather name="x" size={22} color={colors.mutedForeground} />
           </TouchableOpacity>
         </View>
@@ -248,7 +319,7 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
                 styles.tokenFill,
                 {
                   width: `${tokenPercent}%` as any,
-                  backgroundColor: tokenPercent > 30 ? '#C6EFC6' : '#FFD4D4',
+                  backgroundColor: tokenPercent > 30 ? "#C6EFC6" : "#FFD4D4",
                 },
               ]}
             />
@@ -265,7 +336,9 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
           keyExtractor={(_, i) => String(i)}
           renderItem={renderItem}
           contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() =>
+            listRef.current?.scrollToEnd({ animated: false })
+          }
           ListEmptyComponent={
             isFirstOpen ? (
               <View style={styles.emptyState}>
@@ -273,18 +346,31 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
                 <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
                   Hi! I'm your business assistant.
                 </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-                  I can check your orders, calculate revenue, and even create new orders — all while keeping your customer info private.
+                <Text
+                  style={[
+                    styles.emptySubtitle,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  I can check your orders, calculate revenue, and even create
+                  new orders — all while keeping your customer info private.
                 </Text>
                 {/* Quick Prompts */}
                 <View style={styles.quickPrompts}>
                   {QUICK_PROMPTS.map((prompt) => (
                     <TouchableOpacity
                       key={prompt}
-                      style={[styles.quickChip, { backgroundColor: '#FFF0F5', borderColor: '#F8BCCD' }]}
+                      style={[
+                        styles.quickChip,
+                        { backgroundColor: "#FFF0F5", borderColor: "#F8BCCD" },
+                      ]}
                       onPress={() => handleSend(prompt)}
                     >
-                      <Text style={[styles.quickChipText, { color: '#C06070' }]}>{prompt}</Text>
+                      <Text
+                        style={[styles.quickChipText, { color: "#C06070" }]}
+                      >
+                        {prompt}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -294,10 +380,26 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
         />
 
         {/* ─── Input Bar ──────────────────────────────────────────────────────── */}
-        <View style={[styles.inputBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <View
+          style={[
+            styles.inputBar,
+            {
+              backgroundColor: colors.card,
+              borderTopColor: colors.border,
+              paddingBottom: isKeyboardOpen
+                ? 8
+                : Platform.OS === "web"
+                  ? 12
+                  : 18,
+            },
+          ]}
+        >
           <TextInput
             ref={inputRef}
-            style={[styles.textInput, { backgroundColor: colors.muted, color: colors.foreground }]}
+            style={[
+              styles.textInput,
+              { backgroundColor: colors.muted, color: colors.foreground },
+            ]}
             placeholder="Ask me anything about your business..."
             placeholderTextColor={colors.mutedForeground}
             value={input}
@@ -311,7 +413,10 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
           <TouchableOpacity
             style={[
               styles.sendBtn,
-              { backgroundColor: input.trim() && !isLoading ? '#C06070' : colors.muted },
+              {
+                backgroundColor:
+                  input.trim() && !isLoading ? "#C06070" : colors.muted,
+              },
             ]}
             onPress={() => handleSend()}
             disabled={!input.trim() || isLoading}
@@ -319,7 +424,11 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
             {isLoading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Feather name="send" size={18} color={input.trim() ? '#fff' : colors.mutedForeground} />
+              <Feather
+                name="send"
+                size={18}
+                color={input.trim() ? "#fff" : colors.mutedForeground}
+              />
             )}
           </TouchableOpacity>
         </View>
@@ -334,76 +443,149 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerIconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#FFF0F5', alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFF0F5",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerIcon: { fontSize: 20 },
-  headerTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
-  privacyRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  privacyLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  headerTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  privacyRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
+  privacyLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
   closeBtn: { padding: 4 },
 
   tokenBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
   },
   tokenTrack: {
-    flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E5EA', overflow: 'hidden',
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E5EA",
+    overflow: "hidden",
   },
-  tokenFill: { height: '100%', borderRadius: 2 },
-  tokenText: { fontSize: 10, fontFamily: 'Inter_400Regular' },
+  tokenFill: { height: "100%", borderRadius: 2 },
+  tokenText: { fontSize: 10, fontFamily: "Inter_400Regular" },
 
   messageList: { padding: 16, gap: 10, flexGrow: 1 },
 
-  bubbleWrapper: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, maxWidth: '88%' },
-  bubbleWrapperUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
-  bubbleWrapperAI: { alignSelf: 'flex-start' },
+  bubbleWrapper: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    maxWidth: "88%",
+  },
+  bubbleWrapperUser: { alignSelf: "flex-end", flexDirection: "row-reverse" },
+  bubbleWrapperAI: { alignSelf: "flex-start" },
 
   aiAvatar: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#FFF0F5', alignItems: 'center', justifyContent: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FFF0F5",
+    alignItems: "center",
+    justifyContent: "center",
   },
   aiAvatarEmoji: { fontSize: 14 },
 
-  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, maxWidth: '100%' },
+  bubble: {
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    maxWidth: "100%",
+  },
   bubbleUser: { borderBottomRightRadius: 4 },
-  bubbleAI: { borderBottomLeftRadius: 4, borderWidth: StyleSheet.hairlineWidth },
-  bubbleText: { fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
+  bubbleAI: {
+    borderBottomLeftRadius: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  bubbleText: { fontSize: 15, fontFamily: "Inter_400Regular", lineHeight: 22 },
 
   toolCallRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
-    paddingHorizontal: 12, paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  toolCallText: { fontSize: 13, fontFamily: 'Inter_400Regular', fontStyle: 'italic' },
+  toolCallText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+  },
 
-  emptyState: { flex: 1, alignItems: 'center', paddingTop: 32, paddingHorizontal: 8 },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    paddingTop: 32,
+    paddingHorizontal: 8,
+  },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 17, fontFamily: 'Inter_600SemiBold', textAlign: 'center', marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-  quickPrompts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  emptyTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  quickPrompts: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+  },
   quickChip: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1.5,
   },
-  quickChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  quickChipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
   inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 32 : 12,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   textInput: {
-    flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10,
-    fontSize: 15, fontFamily: 'Inter_400Regular', maxHeight: 100,
+    flex: 1,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    maxHeight: 100,
   },
   sendBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    alignItems: 'center', justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

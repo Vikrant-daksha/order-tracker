@@ -5,31 +5,20 @@
  * Tapping it opens the ChatModal.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { Text } from 'react-native';
-import { ChatModal } from './ChatModal';
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, StyleSheet, TouchableOpacity, Platform } from "react-native";
+import { Text } from "react-native";
+import { ChatModal } from "./ChatModal";
 
 export function ChatBubble() {
   const [modalVisible, setModalVisible] = useState(false);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Gentle pulse animation to draw attention
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.08, duration: 1400, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1,    duration: 1400, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
 
   return (
     <>
       <Animated.View
-        style={[styles.wrapper, { transform: [{ scale: pulseAnim }] }]}
+        style={[styles.wrapper, { transform: [{ scale: 1 }] }]}
         pointerEvents="box-none"
       >
         <TouchableOpacity
@@ -50,11 +39,11 @@ export function ChatBubble() {
   );
 }
 
-const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
+const TAB_BAR_HEIGHT = Platform.OS === "ios" ? 88 : 100;
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'absolute',
+    position: "absolute",
     right: 20,
     bottom: TAB_BAR_HEIGHT + 12,
     zIndex: 999,
@@ -63,10 +52,10 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#C06070',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#C06070',
+    backgroundColor: "#C06070",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#C06070",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
