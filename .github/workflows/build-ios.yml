@@ -9,9 +9,21 @@ jobs:
   build:
     name: EAS iOS Build
     runs-on: ubuntu-latest   # EAS cloud handles the macOS side — you don't need a Mac runner
+    env:
+      EXPO_PUBLIC_GEMINI_KEY: ${{ secrets.EXPO_PUBLIC_GEMINI_KEY }}
+      EXPO_PUBLIC_PROJECT_ID: ${{ secrets.EXPO_PUBLIC_PROJECT_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Create .env files from GitHub Secrets
+        run: |
+          mkdir -p artifacts/order-mgr
+          cat << 'EOF' > artifacts/order-mgr/.env
+          EXPO_PUBLIC_GEMINI_KEY=${{ secrets.EXPO_PUBLIC_GEMINI_KEY }}
+          EXPO_PUBLIC_PROJECT_ID=${{ secrets.EXPO_PUBLIC_PROJECT_ID }}
+          EOF
+          cp artifacts/order-mgr/.env .env
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
