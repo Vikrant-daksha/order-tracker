@@ -34,7 +34,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { orders, products, clearDeliveredImages, importBackup } =
+  const { orders, products, expenses, clearDeliveredImages, importBackup } =
     useDatabase();
   const { updateInfo, isChecking, lastChecked, recheckUpdate } =
     useUpdateContext();
@@ -63,8 +63,9 @@ export default function ProfileScreen() {
     const unpaid = orders.filter((o) => o.paymentStatus === "Unpaid");
     const partial = orders.filter((o) => o.paymentStatus === "Partial");
     const customers = new Set(orders.map((o) => o.customerName)).size;
-    return { outstanding, unpaid, partial, customers };
-  }, [orders]);
+    const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    return { outstanding, unpaid, partial, customers, totalExpenses };
+  }, [orders, expenses]);
 
   async function handleClearCache() {
     Alert.alert(
@@ -263,6 +264,13 @@ export default function ProfileScreen() {
       </View>
 
       {/* Menu Sections */}
+      <MenuItem
+        icon="credit-card"
+        label="Expenses"
+        subtitle={`₹${stats.totalExpenses.toLocaleString("en-IN", { maximumFractionDigits: 0 })} · ${expenses.length} records`}
+        onPress={() => router.push("/expenses" as any)}
+        colors={colors}
+      />
       <MenuItem
         icon="grid"
         label="Product Catalog"

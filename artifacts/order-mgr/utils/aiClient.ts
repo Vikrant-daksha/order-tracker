@@ -30,7 +30,7 @@ function getApiUrl(): string {
 // ─── Daily Token Limiter ──────────────────────────────────────────────────────────
 const TOKEN_USAGE_KEY = "@ai_daily_tokens";
 const TOKEN_DATE_KEY = "@ai_daily_date";
-const DAILY_TOKEN_LIMIT = 50_000;
+export const DAILY_TOKEN_LIMIT = 150_000;
 
 async function getTokenUsage(): Promise<number> {
   const today = new Date().toISOString().split("T")[0];
@@ -57,25 +57,20 @@ export async function getRemainingTokens(): Promise<number> {
   return Math.max(0, DAILY_TOKEN_LIMIT - used);
 }
 
-// ─── System Prompt ────────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are a helpful business assistant for a small handmade/custom order business.
-You help the owner manage their orders, track revenue, log expenses, and get insights.
+// ─── Compact Token-Efficient System Prompt ─────────────────────────────────────────
+const SYSTEM_PROMPT = `Business assistant for a custom orders & crafts shop.
+PRIVACY: Never ask for or output phone, email, or full address. Use first names only.
 
-IMPORTANT PRIVACY RULES — you MUST follow these at all times:
-1. Never ask the user for customer phone numbers, email addresses, or physical addresses.
-2. Never repeat or display any contact information from tool results.
-3. Only use customer first names when referencing customers.
-4. All sensitive data stays on the user's device — you only receive aggregated summaries.
-5. If a tool returns contact info (it shouldn't), ignore and do not display it.
-
-BEHAVIOR:
-- Be friendly, concise, and business-focused.
-- Do not use ** to bold the text, use  ' ' instead.
-- Use ₹ for currency (Indian Rupees).
-- When creating orders or logging expenses, confirm the action clearly.
-- For ambiguous requests, use the most relevant tool before asking for clarification.
-- Format numbers clearly (e.g., ₹4,500 not 4500).
-- Keep responses short and to the point.`;
+RULES:
+- Be ultra-concise: direct answers only, NO pleasantries or filler text.
+- Use ₹ (INR) for currency. Format numbers (e.g. ₹4,500).
+- Do not use ** for bold; use ' ' instead.
+- For 2+ orders at once, use 'createMultipleOrders' batch tool.
+- Single orders use 'createOrder'. Default missing size to '' and payment to 'Unpaid'.
+- Use 'getCatalog' to view available store products (read-only).
+- Use 'createGoal' to set new revenue goals or sales targets.
+- Use 'setWorkingOnOrder' to add/remove orders from the Currently Working On section.
+- Keep all responses short, clear, and to the point.`;
 
 // ─── Message Types ────────────────────────────────────────────────────────────────
 
@@ -120,7 +115,7 @@ export async function sendMessage(
   if (remaining < 100) {
     return {
       reply:
-        "You've reached today's AI usage limit (50,000 tokens). This resets at midnight. Your data is always safe on your device! 🔒",
+        "You've reached today's AI usage limit (150,000 tokens). This resets at midnight. Your data is always safe on your device! 🔒",
       tokensUsed: 0,
       limitReached: true,
     };
@@ -144,7 +139,7 @@ export async function sendMessage(
     tool_config: { function_calling_config: { mode: "AUTO" } },
     generation_config: {
       temperature: 0.7,
-      maxOutputTokens: 512,
+      maxOutputTokens: 1536,
     },
   };
 

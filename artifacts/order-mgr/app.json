@@ -3,14 +3,14 @@
     "name": "OrderFlow",
     "slug": "order-mgr",
     "owner": "vikrant_05",
-    "version": "1.2.1",
+    "version": "1.3.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon.jpg",
     "scheme": "order-mgr",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/icon.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#F5F5F7"
     },
@@ -23,12 +23,12 @@
       "versionCode": 2,
       "permissions": ["REQUEST_INSTALL_PACKAGES"],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/icon.jpg",
         "backgroundColor": "#F8BCCD"
       }
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.jpg"
     },
     "plugins": [
       "expo-router",
@@ -38,7 +38,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/icon.jpg",
           "color": "#F8BCCD",
           "sounds": []
         }

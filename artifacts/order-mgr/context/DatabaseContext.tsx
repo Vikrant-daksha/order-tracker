@@ -1,7 +1,18 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
-import { Order, OrderSource, OrderStatus, PaymentStatus, Product, Customer, Expense, ExpenseCategory } from '@/types';
+import {
+  Order,
+  OrderSource,
+  OrderStatus,
+  PaymentStatus,
+  Product,
+  Customer,
+  Expense,
+  ExpenseCategory,
+  MonthlyGoal,
+  GoalStatus,
+} from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function genId() {
@@ -15,6 +26,7 @@ interface DatabaseContextType {
   products: Product[];
   customers: Customer[];
   expenses: Expense[];
+  goals: MonthlyGoal[];
   loading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => Promise<string>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
@@ -30,10 +42,17 @@ interface DatabaseContextType {
   findCustomerByIg: (ig: string) => Customer | undefined;
   findCustomerByPhone: (phone: string) => Customer | undefined;
   clearDeliveredImages: () => Promise<number>;
-  importBackup: (data: { orders: Order[]; products: Product[]; customers?: Customer[] }) => Promise<void>;
+  importBackup: (data: { orders: Order[]; products: Product[]; customers?: Customer[]; expenses?: Expense[]; goals?: MonthlyGoal[] }) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<string>;
   updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  addMonthlyGoal: (goal: { title?: string; month: string; targetAmount: number; startDate?: string; endDate?: string }) => Promise<string>;
+  updateMonthlyGoal: (id: string, updates: Partial<MonthlyGoal>) => Promise<void>;
+  deleteMonthlyGoal: (id: string) => Promise<void>;
+  getGoalsByMonth: (month: string) => MonthlyGoal[];
+  getMonthlyGoal: (month: string) => MonthlyGoal | undefined;
+  setMonthlyGoal: (month: string, targetAmount: number, startDate?: string, endDate?: string, title?: string) => Promise<MonthlyGoal>;
+  snapshotExpiredGoals: () => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | null>(null);
@@ -43,6 +62,7 @@ const ORDERS_KEY = '@orderflow_orders';
 const PRODUCTS_KEY = '@orderflow_products';
 const CUSTOMERS_KEY = '@orderflow_customers';
 const EXPENSES_KEY = '@orderflow_expenses';
+const GOALS_KEY = '@orderflow_monthly_goals';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -104,6 +124,18 @@ function initDb() {
       date TEXT DEFAULT '',
       createdAt TEXT DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS monthly_goals (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT 'Monthly Goal',
+      month TEXT NOT NULL DEFAULT '',
+      targetAmount REAL DEFAULT 0,
+      earnedAmount REAL DEFAULT 0,
+      startDate TEXT DEFAULT '',
+      endDate TEXT DEFAULT '',
+      status TEXT DEFAULT 'in_progress',
+      createdAt TEXT DEFAULT '',
+      updatedAt TEXT DEFAULT ''
+    );
   `);
   // Migration: add missing columns if they don't exist yet
   try { db.execSync(`ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''`); } catch {}
@@ -115,6 +147,25 @@ function initDb() {
   try { db.execSync(`ALTER TABLE orders ADD COLUMN customerId TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`); } catch {}
+  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN title TEXT DEFAULT 'Monthly Goal'`); } catch {}
+}
+
+function calculateEarnedForRange(ordersList: Order[], startDate: string, endDate: string): number {
+  return ordersList
+    .filter(o => {
+      const d = (o.orderDate || o.createdAt || '').slice(0, 10);
+      return d >= startDate && d <= endDate;
+    })
+    .reduce((sum, o) => sum + (o.amountPaid || 0), 0);
+}
+
+function loadGoalsFromDb(): MonthlyGoal[] {
+  if (IS_WEB || !db) return [];
+  try {
+    return db.getAllSync<MonthlyGoal>('SELECT * FROM monthly_goals ORDER BY month DESC, createdAt DESC');
+  } catch {
+    return [];
+  }
 }
 
 function loadOrdersFromDb(): Order[] {
@@ -231,16 +282,19 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [goals, setGoals] = useState<MonthlyGoal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function init() {
       try {
         if (IS_WEB) {
-          const [os, ps, cs] = await Promise.all([
+          const [os, ps, cs, es, gs] = await Promise.all([
             AsyncStorage.getItem(ORDERS_KEY),
             AsyncStorage.getItem(PRODUCTS_KEY),
             AsyncStorage.getItem(CUSTOMERS_KEY),
+            AsyncStorage.getItem(EXPENSES_KEY),
+            AsyncStorage.getItem(GOALS_KEY),
           ]);
             const parsedOrders = os ? JSON.parse(os) : [];
             const sanitizedOrders = parsedOrders.map((o: any) => {
@@ -272,8 +326,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             });
           setOrders(sanitizedOrders);
           setProducts(ps ? JSON.parse(ps) : []);
-          const es = await AsyncStorage.getItem(EXPENSES_KEY);
           setExpenses(es ? JSON.parse(es) : []);
+          setGoals(gs ? JSON.parse(gs) : []);
           const parsedCustomers = cs ? JSON.parse(cs) : [];
           let customerUpdated = false;
           const sanitizedCustomers = parsedCustomers.map((c: any) => {
@@ -343,6 +397,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           setProducts(loadProductsFromDb());
           setCustomers(loadedCustomers);
           setExpenses(loadExpensesFromDb());
+          setGoals(loadGoalsFromDb());
         }
       } catch (err) {
         console.error("Database initialization failed:", err);
@@ -371,6 +426,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   async function persistExpenses(next: Expense[]) {
     setExpenses(next);
     if (IS_WEB) await AsyncStorage.setItem(EXPENSES_KEY, JSON.stringify(next));
+  }
+
+  async function persistGoals(next: MonthlyGoal[]) {
+    setGoals(next);
+    if (IS_WEB) await AsyncStorage.setItem(GOALS_KEY, JSON.stringify(next));
   }
 
   const ORDER_DB_COLUMNS = new Set([
@@ -645,7 +705,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     return count;
   }, [orders, updateOrder]);
 
-  const importBackup = useCallback(async (data: { orders: Order[]; products: Product[]; customers?: Customer[] }) => {
+  const importBackup = useCallback(async (data: { orders: Order[]; products: Product[]; customers?: Customer[]; expenses?: Expense[]; goals?: MonthlyGoal[] }) => {
     if (!IS_WEB && db) {
       db.execSync('DELETE FROM orders; DELETE FROM products;');
       for (const o of data.orders) {
@@ -697,22 +757,256 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           );
         }
       }
+      if (data.expenses) {
+        db.execSync('DELETE FROM expenses;');
+        for (const e of data.expenses) {
+          db.runSync(
+            'INSERT OR REPLACE INTO expenses (id,amount,category,note,date,createdAt) VALUES (?,?,?,?,?,?)',
+            [e.id, e.amount, e.category, e.note ?? '', e.date, e.createdAt]
+          );
+        }
+      }
+      if (data.goals) {
+        db.execSync('DELETE FROM monthly_goals;');
+        for (const g of data.goals) {
+          db.runSync(
+            'INSERT OR REPLACE INTO monthly_goals (id,title,month,targetAmount,earnedAmount,startDate,endDate,status,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [g.id, g.title || 'Monthly Goal', g.month, g.targetAmount, g.earnedAmount, g.startDate, g.endDate, g.status, g.createdAt, g.updatedAt]
+          );
+        }
+      }
     }
     await persistOrders(data.orders);
     await persistProducts(data.products);
     if (data.customers) {
       await persistCustomers(data.customers);
     }
+    if (data.expenses) {
+      await persistExpenses(data.expenses);
+    }
+    if (data.goals) {
+      await persistGoals(data.goals);
+    }
   }, []);
+
+  const snapshotExpiredGoals = useCallback(async () => {
+    const todayStr = today();
+    let changed = false;
+
+    const updatedGoals = goals.map(g => {
+      const currentEarned = calculateEarnedForRange(orders, g.startDate, g.endDate);
+      const isPastEndDate = Boolean(g.endDate && todayStr > g.endDate);
+      let newStatus: GoalStatus = g.status;
+
+      if (currentEarned >= g.targetAmount) {
+        // Target reached or exceeded -> immediately mark as achieved!
+        newStatus = 'achieved';
+      } else if (isPastEndDate) {
+        // Past end date and target not reached -> missed
+        newStatus = 'missed';
+      } else {
+        // Within active window and still working towards target -> in progress
+        newStatus = 'in_progress';
+      }
+
+      if (newStatus !== g.status || currentEarned !== g.earnedAmount) {
+        changed = true;
+        const now = new Date().toISOString();
+        if (!IS_WEB && db) {
+          db.runSync(
+            'UPDATE monthly_goals SET earnedAmount=?, status=?, updatedAt=? WHERE id=?',
+            [currentEarned, newStatus, now, g.id]
+          );
+        }
+        return {
+          ...g,
+          earnedAmount: currentEarned,
+          status: newStatus,
+          updatedAt: now,
+        };
+      }
+      return g;
+    });
+
+    if (changed) {
+      await persistGoals(updatedGoals);
+    }
+  }, [goals, orders]);
+
+  // Run goal status synchronization whenever orders or goals load/change
+  useEffect(() => {
+    if (!loading && goals.length > 0) {
+      snapshotExpiredGoals();
+    }
+  }, [loading, orders, snapshotExpiredGoals]);
+
+  const addMonthlyGoal = useCallback(async (goal: {
+    title?: string;
+    month: string;
+    targetAmount: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<string> => {
+    const id = genId();
+    const [yStr, mStr] = goal.month.split('-');
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    const lastDay = new Date(y, m, 0).getDate();
+
+    const start = goal.startDate || `${goal.month}-01`;
+    const end = goal.endDate || `${goal.month}-${String(lastDay).padStart(2, '0')}`;
+    const todayStr = today();
+    const earned = calculateEarnedForRange(orders, start, end);
+    const isExpired = todayStr > end;
+    
+    // Immediate completion if target reached, otherwise missed if expired, or in_progress
+    let status: GoalStatus = 'in_progress';
+    if (earned >= goal.targetAmount) {
+      status = 'achieved';
+    } else if (isExpired) {
+      status = 'missed';
+    }
+
+    const now = new Date().toISOString();
+    const title = goal.title?.trim() || 'Monthly Goal';
+
+    const newGoal: MonthlyGoal = {
+      id,
+      title,
+      month: goal.month,
+      targetAmount: goal.targetAmount,
+      earnedAmount: earned,
+      startDate: start,
+      endDate: end,
+      status,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (!IS_WEB && db) {
+      db.runSync(
+        'INSERT INTO monthly_goals (id,title,month,targetAmount,earnedAmount,startDate,endDate,status,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [id, title, goal.month, goal.targetAmount, earned, start, end, status, now, now]
+      );
+    }
+
+    const nextGoals = [newGoal, ...goals].sort((a, b) => b.month.localeCompare(a.month) || b.createdAt.localeCompare(a.createdAt));
+    await persistGoals(nextGoals);
+    return id;
+  }, [goals, orders]);
+
+  const updateMonthlyGoal = useCallback(async (id: string, updates: Partial<MonthlyGoal>) => {
+    const existing = goals.find(g => g.id === id);
+    if (!existing) return;
+
+    const start = updates.startDate || existing.startDate;
+    const end = updates.endDate || existing.endDate;
+    const target = updates.targetAmount !== undefined ? updates.targetAmount : existing.targetAmount;
+    const todayStr = today();
+    const earned = calculateEarnedForRange(orders, start, end);
+    const isExpired = todayStr > end;
+
+    let computedStatus: GoalStatus = 'in_progress';
+    if (earned >= target) {
+      computedStatus = 'achieved';
+    } else if (isExpired) {
+      computedStatus = 'missed';
+    }
+
+    const status = updates.status || computedStatus;
+    const now = new Date().toISOString();
+
+    const updated: MonthlyGoal = {
+      ...existing,
+      ...updates,
+      earnedAmount: earned,
+      startDate: start,
+      endDate: end,
+      status,
+      updatedAt: now,
+    };
+
+    if (!IS_WEB && db) {
+      db.runSync(
+        'UPDATE monthly_goals SET title=?, month=?, targetAmount=?, earnedAmount=?, startDate=?, endDate=?, status=?, updatedAt=? WHERE id=?',
+        [updated.title || 'Monthly Goal', updated.month, updated.targetAmount, updated.earnedAmount, updated.startDate, updated.endDate, updated.status, updated.updatedAt, id]
+      );
+    }
+
+    const nextGoals = goals.map(g => g.id === id ? updated : g);
+    await persistGoals(nextGoals);
+  }, [goals, orders]);
+
+  const getGoalsByMonth = useCallback((month: string) => {
+    return goals.filter(g => g.month === month);
+  }, [goals]);
+
+  const getMonthlyGoal = useCallback((month: string) => {
+    return goals.find(g => g.month === month);
+  }, [goals]);
+
+  const setMonthlyGoal = useCallback(async (
+    month: string,
+    targetAmount: number,
+    startDate?: string,
+    endDate?: string,
+    title?: string
+  ): Promise<MonthlyGoal> => {
+    const existing = goals.find(g => g.month === month);
+    if (existing) {
+      await updateMonthlyGoal(existing.id, {
+        targetAmount,
+        startDate,
+        endDate,
+        title: title || existing.title,
+      });
+      return {
+        ...existing,
+        targetAmount,
+        startDate: startDate || existing.startDate,
+        endDate: endDate || existing.endDate,
+        title: title || existing.title,
+      };
+    } else {
+      const newId = await addMonthlyGoal({
+        month,
+        targetAmount,
+        startDate,
+        endDate,
+        title,
+      });
+      return {
+        id: newId,
+        title: title || 'Monthly Goal',
+        month,
+        targetAmount,
+        earnedAmount: 0,
+        startDate: startDate || `${month}-01`,
+        endDate: endDate || `${month}-30`,
+        status: 'in_progress',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  }, [goals, addMonthlyGoal, updateMonthlyGoal]);
+
+  const deleteMonthlyGoal = useCallback(async (id: string) => {
+    if (!IS_WEB && db) {
+      db.runSync('DELETE FROM monthly_goals WHERE id=?', [id]);
+    }
+    await persistGoals(goals.filter(g => g.id !== id));
+  }, [goals]);
 
   return (
     <DatabaseContext.Provider value={{
-      orders, products, customers, expenses, loading,
+      orders, products, customers, expenses, goals, loading,
       addOrder, updateOrder, deleteOrder, getOrder, toggleWorkingOn,
       addProduct, updateProduct, deleteProduct,
       addCustomer, updateCustomer, findCustomerByIg, findCustomerByPhone,
       findProductByName, clearDeliveredImages, importBackup,
       addExpense, updateExpense, deleteExpense,
+      addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal,
+      getGoalsByMonth, getMonthlyGoal, setMonthlyGoal, snapshotExpiredGoals,
     }}>
       {children}
     </DatabaseContext.Provider>

@@ -60,6 +60,8 @@ function RootLayoutNav() {
         />
         <Stack.Screen name="kanban" options={{ headerShown: false }} />
         <Stack.Screen name="catalog" options={{ headerShown: false }} />
+        <Stack.Screen name="goals" options={{ headerShown: false }} />
+        <Stack.Screen name="expenses" options={{ headerShown: false }} />
         <Stack.Screen name="customers/index" options={{ headerShown: false }} />
         <Stack.Screen name="customers/[id]" options={{ headerShown: false }} />
       </Stack>

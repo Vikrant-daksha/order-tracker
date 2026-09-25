@@ -3,6 +3,6 @@ outputs = []
 
 [[generated]]
 id = "v-AS2GnkevkKiDnHffXld"
-uri = "file://artifacts/order-mgr/assets/images/icon.png"
+uri = "file://artifacts/order-mgr/assets/images/icon.jpg"
 type = "image"
 title = "generated_image"

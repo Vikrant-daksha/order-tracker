@@ -88,3 +88,19 @@ export interface CustomerProfile extends Customer {
   lastOrderDate: string;
   isRepeat: boolean;
 }
+
+export type GoalStatus = 'in_progress' | 'achieved' | 'missed';
+
+export interface MonthlyGoal {
+  id: string;
+  title: string;           // Goal title/label (e.g. "Monthly Target", "Early Sprint", "Diwali Rush")
+  month: string;           // "YYYY-MM", e.g. "2026-09"
+  targetAmount: number;    // Goal amount set by user
+  earnedAmount: number;    // Revenue earned during the goal window
+  startDate: string;       // "YYYY-MM-DD"
+  endDate: string;         // "YYYY-MM-DD"
+  status: GoalStatus;      // 'in_progress' | 'achieved' | 'missed'
+  createdAt: string;       // ISO string
+  updatedAt: string;       // ISO string
+}
+

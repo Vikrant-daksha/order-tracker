@@ -6,7 +6,13 @@ import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React from "react";
-import { Platform, Pressable, StyleSheet, View, useColorScheme } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  useColorScheme,
+} from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 function NativeTabLayout() {
@@ -21,7 +27,9 @@ function NativeTabLayout() {
         <Label>Orders</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="new-order">
-        <Icon sf={{ default: "plus.circle.fill", selected: "plus.circle.fill" }} />
+        <Icon
+          sf={{ default: "plus.circle.fill", selected: "plus.circle.fill" }}
+        />
         <Label>New</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="insights">
@@ -67,7 +75,12 @@ function ClassicTabLayout() {
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: colors.card },
+              ]}
+            />
           ) : null,
       }}
     >
@@ -160,7 +173,11 @@ function ClassicTabLayout() {
 
 export default function TabLayout() {
   try {
-    if (Platform.OS === 'ios' && typeof isLiquidGlassAvailable === 'function' && isLiquidGlassAvailable()) {
+    if (
+      Platform.OS === "ios" &&
+      typeof isLiquidGlassAvailable === "function" &&
+      isLiquidGlassAvailable()
+    ) {
       return <NativeTabLayout />;
     }
   } catch (e) {
@@ -171,22 +188,16 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   centerBtnContainer: {
-    top: -16,
+    top: -10,
     justifyContent: "center",
     alignItems: "center",
     flex: 1,
   },
   centerBtn: {
-    width: 52,
-    height: 52,
+    width: 54,
+    height: 54,
     borderRadius: 26,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
-    shadowColor: "#C06070",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 6,
   },
 });

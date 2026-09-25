@@ -26,12 +26,18 @@ import {
   TouchableOpacity,
   View,
   Animated,
+  Image,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useDatabase } from "@/context/DatabaseContext";
-import { sendMessage, ChatMessage, getRemainingTokens } from "@/utils/aiClient";
+import {
+  sendMessage,
+  ChatMessage,
+  getRemainingTokens,
+  DAILY_TOKEN_LIMIT,
+} from "@/utils/aiClient";
 
 // ─── Quick Prompts ────────────────────────────────────────────────────────────────
 
@@ -55,9 +61,13 @@ const TOOL_LABELS: Record<string, string> = {
   searchOrders: "Searching orders",
   getCustomerOrderHistory: "Looking up customer",
   createOrder: "Creating order",
+  createMultipleOrders: "Creating batch orders",
   updateOrderStatus: "Updating status",
   markOrderPaid: "Updating payment",
   addExpense: "Logging expense",
+  getCatalog: "Browsing catalog",
+  createGoal: "Setting goal",
+  setWorkingOnOrder: "Updating workbench",
 };
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────────
@@ -151,7 +161,7 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
-  const [tokensRemaining, setTokensRemaining] = useState(50000);
+  const [tokensRemaining, setTokensRemaining] = useState(DAILY_TOKEN_LIMIT);
   const [isFirstOpen, setIsFirstOpen] = useState(true);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
@@ -190,9 +200,11 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
     products: db.products,
     customers: db.customers,
     expenses: db.expenses,
+    goals: db.goals,
     addOrder: db.addOrder,
     updateOrder: db.updateOrder,
     addExpense: db.addExpense,
+    addMonthlyGoal: db.addMonthlyGoal,
   };
 
   const handleSend = useCallback(
@@ -250,7 +262,10 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
     [input, messages, isLoading, appData],
   );
 
-  const tokenPercent = Math.min(100, (tokensRemaining / 50000) * 100);
+  const tokenPercent = Math.min(
+    100,
+    (tokensRemaining / DAILY_TOKEN_LIMIT) * 100,
+  );
 
   const renderItem = ({ item }: { item: ChatMessage }) => (
     <MessageBubble message={item} colors={colors} />
@@ -325,7 +340,8 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
             />
           </View>
           <Text style={[styles.tokenText, { color: colors.mutedForeground }]}>
-            {tokensRemaining.toLocaleString()} / 50,000 tokens left today
+            {tokensRemaining.toLocaleString()} /{" "}
+            {DAILY_TOKEN_LIMIT.toLocaleString()} tokens left today
           </Text>
         </View>
 
@@ -342,7 +358,11 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
           ListEmptyComponent={
             isFirstOpen ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyEmoji}>🤖</Text>
+                <Image
+                  source={require("@/assets/images/lightbulb.png")}
+                  style={styles.emptyLightbulb}
+                  resizeMode="contain"
+                />
                 <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
                   Hi! I'm your business assistant.
                 </Text>
@@ -387,7 +407,7 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
               backgroundColor: colors.card,
               borderTopColor: colors.border,
               paddingBottom: isKeyboardOpen
-                ? 8
+                ? 18
                 : Platform.OS === "web"
                   ? 12
                   : 18,
@@ -535,6 +555,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 32,
     paddingHorizontal: 8,
+  },
+  emptyLightbulb: {
+    width: 120,
+    height: 120,
+    marginBottom: 12,
   },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
   emptyTitle: {
