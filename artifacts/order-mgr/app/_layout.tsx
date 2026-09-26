@@ -64,6 +64,10 @@ function RootLayoutNav() {
         <Stack.Screen name="expenses" options={{ headerShown: false }} />
         <Stack.Screen name="customers/index" options={{ headerShown: false }} />
         <Stack.Screen name="customers/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="chat"
+          options={{ headerShown: false, presentation: "modal" }}
+        />
       </Stack>
       {/* Floating AI assistant bubble — appears on every screen above the tab bar */}
     </View>

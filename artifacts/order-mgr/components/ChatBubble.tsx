@@ -5,37 +5,27 @@
  * Tapping it opens the ChatModal.
  */
 
-import React, { useEffect, useRef, useState } from "react";
-import { Animated, StyleSheet, TouchableOpacity, Platform } from "react-native";
-import { Text } from "react-native";
-import { ChatModal } from "./ChatModal";
+import React from "react";
+import { Animated, StyleSheet, TouchableOpacity, Platform, Text } from "react-native";
+import { useRouter } from "expo-router";
 
 export function ChatBubble() {
-  const [modalVisible, setModalVisible] = useState(false);
-
-  // Gentle pulse animation to draw attention
+  const router = useRouter();
 
   return (
-    <>
-      <Animated.View
-        style={[styles.wrapper, { transform: [{ scale: 1 }] }]}
-        pointerEvents="box-none"
+    <Animated.View
+      style={[styles.wrapper, { transform: [{ scale: 1 }] }]}
+      pointerEvents="box-none"
+    >
+      <TouchableOpacity
+        id="ai-chat-bubble-btn"
+        style={styles.bubble}
+        onPress={() => router.push("/chat" as any)}
+        activeOpacity={0.85}
       >
-        <TouchableOpacity
-          id="ai-chat-bubble-btn"
-          style={styles.bubble}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.icon}>✨</Text>
-        </TouchableOpacity>
-      </Animated.View>
-
-      <ChatModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-      />
-    </>
+        <Text style={styles.icon}>✨</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
