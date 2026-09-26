@@ -297,10 +297,7 @@ export default function ChatScreen() {
             <View style={styles.privacyRow}>
               <Feather name="lock" size={10} color={colors.mutedForeground} />
               <Text
-                style={[
-                  styles.privacyLabel,
-                  { color: colors.mutedForeground },
-                ]}
+                style={[styles.privacyLabel, { color: colors.mutedForeground }]}
               >
                 {" "}
                 Your data stays on device
@@ -340,130 +337,146 @@ export default function ChatScreen() {
       </View>
 
       {/* ─── Body with Keyboard Handling ───────────────────────────────────── */}
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? topPad + 44 : 0}
+      <View
+        style={{
+          flex: 1,
+          paddingBottom: Platform.OS === "android" ? keyboardHeight : 0,
+        }}
       >
-        {/* ─── Messages ───────────────────────────────────────────────────────── */}
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={renderItem}
-          contentContainerStyle={[
-            styles.messageList,
-            {
-              paddingBottom: 16,
-            },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() =>
-            listRef.current?.scrollToEnd({ animated: false })
-          }
-          ListEmptyComponent={
-            isFirstOpen ? (
-              <View style={styles.emptyState}>
-                <Image
-                  source={require("@/assets/images/lightbulb.png")}
-                  style={styles.emptyLightbulb}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                  Hi! I'm your business assistant.
-                </Text>
-                <Text
-                  style={[
-                    styles.emptySubtitle,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  I can check your orders, calculate revenue, and even create
-                  new orders — all while keeping your customer info private.
-                </Text>
-                {/* Quick Prompts */}
-                <View style={styles.quickPrompts}>
-                  {QUICK_PROMPTS.map((prompt) => (
-                    <TouchableOpacity
-                      key={prompt}
-                      style={[
-                        styles.quickChip,
-                        {
-                          backgroundColor: "#FFF0F5",
-                          borderColor: "#F8BCCD",
-                        },
-                      ]}
-                      onPress={() => handleSend(prompt)}
-                    >
-                      <Text
-                        style={[styles.quickChipText, { color: "#C06070" }]}
-                      >
-                        {prompt}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            ) : null
-          }
-        />
-
-        {/* ─── Input Bar ──────────────────────────────────────────────────────── */}
-        <View
-          style={[
-            styles.inputBar,
-            {
-              backgroundColor: colors.card,
-              borderTopColor: colors.border,
-              paddingBottom: isKeyboardOpen
-                ? 10
-                : Platform.OS === "ios"
-                  ? Math.max(insets.bottom, 12) + 6
-                  : Platform.OS === "web"
-                    ? 12
-                    : Math.max(insets.bottom, 12),
-            },
-          ]}
+        <KeyboardAvoidingView
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? topPad + 44 : 0}
         >
-          <TextInput
-            ref={inputRef}
-            style={[
-              styles.textInput,
-              { backgroundColor: colors.muted, color: colors.foreground },
-            ]}
-            placeholder="Ask me anything about your business..."
-            placeholderTextColor={colors.mutedForeground}
-            value={input}
-            onChangeText={setInput}
-            multiline
-            maxLength={500}
-            onSubmitEditing={() => handleSend()}
-            returnKeyType="send"
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
+          {/* ─── Messages ───────────────────────────────────────────────────────── */}
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(_, i) => String(i)}
+            renderItem={renderItem}
+            contentContainerStyle={[
+              styles.messageList,
               {
-                backgroundColor:
-                  input.trim() && !isLoading ? "#C06070" : colors.muted,
+                paddingBottom: 16,
               },
             ]}
-            onPress={() => handleSend()}
-            disabled={!input.trim() || isLoading}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() =>
+              listRef.current?.scrollToEnd({ animated: false })
+            }
+            ListEmptyComponent={
+              isFirstOpen ? (
+                <View style={styles.emptyState}>
+                  <Image
+                    source={require("@/assets/images/lightbulb.png")}
+                    style={styles.emptyLightbulb}
+                    resizeMode="contain"
+                  />
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
+                  >
+                    Hi! I'm your business assistant.
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptySubtitle,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    I can check your orders, calculate revenue, and even create
+                    new orders — all while keeping your customer info private.
+                  </Text>
+                  {/* Quick Prompts */}
+                  <View style={styles.quickPrompts}>
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <TouchableOpacity
+                        key={prompt}
+                        style={[
+                          styles.quickChip,
+                          {
+                            backgroundColor: "#FFF0F5",
+                            borderColor: "#F8BCCD",
+                          },
+                        ]}
+                        onPress={() => handleSend(prompt)}
+                      >
+                        <Text
+                          style={[styles.quickChipText, { color: "#C06070" }]}
+                        >
+                          {prompt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ) : null
+            }
+          />
+
+          {/* ─── Input Bar ──────────────────────────────────────────────────────── */}
+          <View
+            style={[
+              styles.inputBar,
+              {
+                backgroundColor: colors.card,
+                borderTopColor: colors.border,
+                paddingBottom:
+                  isKeyboardOpen || keyboardHeight > 0
+                    ? 60
+                    : Platform.OS === "ios"
+                      ? Math.max(insets.bottom, 12) + 6
+                      : Platform.OS === "web"
+                        ? 12
+                        : Math.max(insets.bottom, 12),
+              },
+            ]}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Feather
-                name="send"
-                size={18}
-                color={input.trim() ? "#fff" : colors.mutedForeground}
-              />
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            <TextInput
+              ref={inputRef}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.muted, color: colors.foreground },
+              ]}
+              placeholder="Ask me anything about your business..."
+              placeholderTextColor={colors.mutedForeground}
+              value={input}
+              onChangeText={setInput}
+              multiline
+              maxLength={500}
+              onSubmitEditing={() => handleSend()}
+              returnKeyType="send"
+              blurOnSubmit={false}
+              onFocus={() => {
+                setTimeout(
+                  () => listRef.current?.scrollToEnd({ animated: true }),
+                  150,
+                );
+              }}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendBtn,
+                {
+                  backgroundColor:
+                    input.trim() && !isLoading ? "#C06070" : colors.muted,
+                },
+              ]}
+              onPress={() => handleSend()}
+              disabled={!input.trim() || isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Feather
+                  name="send"
+                  size={18}
+                  color={input.trim() ? "#fff" : colors.mutedForeground}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
