@@ -46,9 +46,59 @@ function isOverdue(order: Order) {
   return order.dueDate < new Date().toISOString().split("T")[0];
 }
 
+function getLocalDateString(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getOrderDateOnly(order: Order): string {
+  const dStr = order.orderDate || order.createdAt;
+  if (!dStr) return "";
+  return dStr.slice(0, 10);
+}
+
+function matchesToday(order: Order): boolean {
+  const dStr = getOrderDateOnly(order);
+  if (!dStr) return false;
+  const localToday = getLocalDateString();
+  const utcToday = new Date().toISOString().split("T")[0];
+  return dStr === localToday || dStr === utcToday;
+}
+
+function matchesYesterday(order: Order): boolean {
+  const dStr = getOrderDateOnly(order);
+  if (!dStr) return false;
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  const localYest = getLocalDateString(yest);
+  const utcYest = yest.toISOString().split("T")[0];
+  return dStr === localYest || dStr === utcYest;
+}
+
+function getOrderAmount(order: Order): number {
+  if (typeof order.price === "number" && !isNaN(order.price) && order.price > 0) {
+    return order.price;
+  }
+  if (typeof order.amountPaid === "number" && !isNaN(order.amountPaid) && order.amountPaid > 0) {
+    return order.amountPaid;
+  }
+  return 0;
+}
+
+function formatRevenue(val: number): string {
+  if (val >= 100000) return `₹${(val / 100000).toFixed(1).replace(/\.0$/, "")}L`;
+  if (val >= 1000) return `₹${(val / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return `₹${Math.round(val)}`;
+}
+
 function isDueToday(order: Order) {
   if (order.status === "Shipped" || order.status === "Delivered") return false;
-  return order.dueDate === new Date().toISOString().split("T")[0];
+  const localToday = getLocalDateString();
+  const utcToday = new Date().toISOString().split("T")[0];
+  const due = (order.dueDate || "").slice(0, 10);
+  return due === localToday || due === utcToday;
 }
 
 function isDueThisWeek(order: Order) {
@@ -98,6 +148,36 @@ export default function HomeScreen() {
     () => orders.filter((o) => o.paymentStatus !== "Paid").length,
     [orders],
   );
+
+  const ordersToday = useMemo(
+    () => orders.filter(matchesToday),
+    [orders],
+  );
+
+  const todaysRevenue = useMemo(
+    () => ordersToday.reduce((sum, o) => sum + getOrderAmount(o), 0),
+    [ordersToday],
+  );
+
+  const avgOrderValue = useMemo(() => {
+    if (ordersToday.length === 0) return 0;
+    return Math.round(todaysRevenue / ordersToday.length);
+  }, [ordersToday.length, todaysRevenue]);
+
+  const ordersYesterday = useMemo(
+    () => orders.filter(matchesYesterday),
+    [orders],
+  );
+
+  const yesterdaysRevenue = useMemo(
+    () => ordersYesterday.reduce((sum, o) => sum + getOrderAmount(o), 0),
+    [ordersYesterday],
+  );
+
+  const todayDateSubtitle = useMemo(() => {
+    const d = new Date();
+    return `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}`;
+  }, []);
 
   const workingOn = useMemo(
     () => orders.filter((o) => !!o.workingOn),
@@ -279,36 +359,39 @@ export default function HomeScreen() {
             {/* ── Stats Row ───────────────────────────────────── */}
             <View style={styles.statsRow}>
               <StatCard
-                label="Overdue"
-                value={overdue.length}
+                label="Orders Today"
+                value={ordersToday.length}
+                subtitle={`Avg: ₹${avgOrderValue >= 1000 ? (avgOrderValue / 1000).toFixed(1).replace(/\.0$/, "") + "k" : avgOrderValue}`}
                 accent={
-                  overdue.length > 0
-                    ? colors.overdueText
-                    : colors.mutedForeground
+                  ordersToday.length > 0 ? "#C06070" : colors.mutedForeground
                 }
-                bg={overdue.length > 0 ? colors.overdue : colors.card}
-                icon="alert-circle"
+                bg={ordersToday.length > 0 ? "#FFF0F5" : colors.card}
+                icon="shopping-bag"
                 colors={colors}
               />
               <StatCard
-                label="Due Today"
+                label="Orders Due"
                 value={dueToday.length}
+                subtitle={todayDateSubtitle}
                 accent={
                   dueToday.length > 0
-                    ? colors.shippedText
+                    ? colors.overdueText
                     : colors.mutedForeground
                 }
-                bg={dueToday.length > 0 ? colors.shipped : colors.card}
+                bg={dueToday.length > 0 ? colors.overdue : colors.card}
                 icon="clock"
                 colors={colors}
               />
               <StatCard
-                label="Unpaid"
-                value={`₹${outstanding >= 1000 ? (outstanding / 1000).toFixed(1) + "k" : outstanding.toFixed(0)}`}
+                label="Todays Revenue"
+                value={formatRevenue(todaysRevenue)}
+                subtitle={`Yest: ₹${yesterdaysRevenue >= 1000 ? (yesterdaysRevenue / 1000).toFixed(1).replace(/\.0$/, "") + "k" : Math.round(yesterdaysRevenue)}`}
                 accent={
-                  unpaidCount > 0 ? colors.unpaidText : colors.mutedForeground
+                  todaysRevenue > 0
+                    ? colors.deliveredText
+                    : colors.mutedForeground
                 }
-                bg={unpaidCount > 0 ? colors.unpaid : colors.card}
+                bg={todaysRevenue > 0 ? "#E8F8F0" : colors.card}
                 icon="rupee"
                 IconFamily={FontAwesome}
                 colors={colors}
@@ -637,6 +720,7 @@ function WorkingCard({
 function StatCard({
   label,
   value,
+  subtitle,
   accent,
   bg,
   icon,
@@ -650,11 +734,22 @@ function StatCard({
         { backgroundColor: bg, borderColor: colors.border },
       ]}
     >
-      <IconFamily name={icon} size={13} color={accent} />
+      <IconFamily name={icon} size={14} color={accent} />
       <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
+      <Text
+        style={[styles.statLabel, { color: colors.foreground }]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
+      {subtitle ? (
+        <Text
+          style={[styles.statSubtitle, { color: colors.mutedForeground }]}
+          numberOfLines={1}
+        >
+          {subtitle}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -698,17 +793,23 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     borderRadius: 14,
-    padding: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     alignItems: "center",
-    gap: 5,
+    gap: 3,
     borderWidth: 1,
   },
-  statValue: { fontSize: 19, fontFamily: "Inter_700Bold" },
+  statValue: { fontSize: 17, fontFamily: "Inter_700Bold" },
   statLabel: {
     fontSize: 10,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_600SemiBold",
     textAlign: "center",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
+  },
+  statSubtitle: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
   },
 
   // Section header

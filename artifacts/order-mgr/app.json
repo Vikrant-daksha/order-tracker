@@ -3,7 +3,7 @@
     "name": "OrderFlow",
     "slug": "order-mgr",
     "owner": "vikrant_05",
-    "version": "1.3.0",
+    "version": "1.3.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.jpg",
     "scheme": "order-mgr",
@@ -20,8 +20,9 @@
     },
     "android": {
       "package": "com.vikrant05.orderflow",
-      "versionCode": 2,
+      "versionCode": 4,
       "permissions": ["REQUEST_INSTALL_PACKAGES"],
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.jpg",
         "backgroundColor": "#F8BCCD"

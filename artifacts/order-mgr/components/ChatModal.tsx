@@ -275,184 +275,197 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
-      statusBarTranslucent={true}
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
-      >
-        {/* ─── Header ─────────────────────────────────────────────────────────── */}
-        <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: colors.card,
-              borderBottomColor: colors.border,
-              paddingTop: Platform.OS === "web" ? 16 : insets.top + 10,
-            },
-          ]}
+      <View style={[styles.modalRoot, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={0}
         >
-          <View style={styles.headerLeft}>
-            <View style={styles.headerIconWrap}>
-              <Text style={styles.headerIcon}>✨</Text>
-            </View>
-            <View>
-              <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-                AI Assistant
-              </Text>
-              <View style={styles.privacyRow}>
-                <Feather name="lock" size={10} color={colors.mutedForeground} />
-                <Text
-                  style={[
-                    styles.privacyLabel,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {" "}
-                  Your data stays on device
-                </Text>
-              </View>
-            </View>
-          </View>
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.closeBtn}
-            hitSlop={10}
-          >
-            <Feather name="x" size={22} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        </View>
-
-        {/* ─── Token Bar ──────────────────────────────────────────────────────── */}
-        <View style={[styles.tokenBar, { backgroundColor: colors.muted }]}>
-          <View style={styles.tokenTrack}>
-            <View
-              style={[
-                styles.tokenFill,
-                {
-                  width: `${tokenPercent}%` as any,
-                  backgroundColor: tokenPercent > 30 ? "#C6EFC6" : "#FFD4D4",
-                },
-              ]}
-            />
-          </View>
-          <Text style={[styles.tokenText, { color: colors.mutedForeground }]}>
-            {tokensRemaining.toLocaleString()} /{" "}
-            {DAILY_TOKEN_LIMIT.toLocaleString()} tokens left today
-          </Text>
-        </View>
-
-        {/* ─── Messages ───────────────────────────────────────────────────────── */}
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={renderItem}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={() =>
-            listRef.current?.scrollToEnd({ animated: false })
-          }
-          ListEmptyComponent={
-            isFirstOpen ? (
-              <View style={styles.emptyState}>
-                <Image
-                  source={require("@/assets/images/lightbulb.png")}
-                  style={styles.emptyLightbulb}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                  Hi! I'm your business assistant.
-                </Text>
-                <Text
-                  style={[
-                    styles.emptySubtitle,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  I can check your orders, calculate revenue, and even create
-                  new orders — all while keeping your customer info private.
-                </Text>
-                {/* Quick Prompts */}
-                <View style={styles.quickPrompts}>
-                  {QUICK_PROMPTS.map((prompt) => (
-                    <TouchableOpacity
-                      key={prompt}
-                      style={[
-                        styles.quickChip,
-                        { backgroundColor: "#FFF0F5", borderColor: "#F8BCCD" },
-                      ]}
-                      onPress={() => handleSend(prompt)}
-                    >
-                      <Text
-                        style={[styles.quickChipText, { color: "#C06070" }]}
-                      >
-                        {prompt}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            ) : null
-          }
-        />
-
-        {/* ─── Input Bar ──────────────────────────────────────────────────────── */}
-        <View
-          style={[
-            styles.inputBar,
-            {
-              backgroundColor: colors.card,
-              borderTopColor: colors.border,
-              paddingBottom: isKeyboardOpen
-                ? 18
-                : Platform.OS === "web"
-                  ? 12
-                  : 18,
-            },
-          ]}
-        >
-          <TextInput
-            ref={inputRef}
+          {/* ─── Header ─────────────────────────────────────────────────────────── */}
+          <View
             style={[
-              styles.textInput,
-              { backgroundColor: colors.muted, color: colors.foreground },
-            ]}
-            placeholder="Ask me anything about your business..."
-            placeholderTextColor={colors.mutedForeground}
-            value={input}
-            onChangeText={setInput}
-            multiline
-            maxLength={500}
-            onSubmitEditing={() => handleSend()}
-            returnKeyType="send"
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
+              styles.header,
               {
-                backgroundColor:
-                  input.trim() && !isLoading ? "#C06070" : colors.muted,
+                backgroundColor: colors.card,
+                borderBottomColor: colors.border,
+                paddingTop: Platform.OS === "web" ? 16 : insets.top / 3,
               },
             ]}
-            onPress={() => handleSend()}
-            disabled={!input.trim() || isLoading}
           >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Feather
-                name="send"
-                size={18}
-                color={input.trim() ? "#fff" : colors.mutedForeground}
+            <View style={styles.headerLeft}>
+              <View style={styles.headerIconWrap}>
+                <Text style={styles.headerIcon}>✨</Text>
+              </View>
+              <View>
+                <Text
+                  style={[styles.headerTitle, { color: colors.foreground }]}
+                >
+                  AI Assistant
+                </Text>
+                <View style={styles.privacyRow}>
+                  <Feather
+                    name="lock"
+                    size={10}
+                    color={colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.privacyLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {" "}
+                    Your data stays on device
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={10}
+            >
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ─── Token Bar ──────────────────────────────────────────────────────── */}
+          <View style={[styles.tokenBar, { backgroundColor: colors.muted }]}>
+            <View style={styles.tokenTrack}>
+              <View
+                style={[
+                  styles.tokenFill,
+                  {
+                    width: `${tokenPercent}%` as any,
+                    backgroundColor: tokenPercent > 30 ? "#C6EFC6" : "#FFD4D4",
+                  },
+                ]}
               />
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            </View>
+            <Text style={[styles.tokenText, { color: colors.mutedForeground }]}>
+              {tokensRemaining.toLocaleString()} /{" "}
+              {DAILY_TOKEN_LIMIT.toLocaleString()} tokens left today
+            </Text>
+          </View>
+
+          {/* ─── Messages ───────────────────────────────────────────────────────── */}
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(_, i) => String(i)}
+            renderItem={renderItem}
+            contentContainerStyle={styles.messageList}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() =>
+              listRef.current?.scrollToEnd({ animated: false })
+            }
+            ListEmptyComponent={
+              isFirstOpen ? (
+                <View style={styles.emptyState}>
+                  <Image
+                    source={require("@/assets/images/lightbulb.png")}
+                    style={styles.emptyLightbulb}
+                    resizeMode="contain"
+                  />
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.foreground }]}
+                  >
+                    Hi! I'm your business assistant.
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptySubtitle,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    I can check your orders, calculate revenue, and even create
+                    new orders — all while keeping your customer info private.
+                  </Text>
+                  {/* Quick Prompts */}
+                  <View style={styles.quickPrompts}>
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <TouchableOpacity
+                        key={prompt}
+                        style={[
+                          styles.quickChip,
+                          {
+                            backgroundColor: "#FFF0F5",
+                            borderColor: "#F8BCCD",
+                          },
+                        ]}
+                        onPress={() => handleSend(prompt)}
+                      >
+                        <Text
+                          style={[styles.quickChipText, { color: "#C06070" }]}
+                        >
+                          {prompt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ) : null
+            }
+          />
+
+          {/* ─── Input Bar ──────────────────────────────────────────────────────── */}
+          <View
+            style={[
+              styles.inputBar,
+              {
+                backgroundColor: colors.card,
+                borderTopColor: colors.border,
+                paddingBottom: isKeyboardOpen
+                  ? 18
+                  : Platform.OS === "web"
+                    ? 12
+                    : 18,
+              },
+            ]}
+          >
+            <TextInput
+              ref={inputRef}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.muted, color: colors.foreground },
+              ]}
+              placeholder="Ask me anything about your business..."
+              placeholderTextColor={colors.mutedForeground}
+              value={input}
+              onChangeText={setInput}
+              multiline
+              maxLength={500}
+              onSubmitEditing={() => handleSend()}
+              returnKeyType="send"
+              blurOnSubmit={false}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendBtn,
+                {
+                  backgroundColor:
+                    input.trim() && !isLoading ? "#C06070" : colors.muted,
+                },
+              ]}
+              onPress={() => handleSend()}
+              disabled={!input.trim() || isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Feather
+                  name="send"
+                  size={18}
+                  color={input.trim() ? "#fff" : colors.mutedForeground}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -460,6 +473,7 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
 // ─── Styles ───────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  modalRoot: { flex: 1 },
   container: { flex: 1 },
 
   header: {

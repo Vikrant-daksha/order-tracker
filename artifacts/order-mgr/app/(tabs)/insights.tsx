@@ -1208,7 +1208,7 @@ export const BusinessInsightsScreen: React.FC = () => {
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <View>
-              <Text style={styles.cardTitle}>Performance Flow</Text>
+              <Text style={styles.cardTitle}>Revenue Graph</Text>
               <Text style={styles.cardSubtitle}>
                 {periodInfo.chartSubtitle}
               </Text>
