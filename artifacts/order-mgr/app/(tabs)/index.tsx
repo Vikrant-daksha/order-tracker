@@ -40,7 +40,8 @@ function isOverdue(order: Order) {
   if (
     !order.dueDate ||
     order.status === "Delivered" ||
-    order.status === "Shipped"
+    order.status === "Shipped" ||
+    order.status === "Completed"
   )
     return false;
   return order.dueDate < new Date().toISOString().split("T")[0];
@@ -78,23 +79,37 @@ function matchesYesterday(order: Order): boolean {
 }
 
 function getOrderAmount(order: Order): number {
-  if (typeof order.price === "number" && !isNaN(order.price) && order.price > 0) {
+  if (
+    typeof order.price === "number" &&
+    !isNaN(order.price) &&
+    order.price > 0
+  ) {
     return order.price;
   }
-  if (typeof order.amountPaid === "number" && !isNaN(order.amountPaid) && order.amountPaid > 0) {
+  if (
+    typeof order.amountPaid === "number" &&
+    !isNaN(order.amountPaid) &&
+    order.amountPaid > 0
+  ) {
     return order.amountPaid;
   }
   return 0;
 }
 
 function formatRevenue(val: number): string {
-  if (val >= 100000) return `₹${(val / 100000).toFixed(1).replace(/\.0$/, "")}L`;
+  if (val >= 100000)
+    return `₹${(val / 100000).toFixed(1).replace(/\.0$/, "")}L`;
   if (val >= 1000) return `₹${(val / 1000).toFixed(1).replace(/\.0$/, "")}k`;
   return `₹${Math.round(val)}`;
 }
 
 function isDueToday(order: Order) {
-  if (order.status === "Shipped" || order.status === "Delivered") return false;
+  if (
+    order.status === "Shipped" ||
+    order.status === "Delivered" ||
+    order.status === "Completed"
+  )
+    return false;
   const localToday = getLocalDateString();
   const utcToday = new Date().toISOString().split("T")[0];
   const due = (order.dueDate || "").slice(0, 10);
@@ -102,7 +117,12 @@ function isDueToday(order: Order) {
 }
 
 function isDueThisWeek(order: Order) {
-  if (order.status === "Shipped" || order.status === "Delivered") return false;
+  if (
+    order.status === "Shipped" ||
+    order.status === "Delivered" ||
+    order.status === "Completed"
+  )
+    return false;
   const today = new Date();
   const end = new Date(today);
   end.setDate(today.getDate() + 7);
@@ -120,7 +140,13 @@ export default function HomeScreen() {
   const [dueFilter, setDueFilter] = useState<"withDue" | "noDue">("withDue");
 
   const active = useMemo(
-    () => orders.filter((o) => o.status !== "Delivered"),
+    () =>
+      orders.filter(
+        (o) =>
+          o.status !== "Delivered" &&
+          o.status !== "Shipped" &&
+          o.status !== "Completed",
+      ),
     [orders],
   );
   const overdue = useMemo(() => active.filter(isOverdue), [active]);
@@ -128,7 +154,12 @@ export default function HomeScreen() {
   const dueTomorrow = useMemo(
     () =>
       active.filter((o) => {
-        if (!o.dueDate || o.status === "Delivered" || o.status === "Shipped")
+        if (
+          !o.dueDate ||
+          o.status === "Delivered" ||
+          o.status === "Shipped" ||
+          o.status === "Completed"
+        )
           return false;
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -149,10 +180,7 @@ export default function HomeScreen() {
     [orders],
   );
 
-  const ordersToday = useMemo(
-    () => orders.filter(matchesToday),
-    [orders],
-  );
+  const ordersToday = useMemo(() => orders.filter(matchesToday), [orders]);
 
   const todaysRevenue = useMemo(
     () => ordersToday.reduce((sum, o) => sum + getOrderAmount(o), 0),
@@ -180,7 +208,14 @@ export default function HomeScreen() {
   }, []);
 
   const workingOn = useMemo(
-    () => orders.filter((o) => !!o.workingOn),
+    () =>
+      orders.filter(
+        (o) =>
+          !!o.workingOn &&
+          o.status !== "Delivered" &&
+          o.status !== "Shipped" &&
+          o.status !== "Completed",
+      ),
     [orders],
   );
 
@@ -361,11 +396,11 @@ export default function HomeScreen() {
               <StatCard
                 label="Orders Today"
                 value={ordersToday.length}
-                subtitle={`Avg: ₹${avgOrderValue >= 1000 ? (avgOrderValue / 1000).toFixed(1).replace(/\.0$/, "") + "k" : avgOrderValue}`}
+                subtitle={`Avg: ₹${avgOrderValue >= 1000 ? (avgOrderValue / 1000).toFixed(1).replace(/\.0$/, "") + "k / order" : avgOrderValue}`}
                 accent={
                   ordersToday.length > 0 ? "#C06070" : colors.mutedForeground
                 }
-                bg={ordersToday.length > 0 ? "#FFF0F5" : colors.card}
+                bg={ordersToday.length > 0 ? colors.card : colors.card}
                 icon="shopping-bag"
                 colors={colors}
               />
@@ -374,25 +409,19 @@ export default function HomeScreen() {
                 value={dueToday.length}
                 subtitle={todayDateSubtitle}
                 accent={
-                  dueToday.length > 0
-                    ? colors.overdueText
-                    : colors.mutedForeground
+                  dueToday.length > 0 ? "#C06070" : colors.mutedForeground
                 }
-                bg={dueToday.length > 0 ? colors.overdue : colors.card}
+                bg={dueToday.length > 0 ? colors.card : colors.card}
                 icon="clock"
                 colors={colors}
               />
               <StatCard
                 label="Todays Revenue"
                 value={formatRevenue(todaysRevenue)}
-                subtitle={`Yest: ₹${yesterdaysRevenue >= 1000 ? (yesterdaysRevenue / 1000).toFixed(1).replace(/\.0$/, "") + "k" : Math.round(yesterdaysRevenue)}`}
-                accent={
-                  todaysRevenue > 0
-                    ? colors.deliveredText
-                    : colors.mutedForeground
-                }
-                bg={todaysRevenue > 0 ? "#E8F8F0" : colors.card}
-                icon="rupee"
+                subtitle={`Yesterday: ₹${yesterdaysRevenue >= 1000 ? (yesterdaysRevenue / 1000).toFixed(1).replace(/\.0$/, "") + "k" : Math.round(yesterdaysRevenue)}`}
+                accent={todaysRevenue > 0 ? "#C06070" : colors.mutedForeground}
+                bg={todaysRevenue > 0 ? colors.card : colors.card}
+                icon="credit-card"
                 IconFamily={FontAwesome}
                 colors={colors}
               />
@@ -793,23 +822,25 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 4,
     alignItems: "center",
     gap: 3,
     borderWidth: 1,
   },
-  statValue: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  statValue: { fontSize: 20, fontFamily: "Inter_700Bold" },
   statLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: "Inter_600SemiBold",
     textAlign: "center",
     letterSpacing: 0.2,
+    marginTop: 2,
   },
   statSubtitle: {
     fontSize: 10,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
+    marginTop: -2,
   },
 
   // Section header

@@ -12,7 +12,7 @@ import { Order, OrderStatus } from '@/types';
 const COLUMNS: OrderStatus[] = ['Confirmed', 'Completed', 'Shipped', 'Delivered'];
 
 function isOverdue(order: Order) {
-  if (!order.dueDate || order.status === 'Delivered') return false;
+  if (!order.dueDate || order.status === 'Delivered' || order.status === 'Shipped' || order.status === 'Completed') return false;
   return order.dueDate < new Date().toISOString().split('T')[0];
 }
 

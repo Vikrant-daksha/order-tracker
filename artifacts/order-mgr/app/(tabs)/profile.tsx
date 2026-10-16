@@ -27,7 +27,6 @@ import {
   rescheduleAllReminders,
 } from "@/utils/notifications";
 import { useUpdateContext } from "@/app/_layout";
-import { downloadAndInstall } from "@/utils/githubUpdater";
 
 
 export default function ProfileScreen() {
@@ -36,12 +35,21 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { orders, products, expenses, clearDeliveredImages, importBackup } =
     useDatabase();
-  const { updateInfo, isChecking, lastChecked, recheckUpdate } =
-    useUpdateContext();
+  const {
+    updateInfo,
+    isChecking,
+    lastChecked,
+    recheckUpdate,
+    downloadProgress,
+    isDownloading,
+    isReadyToInstall,
+    startUpdateDownload,
+    installUpdate,
+    downloadInBrowser,
+  } = useUpdateContext();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [downloadProgress, setDownloadProgress] = useState<number | null>(null); // null = idle
 
   useEffect(() => {
     isNotificationEnabledAppLevel().then(setNotificationsEnabled);
@@ -144,17 +152,34 @@ export default function ProfileScreen() {
   }
 
   async function handleDownloadUpdate() {
+    if (isReadyToInstall) {
+      try {
+        await installUpdate();
+      } catch (e: any) {
+        Alert.alert(
+          "Install Error",
+          e?.message ?? "Could not launch package installer.",
+        );
+      }
+      return;
+    }
+
     if (!updateInfo?.apkUrl) {
       Alert.alert("No APK", "This release has no APK asset attached.");
       return;
     }
+
     try {
-      setDownloadProgress(0);
-      await downloadAndInstall(updateInfo.apkUrl, p => setDownloadProgress(p));
+      await startUpdateDownload();
     } catch (e: any) {
-      Alert.alert("Update Failed", e?.message ?? "Could not download the update.");
-    } finally {
-      setDownloadProgress(null);
+      Alert.alert(
+        "Download Interrupted",
+        e?.message ?? "Could not complete update download. You can retry or download via browser.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Download via Browser", onPress: downloadInBrowser },
+        ],
+      );
     }
   }
 
@@ -399,54 +424,109 @@ export default function ProfileScreen() {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Download progress bar (visible while downloading) */}
-          {downloadProgress !== null && (
+          {downloadProgress !== null && !isReadyToInstall && (
             <View style={styles.progressContainer}>
               <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
                 <View
                   style={[
                     styles.progressFill,
-                    { width: `${Math.round(downloadProgress * 100)}%`, backgroundColor: '#C06070' },
+                    {
+                      width: `${Math.round((downloadProgress || 0) * 100)}%`,
+                      backgroundColor: "#C06070",
+                    },
                   ]}
                 />
               </View>
-              <Text style={[styles.progressText, { color: colors.mutedForeground }]}>
-                Downloading… {Math.round(downloadProgress * 100)}%
-              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 6,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.progressText,
+                    { color: colors.mutedForeground, marginTop: 0 },
+                  ]}
+                >
+                  Downloading in background… {Math.round((downloadProgress || 0) * 100)}%
+                </Text>
+                <Pressable onPress={downloadInBrowser} hitSlop={8}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: "#C06070",
+                      fontFamily: "Inter_500Medium",
+                    }}
+                  >
+                    Open in Browser
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           )}
 
           {/* Action row */}
-          {downloadProgress === null && (
+          {(downloadProgress === null || isReadyToInstall) && (
             <Pressable
-              onPress={updateInfo?.hasUpdate ? handleDownloadUpdate : recheckUpdate}
-              disabled={isChecking}
-              style={({ pressed }) => [styles.menuRow, { opacity: pressed || isChecking ? 0.6 : 1 }]}
-            >
-              {isChecking
-                ? <ActivityIndicator size={18} color="#C06070" />
-                : <Feather
-                    name={updateInfo?.hasUpdate ? 'download-cloud' : 'refresh-cw'}
-                    size={18}
-                    color={updateInfo?.hasUpdate ? '#C06070' : colors.mutedForeground}
-                  />
+              onPress={
+                isReadyToInstall || updateInfo?.hasUpdate
+                  ? handleDownloadUpdate
+                  : recheckUpdate
               }
+              disabled={isChecking || isDownloading}
+              style={({ pressed }) => [
+                styles.menuRow,
+                { opacity: pressed || isChecking ? 0.6 : 1 },
+              ]}
+            >
+              {isChecking ? (
+                <ActivityIndicator size={18} color="#C06070" />
+              ) : isReadyToInstall ? (
+                <Feather name="check-circle" size={18} color="#4E9F3D" />
+              ) : (
+                <Feather
+                  name={updateInfo?.hasUpdate ? "download-cloud" : "refresh-cw"}
+                  size={18}
+                  color={updateInfo?.hasUpdate ? "#C06070" : colors.mutedForeground}
+                />
+              )}
               <View style={{ flex: 1 }}>
-                <Text style={[styles.menuRowLabel, { color: updateInfo?.hasUpdate ? '#C06070' : colors.foreground }]}>
+                <Text
+                  style={[
+                    styles.menuRowLabel,
+                    {
+                      color: isReadyToInstall
+                        ? "#4E9F3D"
+                        : updateInfo?.hasUpdate
+                        ? "#C06070"
+                        : colors.foreground,
+                    },
+                  ]}
+                >
                   {isChecking
-                    ? 'Checking…'
+                    ? "Checking…"
+                    : isReadyToInstall
+                    ? `Install Update v${updateInfo?.latestVersion || ""}`
                     : updateInfo?.hasUpdate
-                      ? `Update to v${updateInfo.latestVersion}`
-                      : 'Check for Updates'
-                  }
+                    ? `Update to v${updateInfo.latestVersion}`
+                    : "Check for Updates"}
                 </Text>
                 <Text style={[styles.menuSub, { color: colors.mutedForeground }]}>
-                  {updateInfo?.hasUpdate
-                    ? 'Tap to download & install'
-                    : formatLastChecked(lastChecked)
-                  }
+                  {isReadyToInstall
+                    ? "Download complete! Tap to install APK now"
+                    : updateInfo?.hasUpdate
+                    ? "Tap to download in background"
+                    : formatLastChecked(lastChecked)}
                 </Text>
               </View>
-              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+              <Feather
+                name="chevron-right"
+                size={16}
+                color={colors.mutedForeground}
+              />
             </Pressable>
           )}
         </View>

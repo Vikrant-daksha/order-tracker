@@ -66,6 +66,7 @@ export function SmartPasteModal({ visible, onClose, onConfirm }: SmartPasteModal
         ['Customer Name', parsed.customerName],
         ['Instagram', parsed.contactInfo],
         ['Phone', parsed.phone],
+        ['Size / Measurements', parsed.size],
         ['Address', parsed.address],
         ['Pincode', parsed.pincode],
         ['Order Date', parsed.orderDate],

@@ -1,18 +1,21 @@
 /**
  * utils/githubUpdater.ts
- * Self-update via GitHub Releases.
+ * Self-update via GitHub Releases with background download and resume support.
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
-import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
+import { Linking, Platform } from "react-native";
 
 const GITHUB_OWNER = "Vikrant-daksha";
 const GITHUB_REPO = "order-tracker";
 const API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 const LAST_CHECK_KEY = "@orderflow_last_update_check";
+export const ACTIVE_DOWNLOAD_KEY = "@orderflow_active_download";
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const APK_FILE_PATH = `${FileSystem.cacheDirectory}orderflow_update.apk`;
 
 export interface UpdateInfo {
   hasUpdate: boolean;
@@ -21,6 +24,34 @@ export interface UpdateInfo {
   apkUrl: string;
   releaseNotes: string;
   htmlUrl: string;
+}
+
+export interface DownloadState {
+  apkUrl: string;
+  fileUri: string;
+  version: string;
+  progress: number;
+  isComplete: boolean;
+  savableData?: any;
+}
+
+let activeDownloadResumable: FileSystem.DownloadResumable | null = null;
+const progressListeners = new Set<(progress: number) => void>();
+
+export function addDownloadProgressListener(listener: (p: number) => void) {
+  progressListeners.add(listener);
+}
+
+export function removeDownloadProgressListener(listener: (p: number) => void) {
+  progressListeners.delete(listener);
+}
+
+function notifyProgress(p: number) {
+  progressListeners.forEach((l) => {
+    try {
+      l(p);
+    } catch {}
+  });
 }
 
 function isNewerVersion(local: string, remote: string): boolean {
@@ -82,53 +113,207 @@ export async function checkForUpdate(
   };
 }
 
-export async function downloadAndInstall(
-  apkUrl: string,
-  onProgress: (progress: number) => void,
+export async function getActiveDownloadState(): Promise<DownloadState | null> {
+  if (Platform.OS !== "android") return null;
+  try {
+    const raw = await AsyncStorage.getItem(ACTIVE_DOWNLOAD_KEY);
+    if (!raw) return null;
+    const parsed: DownloadState = JSON.parse(raw);
+
+    // If marked complete, ensure the file actually exists on disk
+    if (parsed.isComplete) {
+      const info = await FileSystem.getInfoAsync(
+        parsed.fileUri || APK_FILE_PATH,
+      );
+      if (!info.exists || (info.size && info.size < 1000000)) {
+        await AsyncStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+        return null;
+      }
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function installDownloadedApk(
+  customFileUri?: string,
 ): Promise<void> {
   if (Platform.OS !== "android") return;
-
-  const fileUri = `${FileSystem.cacheDirectory}orderflow_update.apk`;
-
-  // Remove stale APK if present
-  const fileInfo = await FileSystem.getInfoAsync(fileUri);
-  if (fileInfo.exists) {
-    await FileSystem.deleteAsync(fileUri, { idempotent: true });
+  const fileUri = customFileUri || APK_FILE_PATH;
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (!info.exists) {
+    throw new Error("Update APK file not found. Please re-download.");
   }
 
-  // Download with progress updates
-  let lastPct = 0;
-  const downloadResumable = FileSystem.createDownloadResumable(
-    apkUrl,
-    fileUri,
-    {},
-    (downloadProgress) => {
-      const pct =
-        downloadProgress.totalBytesWritten /
-        downloadProgress.totalBytesExpectedToWrite;
-      // Only notify JS if it moved by at least 1% (0.01)
-      if (pct - lastPct >= 0.01 || pct === 1) {
-        lastPct = pct;
-        onProgress(pct);
-      }
-    },
-  );
-
-  const result = await downloadResumable.downloadAsync();
-  if (!result?.uri) {
-    throw new Error("Download failed: No URI returned from downloadResumable");
-  }
-
-  // Generate content URI for Android intent (prevents FileUriExposedException)
-  const contentUri = await FileSystem.getContentUriAsync(result.uri);
-
-  // Launch the Android system package installer
+  const contentUri = await FileSystem.getContentUriAsync(fileUri);
   const { startActivityAsync } = await import("expo-intent-launcher");
   await startActivityAsync("android.intent.action.VIEW", {
     data: contentUri,
     flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
     type: "application/vnd.android.package-archive",
   });
+}
+
+export async function downloadAndInstall(
+  apkUrl: string,
+  onProgressOrVersion?: ((progress: number) => void) | string,
+  maybeOnProgress?: (progress: number) => void,
+): Promise<void> {
+  if (Platform.OS !== "android") return;
+
+  let targetVersion = "update";
+  let onProgress: ((progress: number) => void) | undefined;
+
+  if (typeof onProgressOrVersion === "string") {
+    targetVersion = onProgressOrVersion;
+    onProgress = maybeOnProgress;
+  } else if (typeof onProgressOrVersion === "function") {
+    onProgress = onProgressOrVersion;
+  }
+
+  const fileUri = APK_FILE_PATH;
+
+  // Check if an existing complete download is already available
+  const existing = await getActiveDownloadState();
+  if (existing && existing.apkUrl === apkUrl && existing.isComplete) {
+    onProgress?.(1);
+    notifyProgress(1);
+    await installDownloadedApk(fileUri);
+    return;
+  }
+
+  // Remove stale incomplete APK if URL changed
+  if (existing && existing.apkUrl !== apkUrl) {
+    try {
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+    } catch {}
+  }
+
+  // Save initial download state
+  await AsyncStorage.setItem(
+    ACTIVE_DOWNLOAD_KEY,
+    JSON.stringify({
+      apkUrl,
+      fileUri,
+      version: targetVersion,
+      progress: 0,
+      isComplete: false,
+    } as DownloadState),
+  );
+
+  // Send a background notification that download has started
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Downloading OrderFlow Update",
+        body: `v${targetVersion} is downloading in the background...`,
+        data: { apkUrl, fileUri },
+      },
+      trigger: null,
+    });
+  } catch (e) {
+    console.warn("[Updater] Could not schedule start notification:", e);
+  }
+
+  let lastPct = 0;
+  let lastSavedTime = 0;
+
+  activeDownloadResumable = FileSystem.createDownloadResumable(
+    apkUrl,
+    fileUri,
+    {
+      sessionType: FileSystem.FileSystemSessionType.BACKGROUND,
+    },
+    async (downloadProgress) => {
+      const total = downloadProgress.totalBytesExpectedToWrite;
+      if (total <= 0) return;
+      const pct = downloadProgress.totalBytesWritten / total;
+
+      if (pct - lastPct >= 0.01 || pct >= 1) {
+        lastPct = pct;
+        onProgress?.(pct);
+        notifyProgress(pct);
+
+        const now = Date.now();
+        if (now - lastSavedTime > 3000 || pct >= 1) {
+          lastSavedTime = now;
+          try {
+            const savable = activeDownloadResumable?.savable();
+            await AsyncStorage.setItem(
+              ACTIVE_DOWNLOAD_KEY,
+              JSON.stringify({
+                apkUrl,
+                fileUri,
+                version: targetVersion,
+                progress: pct,
+                isComplete: pct >= 1,
+                savableData: savable,
+              } as DownloadState),
+            );
+          } catch {}
+        }
+      }
+    },
+  );
+
+  try {
+    const result = await activeDownloadResumable.downloadAsync();
+    if (!result?.uri) {
+      throw new Error("Download failed: No file URI returned.");
+    }
+
+    // Mark complete
+    await AsyncStorage.setItem(
+      ACTIVE_DOWNLOAD_KEY,
+      JSON.stringify({
+        apkUrl,
+        fileUri: result.uri,
+        version: targetVersion,
+        progress: 1,
+        isComplete: true,
+      } as DownloadState),
+    );
+
+    onProgress?.(1);
+    notifyProgress(1);
+
+    // Notify user that update is ready to install
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "OrderFlow Update is Ready!",
+          body: `Version ${targetVersion} has finished downloading. Tap to install now.`,
+          data: { fileUri: result.uri, action: "INSTALL_UPDATE" },
+        },
+        trigger: null,
+      });
+    } catch {}
+
+    // Prompt package installer
+    await installDownloadedApk(result.uri);
+  } finally {
+    activeDownloadResumable = null;
+  }
+}
+
+export async function openDownloadInBrowser(apkUrl: string): Promise<void> {
+  if (!apkUrl) return;
+  await Linking.openURL(apkUrl);
+}
+
+export async function cancelActiveDownload(): Promise<void> {
+  if (activeDownloadResumable) {
+    try {
+      await activeDownloadResumable.cancelAsync();
+    } catch {}
+    activeDownloadResumable = null;
+  }
+  await AsyncStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+  try {
+    await FileSystem.deleteAsync(APK_FILE_PATH, { idempotent: true });
+  } catch {}
+  notifyProgress(0);
 }
 
 export async function getLastCheckDate(): Promise<number | null> {

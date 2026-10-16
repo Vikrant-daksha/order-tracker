@@ -416,7 +416,9 @@ function getCustomerOrderHistory(orders: Order[], customerName: string): ToolRes
 function createOrderTool(data: AppData, args: any): ToolResult {
   const today = new Date().toISOString().split('T')[0];
   const price = typeof args.price === 'number' ? args.price : parseFloat(args.price) || 0;
-  const size = (args.size || '').trim();
+  const customerName = args.customerName || 'Unknown';
+  const existingCust = data.customers?.find(c => c.name.toLowerCase() === customerName.toLowerCase());
+  const size = (args.size || existingCust?.size || '').trim();
 
   let paymentStatus: PaymentStatus = 'Unpaid';
   if (args.paymentStatus === 'Paid' || args.paymentStatus === 'Partial' || args.paymentStatus === 'Unpaid') {
@@ -432,7 +434,6 @@ function createOrderTool(data: AppData, args: any): ToolResult {
   }
 
   const productName = args.productName || 'Custom item';
-  const customerName = args.customerName || 'Unknown';
   const dueDate = args.dueDate || today;
 
   data.addOrder({
@@ -449,6 +450,9 @@ function createOrderTool(data: AppData, args: any): ToolResult {
     trackingLink: '',
     notes: args.notes || 'Created via AI assistant',
     isCustom: 1 as 0 | 1,
+    size: size || undefined,
+    customerId: existingCust?.id || undefined,
+    sizeImagePaths: existingCust?.sizeImagePaths || [],
     items: [{
       id: Date.now().toString(36),
       productName,
@@ -484,12 +488,13 @@ function createMultipleOrdersTool(data: AppData, args: any): ToolResult {
   for (let i = 0; i < orderList.length; i++) {
     const o = orderList[i];
     const customerName = o.customerName || 'Unknown';
+    const existingCust = data.customers?.find(c => c.name.toLowerCase() === customerName.toLowerCase());
     const productName = o.productName || 'Custom item';
     const price = typeof o.price === 'number' ? o.price : parseFloat(o.price) || 0;
     const dueDate = o.dueDate || today;
     const source = (o.source as OrderStatus) || 'Manual';
     const notes = o.notes || 'Created via AI batch assistant';
-    const size = (o.size || '').trim();
+    const size = (o.size || existingCust?.size || '').trim();
 
     let paymentStatus: PaymentStatus = 'Unpaid';
     if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Partial' || o.paymentStatus === 'Unpaid') {
@@ -507,6 +512,7 @@ function createMultipleOrdersTool(data: AppData, args: any): ToolResult {
     data.addOrder({
       source,
       customerName,
+      customerId: existingCust?.id || undefined,
       contactInfo: '',
       address: '',
       orderDate: today,
@@ -522,6 +528,8 @@ function createMultipleOrdersTool(data: AppData, args: any): ToolResult {
       trackingLink: '',
       notes,
       isCustom: 1 as 0 | 1,
+      size: size || undefined,
+      sizeImagePaths: existingCust?.sizeImagePaths || [],
       items: [{
         id: (Date.now() + i).toString(36),
         productName,

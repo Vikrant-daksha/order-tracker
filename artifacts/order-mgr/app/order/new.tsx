@@ -91,6 +91,7 @@ export default function NewOrderScreen() {
   const [phone, setPhone] = useState(existingContact[1] || "");
   const [email, setEmail] = useState(existingContact[2] || "");
   const [address, setAddress] = useState(existing?.address || "");
+  const [customerNotes, setCustomerNotes] = useState("");
   const [orderDate, setOrderDate] = useState(existing?.orderDate || today());
   const [dueDate, setDueDate] = useState(existing?.dueDate || "");
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
@@ -214,6 +215,56 @@ export default function NewOrderScreen() {
   const [pasteVisible, setPasteVisible] = useState(false);
   const [linkedCustomer, setLinkedCustomer] = useState<Customer | null>(null);
 
+  const [customerSize, setCustomerSize] = useState(() => {
+    if (isEditing && existing) {
+      return existing.size || (existing.items && existing.items[0]?.size) || "";
+    }
+    return "";
+  });
+  const [customerSizeImageUris, setCustomerSizeImageUris] = useState<string[]>(
+    () => {
+      if (isEditing && existing) {
+        if (existing.sizeImagePaths && existing.sizeImagePaths.length > 0)
+          return existing.sizeImagePaths;
+        if (existing.sizeImagePath) return [existing.sizeImagePath];
+        if (
+          existing.items &&
+          existing.items[0]?.sizeImagePaths &&
+          existing.items[0].sizeImagePaths.length > 0
+        ) {
+          return existing.items[0].sizeImagePaths;
+        }
+        if (existing.items && existing.items[0]?.sizeImagePath) {
+          return [existing.items[0].sizeImagePath];
+        }
+      }
+      return [];
+    },
+  );
+  const [customerSizeThumbUris, setCustomerSizeThumbUris] = useState<string[]>(
+    () => {
+      if (isEditing && existing) {
+        if (
+          existing.sizeThumbnailPaths &&
+          existing.sizeThumbnailPaths.length > 0
+        )
+          return existing.sizeThumbnailPaths;
+        if (existing.sizeThumbnailPath) return [existing.sizeThumbnailPath];
+        if (
+          existing.items &&
+          existing.items[0]?.sizeThumbnailPaths &&
+          existing.items[0].sizeThumbnailPaths.length > 0
+        ) {
+          return existing.items[0].sizeThumbnailPaths;
+        }
+        if (existing.items && existing.items[0]?.sizeThumbnailPath) {
+          return [existing.items[0].sizeThumbnailPath];
+        }
+      }
+      return [];
+    },
+  );
+
   const totalPrice = React.useMemo(() => {
     return items.reduce((sum, item) => {
       const p = parseFloat(item.price) || 0;
@@ -225,7 +276,36 @@ export default function NewOrderScreen() {
   useEffect(() => {
     if (isEditing && existing?.customerId) {
       const c = customers.find((x) => x.id === existing.customerId);
-      if (c) setLinkedCustomer(c);
+      if (c) {
+        setLinkedCustomer(c);
+        if (c.notes) setCustomerNotes(c.notes);
+        if (c.size && !customerSize) setCustomerSize(c.size);
+        if (
+          c.sizeImagePaths &&
+          c.sizeImagePaths.length > 0 &&
+          customerSizeImageUris.length === 0
+        ) {
+          setCustomerSizeImageUris(c.sizeImagePaths);
+          setCustomerSizeThumbUris(c.sizeThumbnailPaths || []);
+        }
+      }
+    } else if (isEditing && existing?.customerName) {
+      const c = customers.find(
+        (x) => x.name.toLowerCase() === existing.customerName.toLowerCase(),
+      );
+      if (c) {
+        setLinkedCustomer(c);
+        if (c.notes) setCustomerNotes(c.notes);
+        if (c.size && !customerSize) setCustomerSize(c.size);
+        if (
+          c.sizeImagePaths &&
+          c.sizeImagePaths.length > 0 &&
+          customerSizeImageUris.length === 0
+        ) {
+          setCustomerSizeImageUris(c.sizeImagePaths);
+          setCustomerSizeThumbUris(c.sizeThumbnailPaths || []);
+        }
+      }
     }
   }, [isEditing, existing, customers]);
 
@@ -233,7 +313,26 @@ export default function NewOrderScreen() {
   const unlinkedIds = useRef(new Set<string>());
 
   useEffect(() => {
-    if (isEditing || (!igHandle && !phone)) {
+    const cleanIg = igHandle.replace('@', '').trim();
+    const cleanPhone = phone.replace(/[^0-9]/g, '').trim();
+
+    if (isEditing || (!cleanIg && !cleanPhone)) {
+      setIsSearching(false);
+      return;
+    }
+
+    // Require at least 2 chars for IG or 4 digits for phone before searching
+    if (cleanIg.length < 2 && cleanPhone.length < 4) {
+      setIsSearching(false);
+      return;
+    }
+
+    // If already linked to this exact handle or phone, no need to show search indicator
+    if (
+      linkedCustomer &&
+      ((cleanIg && linkedCustomer.igHandle?.toLowerCase() === cleanIg.toLowerCase()) ||
+        (cleanPhone && linkedCustomer.phone?.replace(/[^0-9]/g, '') === cleanPhone))
+    ) {
       setIsSearching(false);
       return;
     }
@@ -241,8 +340,9 @@ export default function NewOrderScreen() {
     setIsSearching(true);
     const timer = setTimeout(() => {
       const match =
-        (igHandle ? findCustomerByIg(igHandle) : null) ||
-        (phone ? findCustomerByPhone(phone) : null);
+        (cleanIg.length >= 2 ? findCustomerByIg(igHandle) : null) ||
+        (cleanPhone.length >= 4 ? findCustomerByPhone(phone) : null);
+
       if (
         match &&
         match.id !== linkedCustomer?.id &&
@@ -254,15 +354,21 @@ export default function NewOrderScreen() {
         if (match.address && !address) setAddress(match.address);
         if (match.phone && !phone) setPhone(match.phone);
         if (match.igHandle && !igHandle) setIgHandle(match.igHandle);
+        if (match.notes && !customerNotes) setCustomerNotes(match.notes);
+        if (match.size) setCustomerSize(match.size);
+        if (match.sizeImagePaths && match.sizeImagePaths.length > 0) {
+          setCustomerSizeImageUris(match.sizeImagePaths);
+          setCustomerSizeThumbUris(match.sizeThumbnailPaths || []);
+        }
       }
+      // Instantly dismiss spinner whether customer was found or not
       setIsSearching(false);
-    }, 5000);
+    }, 900);
 
     return () => {
       clearTimeout(timer);
-      setIsSearching(false);
     };
-  }, [igHandle, phone, isEditing, findCustomerByIg, findCustomerByPhone]);
+  }, [igHandle, phone, isEditing, linkedCustomer, findCustomerByIg, findCustomerByPhone]);
 
   const pickedImagesRef = useRef<{ fullPath: string; thumbnailPath: string }[]>(
     [],
@@ -285,6 +391,7 @@ export default function NewOrderScreen() {
     if (parsed.customerName) setCustomerName(parsed.customerName);
     if (parsed.contactInfo) setIgHandle(parsed.contactInfo);
     if (parsed.phone) setPhone(parsed.phone);
+    if (parsed.size) setCustomerSize(parsed.size);
     if (parsed.address) setAddress(parsed.address);
     if (parsed.orderDate) setOrderDate(parsed.orderDate);
     if (parsed.dueDate) setDueDate(parsed.dueDate);
@@ -296,6 +403,7 @@ export default function NewOrderScreen() {
           ...next[0],
           productName: parsed.customName || next[0].productName,
           price: parsed.price ? String(parsed.price) : next[0].price,
+          size: parsed.size || next[0].size,
         };
       }
       return next;
@@ -497,6 +605,76 @@ export default function NewOrderScreen() {
     });
   };
 
+  async function pickCustomerSizeImage() {
+    if (customerSizeImageUris.length >= 10) {
+      Alert.alert(
+        "Limit Reached",
+        "You can only upload up to 10 measurement photos for the customer.",
+      );
+      return;
+    }
+
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.9,
+      allowsMultipleSelection: true,
+      selectionLimit: 10 - customerSizeImageUris.length,
+    });
+
+    if (!res.canceled && res.assets && res.assets.length > 0) {
+      setSaving(true);
+      try {
+        const newImages: string[] = [];
+        const newThumbs: string[] = [];
+        for (const asset of res.assets) {
+          const saved = await saveImage(asset.uri);
+          newImages.push(saved.fullPath);
+          newThumbs.push(saved.thumbnailPath);
+          pickedImagesRef.current.push(saved);
+        }
+        setCustomerSizeImageUris((prev) => [...prev, ...newImages]);
+        setCustomerSizeThumbUris((prev) => [...prev, ...newThumbs]);
+      } finally {
+        setSaving(false);
+      }
+    }
+  }
+
+  const moveCustomerSizeImage = (
+    imgIndex: number,
+    direction: "left" | "right",
+  ) => {
+    const targetIdx = direction === "left" ? imgIndex - 1 : imgIndex + 1;
+    if (targetIdx < 0 || targetIdx >= customerSizeImageUris.length) return;
+
+    const nextImageUris = [...customerSizeImageUris];
+    const tempUri = nextImageUris[imgIndex];
+    nextImageUris[imgIndex] = nextImageUris[targetIdx];
+    nextImageUris[targetIdx] = tempUri;
+
+    const nextThumbUris = [...customerSizeThumbUris];
+    const tempThumb = nextThumbUris[imgIndex];
+    nextThumbUris[imgIndex] = nextThumbUris[targetIdx];
+    nextThumbUris[targetIdx] = tempThumb;
+
+    setCustomerSizeImageUris(nextImageUris);
+    setCustomerSizeThumbUris(nextThumbUris);
+  };
+
+  const deleteCustomerSizeImage = (imgIndex: number) => {
+    const targetImg = customerSizeImageUris[imgIndex];
+    const targetThumb = customerSizeThumbUris[imgIndex];
+
+    setCustomerSizeImageUris((prev) => prev.filter((_, i) => i !== imgIndex));
+    setCustomerSizeThumbUris((prev) => prev.filter((_, i) => i !== imgIndex));
+
+    pickedImagesRef.current = pickedImagesRef.current.filter(
+      (img) => img.fullPath !== targetImg,
+    );
+
+    deleteImage(targetImg, targetThumb);
+  };
+
   async function handleSave() {
     if (!customerName.trim()) {
       Alert.alert("Required", "Please enter a customer name.");
@@ -556,6 +734,12 @@ export default function NewOrderScreen() {
         phone: phone.trim(),
         email: email.trim(),
         address: address.trim(),
+        size: customerSize.trim(),
+        sizeImagePath: customerSizeImageUris[0] || "",
+        sizeThumbnailPath: customerSizeThumbUris[0] || "",
+        sizeImagePaths: customerSizeImageUris,
+        sizeThumbnailPaths: customerSizeThumbUris,
+        notes: customerNotes.trim(),
       });
     } else {
       cid = await addCustomer({
@@ -564,26 +748,44 @@ export default function NewOrderScreen() {
         phone: phone.trim(),
         email: email.trim(),
         address: address.trim(),
+        size: customerSize.trim(),
+        sizeImagePath: customerSizeImageUris[0] || "",
+        sizeThumbnailPath: customerSizeThumbUris[0] || "",
+        sizeImagePaths: customerSizeImageUris,
+        sizeThumbnailPaths: customerSizeThumbUris,
+        notes: customerNotes.trim(),
       });
     }
 
-    const orderItems = resolvedItems.map((item) => ({
-      id: item.id,
-      productId: item.productId || undefined,
-      productName: item.productName.trim(),
-      size: item.size.trim() || undefined,
-      price: parseFloat(item.price) || 0,
-      quantity: parseInt(item.quantity) || 1,
-      imagePath: item.imageUris[0] || undefined,
-      thumbnailPath: item.thumbUris[0] || undefined,
-      imagePaths: item.imageUris,
-      thumbnailPaths: item.thumbUris,
-      sizeImagePath: item.sizeImageUris[0] || undefined,
-      sizeThumbnailPath: item.sizeThumbUris[0] || undefined,
-      sizeImagePaths: item.sizeImageUris,
-      sizeThumbnailPaths: item.sizeThumbUris,
-      isCustom: item.isCustom,
-    }));
+    const orderItems = resolvedItems.map((item) => {
+      const itemSize = (item.size || customerSize).trim();
+      const itemSizeImgs =
+        item.sizeImageUris.length > 0
+          ? item.sizeImageUris
+          : customerSizeImageUris;
+      const itemSizeThumbs =
+        item.sizeThumbUris.length > 0
+          ? item.sizeThumbUris
+          : customerSizeThumbUris;
+
+      return {
+        id: item.id,
+        productId: item.productId || undefined,
+        productName: item.productName.trim(),
+        size: itemSize || undefined,
+        price: parseFloat(item.price) || 0,
+        quantity: parseInt(item.quantity) || 1,
+        imagePath: item.imageUris[0] || undefined,
+        thumbnailPath: item.thumbUris[0] || undefined,
+        imagePaths: item.imageUris,
+        thumbnailPaths: item.thumbUris,
+        sizeImagePath: itemSizeImgs[0] || undefined,
+        sizeThumbnailPath: itemSizeThumbs[0] || undefined,
+        sizeImagePaths: itemSizeImgs,
+        sizeThumbnailPaths: itemSizeThumbs,
+        isCustom: item.isCustom,
+      };
+    });
 
     const firstItem = orderItems[0];
     let summarizedName = firstItem.productName;
@@ -614,11 +816,18 @@ export default function NewOrderScreen() {
       trackingLink: trackingLink.trim(),
       notes: notes.trim(),
       isCustom: firstItem.isCustom ? 1 : 0,
-      size: firstItem.size || "",
-      sizeImagePath: firstItem.sizeImagePath || "",
-      sizeThumbnailPath: firstItem.sizeThumbnailPath || "",
-      sizeImagePaths: firstItem.sizeImagePaths || [],
-      sizeThumbnailPaths: firstItem.sizeThumbnailPaths || [],
+      size: customerSize.trim() || firstItem.size || "",
+      sizeImagePath: customerSizeImageUris[0] || firstItem.sizeImagePath || "",
+      sizeThumbnailPath:
+        customerSizeThumbUris[0] || firstItem.sizeThumbnailPath || "",
+      sizeImagePaths:
+        customerSizeImageUris.length > 0
+          ? customerSizeImageUris
+          : firstItem.sizeImagePaths || [],
+      sizeThumbnailPaths:
+        customerSizeThumbUris.length > 0
+          ? customerSizeThumbUris
+          : firstItem.sizeThumbnailPaths || [],
       customerId: cid,
       items: orderItems,
     };
@@ -834,6 +1043,172 @@ export default function NewOrderScreen() {
                 colors={colors}
                 multiline
               />
+
+              <FieldInput
+                label="Customer Size / Measurements"
+                value={customerSize}
+                onChange={setCustomerSize}
+                placeholder="size"
+                colors={colors}
+              />
+
+              {/* Customer Size / Measurement Photos */}
+              <View style={{ gap: 6, marginTop: 4 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      { color: colors.mutedForeground, marginBottom: 0 },
+                    ]}
+                  >
+                    Customer Measurement & Size Photos
+                  </Text>
+                  <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                    ({customerSizeImageUris.length}/10)
+                  </Text>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    gap: 12,
+                    paddingVertical: 4,
+                    marginBottom: 8,
+                  }}
+                >
+                  {customerSizeImageUris.map((uri, sImgIdx) => (
+                    <View key={uri} style={{ alignItems: "center", gap: 6 }}>
+                      <View
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          position: "relative",
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                        }}
+                      >
+                        <Image
+                          source={{ uri }}
+                          style={{ width: "100%", height: "100%" }}
+                          contentFit="cover"
+                        />
+                        <Pressable
+                          onPress={() => deleteCustomerSizeImage(sImgIdx)}
+                          style={{
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            backgroundColor: "rgba(0,0,0,0.6)",
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Feather name="x" size={10} color="#fff" />
+                        </Pressable>
+                      </View>
+                      {customerSizeImageUris.length > 1 && (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            gap: 10,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          {sImgIdx > 0 ? (
+                            <Pressable
+                              onPress={() =>
+                                moveCustomerSizeImage(sImgIdx, "left")
+                              }
+                              style={{
+                                padding: 4,
+                                backgroundColor: colors.accent,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                              }}
+                            >
+                              <Feather
+                                name="chevron-left"
+                                size={12}
+                                color="#C06070"
+                              />
+                            </Pressable>
+                          ) : (
+                            <View style={{ width: 22, height: 22 }} />
+                          )}
+                          {sImgIdx < customerSizeImageUris.length - 1 ? (
+                            <Pressable
+                              onPress={() =>
+                                moveCustomerSizeImage(sImgIdx, "right")
+                              }
+                              style={{
+                                padding: 4,
+                                backgroundColor: colors.accent,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                              }}
+                            >
+                              <Feather
+                                name="chevron-right"
+                                size={12}
+                                color="#C06070"
+                              />
+                            </Pressable>
+                          ) : (
+                            <View style={{ width: 22, height: 22 }} />
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                  {customerSizeImageUris.length < 10 && (
+                    <Pressable
+                      onPress={pickCustomerSizeImage}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderStyle: "dashed",
+                        backgroundColor: colors.card,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        alignSelf: "flex-start",
+                        gap: 3,
+                      }}
+                    >
+                      <Feather name="maximize-2" size={16} color="#C06070" />
+                      <Feather
+                        name="plus"
+                        size={14}
+                        color={colors.mutedForeground}
+                      />
+                    </Pressable>
+                  )}
+                </ScrollView>
+                <FieldInput
+                  label="Additional Notes for Customer"
+                  value={customerNotes}
+                  onChange={setCustomerNotes}
+                  placeholder="Notes for customers..."
+                  colors={colors}
+                  multiline
+                />
+              </View>
             </FormSection>
 
             {/* Dates */}
@@ -1016,164 +1391,6 @@ export default function NewOrderScreen() {
                       />
                     </View>
                   </View>
-
-                  <FieldInput
-                    label="Size / Dimensions (Custom)"
-                    value={item.size}
-                    onChange={(val: string) => {
-                      setItems((prev) => {
-                        const next = [...prev];
-                        next[index] = { ...next[index], size: val };
-                        return next;
-                      });
-                    }}
-                    placeholder="e.g. 10x12 in, A4, XL, 32-waist..."
-                    colors={colors}
-                  />
-
-                  {/* Custom Size / Measurement Photos */}
-                  <Text
-                    style={[
-                      styles.fieldLabel,
-                      {
-                        color: colors.mutedForeground,
-                        marginTop: 4,
-                        marginBottom: 6,
-                      },
-                    ]}
-                  >
-                    Custom Size Photos{" "}
-                    <Text style={{ fontSize: 11 }}>(max 10)</Text>
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{
-                      gap: 12,
-                      paddingVertical: 4,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {item.sizeImageUris.map((uri, sImgIdx) => (
-                      <View key={uri} style={{ alignItems: "center", gap: 6 }}>
-                        <View
-                          style={{
-                            width: 80,
-                            height: 80,
-                            borderRadius: 10,
-                            overflow: "hidden",
-                            position: "relative",
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                          }}
-                        >
-                          <Image
-                            source={{ uri }}
-                            style={{ width: "100%", height: "100%" }}
-                            contentFit="cover"
-                          />
-                          <Pressable
-                            onPress={() =>
-                              deletePickedSizeImage(index, sImgIdx)
-                            }
-                            style={{
-                              position: "absolute",
-                              top: 4,
-                              right: 4,
-                              backgroundColor: "rgba(0,0,0,0.6)",
-                              width: 18,
-                              height: 18,
-                              borderRadius: 9,
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Feather name="x" size={10} color="#fff" />
-                          </Pressable>
-                        </View>
-                        {item.sizeImageUris.length > 1 && (
-                          <View
-                            style={{
-                              flexDirection: "row",
-                              gap: 10,
-                              justifyContent: "center",
-                              alignItems: "center",
-                            }}
-                          >
-                            {sImgIdx > 0 ? (
-                              <Pressable
-                                onPress={() =>
-                                  moveSizeImage(index, sImgIdx, "left")
-                                }
-                                style={{
-                                  padding: 4,
-                                  backgroundColor: colors.accent,
-                                  borderRadius: 6,
-                                  borderWidth: 1,
-                                  borderColor: colors.border,
-                                }}
-                              >
-                                <Feather
-                                  name="chevron-left"
-                                  size={12}
-                                  color="#C06070"
-                                />
-                              </Pressable>
-                            ) : (
-                              <View style={{ width: 22, height: 22 }} />
-                            )}
-                            {sImgIdx < item.sizeImageUris.length - 1 ? (
-                              <Pressable
-                                onPress={() =>
-                                  moveSizeImage(index, sImgIdx, "right")
-                                }
-                                style={{
-                                  padding: 4,
-                                  backgroundColor: colors.accent,
-                                  borderRadius: 6,
-                                  borderWidth: 1,
-                                  borderColor: colors.border,
-                                }}
-                              >
-                                <Feather
-                                  name="chevron-right"
-                                  size={12}
-                                  color="#C06070"
-                                />
-                              </Pressable>
-                            ) : (
-                              <View style={{ width: 22, height: 22 }} />
-                            )}
-                          </View>
-                        )}
-                      </View>
-                    ))}
-                    {item.sizeImageUris.length < 10 && (
-                      <Pressable
-                        onPress={() => pickSizeImage(index)}
-                        style={{
-                          width: 80,
-                          height: 80,
-                          borderRadius: 10,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          borderStyle: "dashed",
-                          backgroundColor: colors.card,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          alignSelf: "flex-start",
-                          gap: 3,
-                        }}
-                      >
-                        <Feather name="maximize-2" size={16} color="#C06070" />
-                        <Feather
-                          name="plus"
-                          size={14}
-                          color={colors.mutedForeground}
-                        />
-                      </Pressable>
-                    )}
-                  </ScrollView>
 
                   {/* Reference Photos */}
                   <Text

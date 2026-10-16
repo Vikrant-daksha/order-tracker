@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Keyboard,
@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useDatabase } from "@/context/DatabaseContext";
 import { Expense, ExpenseCategory } from "@/types";
 import { DatePickerField } from "@/components/DatePickerField";
 
@@ -48,6 +49,7 @@ export function AddExpenseModal({
   initialExpense,
 }: AddExpenseModalProps) {
   const colors = useColors();
+  const { expenses } = useDatabase();
   const slideAnim = useRef(new Animated.Value(400)).current;
 
   const [amount, setAmount] = useState("");
@@ -90,12 +92,28 @@ export function AddExpenseModal({
     }),
   ).current;
 
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCats];
+  // Dynamically merge defaults, saved custom categories, and any categories in past expenses
+  const allCategories = useMemo(() => {
+    const fromExpenses = (expenses || [])
+      .map((e) => e.category)
+      .filter(Boolean);
+    const set = new Set([
+      ...DEFAULT_CATEGORIES,
+      ...customCats,
+      ...fromExpenses,
+    ]);
+    return Array.from(set);
+  }, [customCats, expenses]);
 
   // Load saved custom categories
   useEffect(() => {
     AsyncStorage.getItem(CUSTOM_CATS_KEY).then((v) => {
-      if (v) setCustomCats(JSON.parse(v));
+      if (v) {
+        try {
+          const parsed = JSON.parse(v);
+          if (Array.isArray(parsed)) setCustomCats(parsed);
+        } catch {}
+      }
     });
   }, []);
 
@@ -157,9 +175,27 @@ export function AddExpenseModal({
   function handleSave() {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return;
+
+    let finalCategory = category;
+    if (addingCustom && customInput.trim()) {
+      finalCategory = customInput.trim();
+      if (
+        !customCats.includes(finalCategory) &&
+        !DEFAULT_CATEGORIES.includes(finalCategory)
+      ) {
+        const next = [...customCats, finalCategory];
+        setCustomCats(next);
+        AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(next));
+      }
+    }
+
+    if (!finalCategory) {
+      finalCategory = allCategories[0] || "Other";
+    }
+
     onSave({
       amount: amt,
-      category,
+      category: finalCategory,
       note: note.trim(),
       date: date || todayStr(),
     });
@@ -169,12 +205,23 @@ export function AddExpenseModal({
   async function handleAddCustom() {
     const name = customInput.trim();
     if (!name) return;
-    const next = [...customCats, name];
-    setCustomCats(next);
-    await AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(next));
+    if (!customCats.includes(name) && !DEFAULT_CATEGORIES.includes(name)) {
+      const next = [...customCats, name];
+      setCustomCats(next);
+      await AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(next));
+    }
     setCategory(name);
     setAddingCustom(false);
     setCustomInput("");
+  }
+
+  async function handleDeleteCustom(catToDelete: string) {
+    const next = customCats.filter((c) => c !== catToDelete);
+    setCustomCats(next);
+    await AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(next));
+    if (category === catToDelete) {
+      setCategory(DEFAULT_CATEGORIES[0]);
+    }
   }
 
   const isValid = parseFloat(amount) > 0;
@@ -252,78 +299,86 @@ export function AddExpenseModal({
 
             {/* Category */}
             <View style={styles.field}>
-              <Text
-                style={[styles.fieldLabel, { color: colors.mutedForeground }]}
-              >
-                Category
-              </Text>
+              <View style={styles.catHeaderRow}>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    { color: colors.mutedForeground, marginBottom: 0 },
+                  ]}
+                >
+                  Category
+                </Text>
+              </View>
+
               <View style={styles.catWrap}>
-                {allCategories.map((cat) => (
-                  <Pressable
-                    key={cat}
-                    onPress={() => setCategory(cat)}
-                    style={[
-                      styles.catChip,
-                      {
-                        backgroundColor:
-                          category === cat ? colors.primary : colors.muted,
-                        borderColor:
-                          category === cat ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
+                {allCategories.map((cat) => {
+                  const isSelected = !addingCustom && category === cat;
+                  const isCustomCat = !DEFAULT_CATEGORIES.includes(cat);
+
+                  return (
+                    <Pressable
+                      key={cat}
+                      onPress={() => {
+                        setCategory(cat);
+                        setAddingCustom(false);
+                        setCustomInput("");
+                      }}
                       style={[
-                        styles.catText,
+                        styles.catChip,
                         {
-                          color:
-                            category === cat
-                              ? colors.primaryForeground
-                              : colors.mutedForeground,
+                          backgroundColor: isSelected
+                            ? colors.primary
+                            : colors.muted,
+                          borderColor: isSelected
+                            ? colors.primary
+                            : colors.border,
                         },
                       ]}
                     >
-                      {cat}
-                    </Text>
-                  </Pressable>
-                ))}
-                {addingCustom ? (
-                  <View
-                    style={[
-                      styles.customInputRow,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.muted,
-                      },
-                    ]}
-                  >
-                    <TextInput
-                      style={[styles.customInput, { color: colors.foreground }]}
-                      value={customInput}
-                      onChangeText={setCustomInput}
-                      placeholder="Category name"
-                      placeholderTextColor={colors.mutedForeground}
-                      autoFocus
-                      returnKeyType="done"
-                      onSubmitEditing={handleAddCustom}
-                    />
-                    <Pressable
-                      onPress={handleAddCustom}
-                      style={[
-                        styles.customSaveBtn,
-                        { backgroundColor: colors.primary },
-                      ]}
-                    >
-                      <Feather
-                        name="check"
-                        size={14}
-                        color={colors.primaryForeground}
-                      />
+                      <Text
+                        style={[
+                          styles.catText,
+                          {
+                            color: isSelected
+                              ? colors.primaryForeground
+                              : colors.mutedForeground,
+                            fontWeight: isSelected ? "600" : "500",
+                          },
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                      {isCustomCat && (
+                        <Pressable
+                          hitSlop={8}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCustom(cat);
+                          }}
+                          style={styles.deleteCatIcon}
+                        >
+                          <Feather
+                            name="x"
+                            size={12}
+                            color={
+                              isSelected
+                                ? colors.primaryForeground
+                                : colors.mutedForeground
+                            }
+                          />
+                        </Pressable>
+                      )}
                     </Pressable>
-                  </View>
-                ) : (
+                  );
+                })}
+
+                {/* + Custom quick chip (if not already opened) */}
+                {!addingCustom && (
                   <Pressable
-                    onPress={() => setAddingCustom(true)}
+                    onPress={() => {
+                      setAddingCustom(true);
+                      setCategory("");
+                    }}
                     style={[
                       styles.catChip,
                       {
@@ -333,17 +388,108 @@ export function AddExpenseModal({
                       },
                     ]}
                   >
+                    <Feather
+                      name="plus"
+                      size={12}
+                      color={colors.mutedForeground}
+                    />
                     <Text
                       style={[
                         styles.catText,
                         { color: colors.mutedForeground },
                       ]}
                     >
-                      + Custom
+                      Custom
                     </Text>
                   </Pressable>
                 )}
               </View>
+
+              {/* Dedicated full-width Custom Category Creation Card */}
+              {addingCustom && (
+                <View
+                  style={[
+                    styles.customCard,
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.primary,
+                    },
+                  ]}
+                >
+                  <View style={styles.customCardHeader}>
+                    <Text
+                      style={[
+                        styles.customCardTitle,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      New Category Name
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        setAddingCustom(false);
+                        setCustomInput("");
+                        setCategory(allCategories[0] || "Supplies");
+                      }}
+                      hitSlop={8}
+                      style={styles.customCardCloseBtn}
+                    >
+                      <Feather
+                        name="x"
+                        size={15}
+                        color={colors.mutedForeground}
+                      />
+                    </Pressable>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.customInputContainer,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <TextInput
+                      style={[
+                        styles.customInputFull,
+                        { color: colors.foreground },
+                      ]}
+                      value={customInput}
+                      onChangeText={(val) => {
+                        setCustomInput(val);
+                        if (val.trim()) {
+                          setCategory(val.trim());
+                        }
+                      }}
+                      placeholder="e.g. Salon Rent, Marketing, Tools"
+                      placeholderTextColor={colors.mutedForeground}
+                      autoFocus
+                      returnKeyType="done"
+                      onSubmitEditing={handleAddCustom}
+                    />
+                    <Pressable
+                      onPress={handleAddCustom}
+                      disabled={!customInput.trim()}
+                      style={[
+                        styles.customConfirmBtn,
+                        {
+                          backgroundColor: customInput.trim()
+                            ? colors.primary
+                            : colors.border,
+                        },
+                      ]}
+                    >
+                      <Feather
+                        name="check"
+                        size={15}
+                        color={colors.primaryForeground}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Note */}
@@ -461,33 +607,75 @@ const styles = StyleSheet.create({
   },
   rupee: { fontSize: 20, fontFamily: "Inter_600SemiBold", marginRight: 6 },
   amtInput: { flex: 1, fontSize: 28, fontFamily: "Inter_700Bold" },
+  catHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  addCustomLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  addCustomLinkText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
   catWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   catChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
   },
   catText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  customInputRow: {
+  deleteCatIcon: {
+    padding: 2,
+  },
+  customCard: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  customCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 20,
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  customCardTitle: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  customCardCloseBtn: {
+    padding: 2,
+  },
+  customInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
     borderWidth: 1,
     paddingLeft: 12,
-    paddingRight: 4,
+    paddingRight: 6,
     paddingVertical: 4,
   },
-  customInput: {
+  customInputFull: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "Inter_500Medium",
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
-  customSaveBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  customConfirmBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },

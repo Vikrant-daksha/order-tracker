@@ -79,6 +79,12 @@ export interface Customer {
   phone: string;
   email: string;
   address: string;
+  notes?: string;
+  size?: string;
+  sizeImagePath?: string;
+  sizeThumbnailPath?: string;
+  sizeImagePaths?: string[];
+  sizeThumbnailPaths?: string[];
   createdAt: string;
 }
 

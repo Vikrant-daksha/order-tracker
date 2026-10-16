@@ -114,6 +114,12 @@ function initDb() {
       phone TEXT DEFAULT '',
       email TEXT DEFAULT '',
       address TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      size TEXT DEFAULT '',
+      sizeImagePath TEXT DEFAULT '',
+      sizeThumbnailPath TEXT DEFAULT '',
+      sizeImagePaths TEXT DEFAULT '[]',
+      sizeThumbnailPaths TEXT DEFAULT '[]',
       createdAt TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS expenses (
@@ -148,6 +154,59 @@ function initDb() {
   try { db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`); } catch {}
   try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN title TEXT DEFAULT 'Monthly Goal'`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN notes TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN size TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeImagePath TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeThumbnailPath TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeImagePaths TEXT DEFAULT '[]'`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeThumbnailPaths TEXT DEFAULT '[]'`); } catch {}
+
+  // Backfill: Migrate size and size images from most recent order to customer if customer has none
+  try {
+    db.execSync(`
+      UPDATE customers 
+      SET size = (
+        SELECT o.size FROM orders o 
+        WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+          AND o.size IS NOT NULL AND o.size != ''
+        ORDER BY o.createdAt DESC LIMIT 1
+      )
+      WHERE size IS NULL OR size = '';
+    `);
+  } catch {}
+
+  try {
+    db.execSync(`
+      UPDATE customers 
+      SET 
+        sizeImagePath = (
+          SELECT o.sizeImagePath FROM orders o 
+          WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+            AND o.sizeImagePath IS NOT NULL AND o.sizeImagePath != ''
+          ORDER BY o.createdAt DESC LIMIT 1
+        ),
+        sizeThumbnailPath = (
+          SELECT o.sizeThumbnailPath FROM orders o 
+          WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+            AND o.sizeThumbnailPath IS NOT NULL AND o.sizeThumbnailPath != ''
+          ORDER BY o.createdAt DESC LIMIT 1
+        ),
+        sizeImagePaths = (
+          SELECT o.sizeImagePaths FROM orders o 
+          WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+            AND o.sizeImagePaths IS NOT NULL AND o.sizeImagePaths != '' AND o.sizeImagePaths != '[]'
+          ORDER BY o.createdAt DESC LIMIT 1
+        ),
+        sizeThumbnailPaths = (
+          SELECT o.sizeThumbnailPaths FROM orders o 
+          WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+            AND o.sizeThumbnailPaths IS NOT NULL AND o.sizeThumbnailPaths != '' AND o.sizeThumbnailPaths != '[]'
+          ORDER BY o.createdAt DESC LIMIT 1
+        )
+      WHERE (sizeImagePaths IS NULL OR sizeImagePaths = '' OR sizeImagePaths = '[]')
+        AND (sizeImagePath IS NULL OR sizeImagePath = '');
+    `);
+  } catch {}
 }
 
 function calculateEarnedForRange(ordersList: Order[], startDate: string, endDate: string): number {
@@ -262,8 +321,45 @@ function loadProductsFromDb(): Product[] {
 function loadCustomersFromDb(): Customer[] {
   if (IS_WEB || !db) return [];
   try {
-    return db.getAllSync<Customer>('SELECT * FROM customers ORDER BY createdAt DESC');
-  } catch {
+    const rows = db.getAllSync<any>('SELECT * FROM customers ORDER BY createdAt DESC');
+    return rows.map(r => {
+      let parsedSizeImagePaths: string[] = [];
+      try {
+        if (r.sizeImagePaths) {
+          parsedSizeImagePaths = typeof r.sizeImagePaths === 'string' && r.sizeImagePaths.startsWith('[')
+            ? JSON.parse(r.sizeImagePaths)
+            : (Array.isArray(r.sizeImagePaths) ? r.sizeImagePaths : []);
+        } else if (r.sizeImagePath) {
+          parsedSizeImagePaths = [r.sizeImagePath];
+        }
+      } catch {
+        parsedSizeImagePaths = r.sizeImagePath ? [r.sizeImagePath] : [];
+      }
+
+      let parsedSizeThumbnailPaths: string[] = [];
+      try {
+        if (r.sizeThumbnailPaths) {
+          parsedSizeThumbnailPaths = typeof r.sizeThumbnailPaths === 'string' && r.sizeThumbnailPaths.startsWith('[')
+            ? JSON.parse(r.sizeThumbnailPaths)
+            : (Array.isArray(r.sizeThumbnailPaths) ? r.sizeThumbnailPaths : []);
+        } else if (r.sizeThumbnailPath) {
+          parsedSizeThumbnailPaths = [r.sizeThumbnailPath];
+        }
+      } catch {
+        parsedSizeThumbnailPaths = r.sizeThumbnailPath ? [r.sizeThumbnailPath] : [];
+      }
+
+      return {
+        ...r,
+        size: r.size || '',
+        sizeImagePath: r.sizeImagePath || '',
+        sizeThumbnailPath: r.sizeThumbnailPath || '',
+        sizeImagePaths: parsedSizeImagePaths,
+        sizeThumbnailPaths: parsedSizeThumbnailPaths,
+      };
+    });
+  } catch (err) {
+    console.error("Failed to load customers from DB:", err);
     return [];
   }
 }
@@ -331,11 +427,28 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           const parsedCustomers = cs ? JSON.parse(cs) : [];
           let customerUpdated = false;
           const sanitizedCustomers = parsedCustomers.map((c: any) => {
-            if (c.igHandle && c.igHandle.includes('@')) {
+            let updated = { ...c };
+            if (updated.igHandle && updated.igHandle.includes('@')) {
               customerUpdated = true;
-              return { ...c, igHandle: c.igHandle.replace(/@/g, '').trim() };
+              updated.igHandle = updated.igHandle.replace(/@/g, '').trim();
             }
-            return c;
+            if (!updated.size) {
+              const prevOrder = sanitizedOrders.find((o: any) =>
+                (o.customerId === c.id || (o.customerName && c.name && o.customerName.toLowerCase() === c.name.toLowerCase())) &&
+                (o.size || (o.items && o.items[0]?.size))
+              );
+              if (prevOrder) {
+                customerUpdated = true;
+                updated.size = prevOrder.size || (prevOrder.items && prevOrder.items[0]?.size) || '';
+                if (!updated.sizeImagePaths || updated.sizeImagePaths.length === 0) {
+                  updated.sizeImagePath = prevOrder.sizeImagePath || '';
+                  updated.sizeThumbnailPath = prevOrder.sizeThumbnailPath || '';
+                  updated.sizeImagePaths = prevOrder.sizeImagePaths || [];
+                  updated.sizeThumbnailPaths = prevOrder.sizeThumbnailPaths || [];
+                }
+              }
+            }
+            return updated;
           });
           if (customerUpdated) {
             persistCustomers(sanitizedCustomers);
@@ -349,15 +462,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
           let customerUpdated = false;
           loadedCustomers = loadedCustomers.map(c => {
-            if (c.igHandle && c.igHandle.includes('@')) {
+            let updated = { ...c };
+            if (updated.igHandle && updated.igHandle.includes('@')) {
               customerUpdated = true;
-              const cleaned = c.igHandle.replace(/@/g, '').trim();
+              const cleaned = updated.igHandle.replace(/@/g, '').trim();
               if (!IS_WEB && db) {
                 db.runSync('UPDATE customers SET igHandle=? WHERE id=?', [cleaned, c.id]);
               }
-              return { ...c, igHandle: cleaned };
+              updated.igHandle = cleaned;
             }
-            return c;
+            return updated;
           });
           if (customerUpdated) {
             persistCustomers(loadedCustomers);
@@ -378,6 +492,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
                   phone: pMatch ? pMatch[0].replace(/[^0-9+]/g, '') : '',
                   email: eMatch ? eMatch[0] : '',
                   address: o.address || '',
+                  size: o.size || (o.items && o.items[0]?.size) || '',
+                  sizeImagePath: o.sizeImagePath || '',
+                  sizeThumbnailPath: o.sizeThumbnailPath || '',
+                  sizeImagePaths: o.sizeImagePaths || [],
+                  sizeThumbnailPaths: o.sizeThumbnailPaths || [],
                   createdAt: o.createdAt || new Date().toISOString()
                 };
               }
@@ -387,8 +506,22 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             const newCustomers = Object.values(map);
             for (const c of newCustomers as any[]) {
               db.runSync(
-                'INSERT INTO customers (id,name,igHandle,phone,email,address,createdAt) VALUES (?,?,?,?,?,?,?)',
-                [c.id, c.name, c.igHandle, c.phone, c.email, c.address, c.createdAt]
+                'INSERT INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                [
+                  c.id,
+                  c.name,
+                  c.igHandle,
+                  c.phone,
+                  c.email,
+                  c.address,
+                  c.notes || '',
+                  c.size || '',
+                  c.sizeImagePath || '',
+                  c.sizeThumbnailPath || '',
+                  JSON.stringify(c.sizeImagePaths || []),
+                  JSON.stringify(c.sizeThumbnailPaths || []),
+                  c.createdAt
+                ]
               );
             }
             loadedCustomers = newCustomers;
@@ -588,11 +721,36 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     const id = genId();
     const createdAt = new Date().toISOString();
     const cleanIg = customer.igHandle ? customer.igHandle.replace(/@/g, '').trim() : '';
-    const full: Customer = { ...customer, igHandle: cleanIg, id, createdAt } as Customer;
+    const full: Customer = {
+      ...customer,
+      igHandle: cleanIg,
+      notes: customer.notes || '',
+      size: customer.size || '',
+      sizeImagePath: customer.sizeImagePath || '',
+      sizeThumbnailPath: customer.sizeThumbnailPath || '',
+      sizeImagePaths: customer.sizeImagePaths || (customer.sizeImagePath ? [customer.sizeImagePath] : []),
+      sizeThumbnailPaths: customer.sizeThumbnailPaths || (customer.sizeThumbnailPath ? [customer.sizeThumbnailPath] : []),
+      id,
+      createdAt,
+    } as Customer;
     if (!IS_WEB && db) {
       db.runSync(
-        'INSERT INTO customers (id,name,igHandle,phone,email,address,createdAt) VALUES (?,?,?,?,?,?,?)',
-        [id, full.name, full.igHandle, full.phone, full.email, full.address, createdAt]
+        'INSERT INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        [
+          id,
+          full.name,
+          full.igHandle,
+          full.phone,
+          full.email,
+          full.address,
+          full.notes || '',
+          full.size || '',
+          full.sizeImagePath || '',
+          full.sizeThumbnailPath || '',
+          JSON.stringify(full.sizeImagePaths || []),
+          JSON.stringify(full.sizeThumbnailPaths || []),
+          createdAt,
+        ]
       );
     }
     await persistCustomers([...customers, full].sort((a,b) => a.name.localeCompare(b.name)));
@@ -606,10 +764,17 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }
     const next = customers.map(c => c.id === id ? { ...c, ...cleanUpdates } : c);
     if (!IS_WEB && db) {
-      const fields = Object.keys(cleanUpdates).filter(k => k !== 'id' && k !== 'createdAt');
+      const u: any = { ...cleanUpdates };
+      if (u.sizeImagePaths !== undefined) {
+        u.sizeImagePaths = Array.isArray(u.sizeImagePaths) ? JSON.stringify(u.sizeImagePaths) : u.sizeImagePaths;
+      }
+      if (u.sizeThumbnailPaths !== undefined) {
+        u.sizeThumbnailPaths = Array.isArray(u.sizeThumbnailPaths) ? JSON.stringify(u.sizeThumbnailPaths) : u.sizeThumbnailPaths;
+      }
+      const fields = Object.keys(u).filter(k => k !== 'id' && k !== 'createdAt');
       if (fields.length > 0) {
         const set = fields.map(f => `${f}=?`).join(',');
-        const vals = fields.map(f => (cleanUpdates as any)[f]);
+        const vals = fields.map(f => u[f]);
         db.runSync(`UPDATE customers SET ${set} WHERE id=?`, [...vals, id]);
       }
     }
@@ -752,8 +917,22 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         db.execSync('DELETE FROM customers;');
         for (const c of data.customers) {
           db.runSync(
-            'INSERT OR REPLACE INTO customers (id,name,igHandle,phone,email,address,createdAt) VALUES (?,?,?,?,?,?,?)',
-            [c.id, c.name, c.igHandle ?? '', c.phone ?? '', c.email ?? '', c.address ?? '', c.createdAt ?? '']
+            'INSERT OR REPLACE INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            [
+              c.id,
+              c.name,
+              c.igHandle ?? '',
+              c.phone ?? '',
+              c.email ?? '',
+              c.address ?? '',
+              c.notes ?? '',
+              c.size ?? '',
+              c.sizeImagePath ?? '',
+              c.sizeThumbnailPath ?? '',
+              JSON.stringify(c.sizeImagePaths || (c.sizeImagePath ? [c.sizeImagePath] : [])),
+              JSON.stringify(c.sizeThumbnailPaths || (c.sizeThumbnailPath ? [c.sizeThumbnailPath] : [])),
+              c.createdAt ?? '',
+            ]
           );
         }
       }

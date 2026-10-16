@@ -61,7 +61,7 @@ export default function OrderDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getOrder, deleteOrder, updateOrder } = useDatabase();
+  const { getOrder, deleteOrder, updateOrder, customers } = useDatabase();
   const order = getOrder(id);
   const [activeViewerImage, setActiveViewerImage] = useState<string | null>(
     null,
@@ -94,6 +94,19 @@ export default function OrderDetailScreen() {
   }
 
   const activeOrder = order;
+  const customer = React.useMemo(() => {
+    if (!order) return null;
+    return (
+      (order.customerId
+        ? customers.find((c) => c.id === order.customerId)
+        : null) ||
+      customers.find(
+        (c) => c.name.toLowerCase() === order.customerName.toLowerCase()
+      ) ||
+      null
+    );
+  }, [order, customers]);
+
   const outstanding = activeOrder.price - activeOrder.amountPaid;
   const message = buildMessage(activeOrder);
   const [ig, phone, email] = (activeOrder.contactInfo || "").split("\n");
@@ -129,7 +142,6 @@ export default function OrderDetailScreen() {
       if (selectedItem.sizeImagePath) {
         return [selectedItem.sizeImagePath];
       }
-      return [];
     }
     if (activeOrder.sizeImagePaths && activeOrder.sizeImagePaths.length > 0) {
       return activeOrder.sizeImagePaths;
@@ -137,8 +149,14 @@ export default function OrderDetailScreen() {
     if (activeOrder.sizeImagePath) {
       return [activeOrder.sizeImagePath];
     }
+    if (customer?.sizeImagePaths && customer.sizeImagePaths.length > 0) {
+      return customer.sizeImagePaths;
+    }
+    if (customer?.sizeImagePath) {
+      return [customer.sizeImagePath];
+    }
     return [];
-  }, [selectedItem, activeOrder.sizeImagePaths, activeOrder.sizeImagePath]);
+  }, [selectedItem, activeOrder.sizeImagePaths, activeOrder.sizeImagePath, customer]);
 
   const hasProductImages = productImages.length > 0;
   const hasSizeImages = sizeImages.length > 0;
@@ -533,9 +551,9 @@ export default function OrderDetailScreen() {
         ) : null}
 
         {/* Size badge & Custom Size Photos */}
-        {selectedItem?.size || sizeImages.length > 0 ? (
+        {selectedItem?.size || activeOrder.size || customer?.size || sizeImages.length > 0 ? (
           <View style={{ marginBottom: 12, gap: 8 }}>
-            {selectedItem?.size ? (
+            {selectedItem?.size || activeOrder.size || customer?.size ? (
               <View
                 style={[
                   styles.sizeBadgeRow,
@@ -564,7 +582,7 @@ export default function OrderDetailScreen() {
                       { color: colors.foreground },
                     ]}
                   >
-                    {selectedItem.size}
+                    {selectedItem?.size || activeOrder.size || customer?.size}
                   </Text>
                 </View>
               </View>
@@ -724,6 +742,49 @@ export default function OrderDetailScreen() {
                 >
                   📍 {order.address}
                 </Text>
+              ) : null}
+              {customer?.notes ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 6,
+                    marginTop: 8,
+                    padding: 8,
+                    borderRadius: 8,
+                    backgroundColor: colors.accent,
+                    borderWidth: 1,
+                    borderColor: "#C0607033",
+                  }}
+                >
+                  <Feather
+                    name="file-text"
+                    size={13}
+                    color="#C06070"
+                    style={{ marginTop: 2 }}
+                  />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: "Inter_600SemiBold",
+                        color: "#C06070",
+                      }}
+                    >
+                      Customer Notes
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: "Inter_400Regular",
+                        color: colors.foreground,
+                        lineHeight: 16,
+                      }}
+                    >
+                      {customer.notes}
+                    </Text>
+                  </View>
+                </View>
               ) : null}
             </View>
             <StatusPill status={order.status} />

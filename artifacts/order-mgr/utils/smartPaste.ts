@@ -16,6 +16,7 @@ export interface ParsedOrder {
   price?: number;
   notes?: string;
   customName?: string;
+  size?: string;
   orderRef?: string;
 }
 
@@ -312,6 +313,14 @@ export function parseOrderText(text: string): ParsedOrder {
         /(?:order\s*(?:#|no|ref|id|number))[.\s:-]*([A-Z0-9\-]+)/i,
       );
       if (refM) result.orderRef = refM[1].trim();
+    }
+
+    // Size / Measurements
+    if (!result.size) {
+      const sizeM = line.match(
+        /^(?:size|measurements?|dimension|dimensions?|body\s*size|fitting)[.\s:-]+(.+)/i,
+      );
+      if (sizeM) result.size = sizeM[1].trim();
     }
   }
 
