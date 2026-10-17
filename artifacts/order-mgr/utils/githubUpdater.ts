@@ -8,6 +8,11 @@ import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Notifications from "expo-notifications";
 import { Linking, Platform } from "react-native";
+import {
+  DOWNLOAD_CHANNEL_ID,
+  DOWNLOAD_NOTIFICATION_ID,
+  setupDownloadNotificationChannel,
+} from "./notifications";
 
 const GITHUB_OWNER = "Vikrant-daksha";
 const GITHUB_REPO = "order-tracker";
@@ -155,6 +160,66 @@ export async function installDownloadedApk(
   });
 }
 
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(1)} MB`;
+}
+
+function formatProgressBar(pct: number, length = 10): string {
+  const clamped = Math.max(0, Math.min(1, pct));
+  const filled = Math.round(clamped * length);
+  const empty = length - filled;
+  return "█".repeat(filled) + "░".repeat(empty);
+}
+
+let isUpdatingNotification = false;
+
+async function postDownloadNotification(
+  version: string,
+  pct: number,
+  writtenBytes: number,
+  totalBytes: number,
+  apkUrl: string,
+  fileUri: string,
+): Promise<void> {
+  if (Platform.OS !== "android") return;
+  if (isUpdatingNotification) return;
+  isUpdatingNotification = true;
+  try {
+    const percent = Math.floor(Math.max(0, Math.min(1, pct)) * 100);
+    const bar = formatProgressBar(pct, 10);
+    const writtenStr = formatBytes(writtenBytes);
+    const totalStr = formatBytes(totalBytes);
+
+    const bodyText =
+      totalBytes > 0
+        ? `${bar} ${percent}% (${writtenStr} / ${totalStr}) • v${version}`
+        : `${bar} ${percent}% • Downloading v${version}...`;
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: DOWNLOAD_NOTIFICATION_ID,
+      content: {
+        title: `Downloading OrderFlow Update (${percent}%)`,
+        body: bodyText,
+        data: { apkUrl, fileUri, isDownloadProgress: true },
+        sound: false,
+        vibrate: [],
+        priority: Notifications.AndroidNotificationPriority.LOW,
+        sticky: true,
+        autoDismiss: false,
+      },
+      trigger: {
+        channelId: DOWNLOAD_CHANNEL_ID,
+      },
+    });
+  } catch (err) {
+    // Non-critical background notification update
+  } finally {
+    isUpdatingNotification = false;
+  }
+}
+
 export async function downloadAndInstall(
   apkUrl: string,
   onProgressOrVersion?: ((progress: number) => void) | string,
@@ -190,6 +255,9 @@ export async function downloadAndInstall(
     } catch {}
   }
 
+  // Ensure notification channel is configured (silent, no vibrate)
+  await setupDownloadNotificationChannel();
+
   // Save initial download state
   await AsyncStorage.setItem(
     ACTIVE_DOWNLOAD_KEY,
@@ -202,22 +270,13 @@ export async function downloadAndInstall(
     } as DownloadState),
   );
 
-  // Send a background notification that download has started
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Downloading OrderFlow Update",
-        body: `v${targetVersion} is downloading in the background...`,
-        data: { apkUrl, fileUri },
-      },
-      trigger: null,
-    });
-  } catch (e) {
-    console.warn("[Updater] Could not schedule start notification:", e);
-  }
+  // Send initial silent progress notification (0%) without vibrating
+  await postDownloadNotification(targetVersion, 0, 0, 0, apkUrl, fileUri);
 
   let lastPct = 0;
   let lastSavedTime = 0;
+  let lastNotifiedTime = Date.now();
+  let lastNotifiedPercent = 0;
 
   activeDownloadResumable = FileSystem.createDownloadResumable(
     apkUrl,
@@ -228,7 +287,8 @@ export async function downloadAndInstall(
     async (downloadProgress) => {
       const total = downloadProgress.totalBytesExpectedToWrite;
       if (total <= 0) return;
-      const pct = downloadProgress.totalBytesWritten / total;
+      const written = downloadProgress.totalBytesWritten;
+      const pct = written / total;
 
       if (pct - lastPct >= 0.01 || pct >= 1) {
         lastPct = pct;
@@ -236,6 +296,26 @@ export async function downloadAndInstall(
         notifyProgress(pct);
 
         const now = Date.now();
+        const percent = Math.floor(pct * 100);
+
+        // Throttle notification updates: every >= 750ms or every >= 5% jump, or at 100%
+        if (
+          (now - lastNotifiedTime >= 750 && percent !== lastNotifiedPercent) ||
+          percent - lastNotifiedPercent >= 5 ||
+          pct >= 1
+        ) {
+          lastNotifiedTime = now;
+          lastNotifiedPercent = percent;
+          postDownloadNotification(
+            targetVersion,
+            pct,
+            written,
+            total,
+            apkUrl,
+            fileUri,
+          );
+        }
+
         if (now - lastSavedTime > 3000 || pct >= 1) {
           lastSavedTime = now;
           try {
@@ -278,13 +358,22 @@ export async function downloadAndInstall(
     onProgress?.(1);
     notifyProgress(1);
 
+    // Dismiss the ongoing progress notification
+    try {
+      await Notifications.dismissNotificationAsync(DOWNLOAD_NOTIFICATION_ID);
+    } catch {}
+
     // Notify user that update is ready to install
     try {
       await Notifications.scheduleNotificationAsync({
+        identifier: "orderflow-update-ready",
         content: {
-          title: "OrderFlow Update is Ready!",
+          title: "OrderFlow Update is Ready! 🎉",
           body: `Version ${targetVersion} has finished downloading. Tap to install now.`,
           data: { fileUri: result.uri, action: "INSTALL_UPDATE" },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+          autoDismiss: true,
         },
         trigger: null,
       });
@@ -292,6 +381,12 @@ export async function downloadAndInstall(
 
     // Prompt package installer
     await installDownloadedApk(result.uri);
+  } catch (err) {
+    // If download failed, dismiss progress notification so it doesn't linger
+    try {
+      await Notifications.dismissNotificationAsync(DOWNLOAD_NOTIFICATION_ID);
+    } catch {}
+    throw err;
   } finally {
     activeDownloadResumable = null;
   }
@@ -312,6 +407,9 @@ export async function cancelActiveDownload(): Promise<void> {
   await AsyncStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
   try {
     await FileSystem.deleteAsync(APK_FILE_PATH, { idempotent: true });
+  } catch {}
+  try {
+    await Notifications.dismissNotificationAsync(DOWNLOAD_NOTIFICATION_ID);
   } catch {}
   notifyProgress(0);
 }

@@ -2,19 +2,50 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export const DOWNLOAD_CHANNEL_ID = 'download-progress-channel';
+export const DOWNLOAD_NOTIFICATION_ID = 'orderflow-apk-download-notification';
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const isDownload =
+      notification.request.content.data?.isDownloadProgress === true ||
+      notification.request.identifier === DOWNLOAD_NOTIFICATION_ID;
+
+    return {
+      shouldShowAlert: !isDownload,
+      shouldPlaySound: !isDownload,
+      shouldSetBadge: !isDownload,
+      shouldShowBanner: !isDownload,
+      shouldShowList: true,
+      priority: isDownload
+        ? Notifications.AndroidNotificationPriority.LOW
+        : Notifications.AndroidNotificationPriority.HIGH,
+    };
+  },
 });
+
+export async function setupDownloadNotificationChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    await Notifications.setNotificationChannelAsync(DOWNLOAD_CHANNEL_ID, {
+      name: 'App Updates & Downloads',
+      importance: Notifications.AndroidImportance.LOW,
+      enableVibrate: false,
+      vibrationPattern: null,
+      sound: null,
+      showBadge: false,
+    });
+  } catch (e) {
+    console.warn('Failed to configure download notification channel:', e);
+  }
+}
 
 export async function requestNotificationPermissions(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   const { status } = await Notifications.requestPermissionsAsync();
+  if (status === 'granted') {
+    await setupDownloadNotificationChannel();
+  }
   return status === 'granted';
 }
 

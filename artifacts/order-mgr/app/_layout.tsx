@@ -201,7 +201,7 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
-        if (data?.action === "INSTALL_UPDATE") {
+        if (data?.action === "INSTALL_UPDATE" && typeof data?.fileUri === "string") {
           installDownloadedApk(data.fileUri).catch(console.error);
         }
       },

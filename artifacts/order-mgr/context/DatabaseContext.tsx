@@ -143,7 +143,7 @@ function initDb() {
       updatedAt TEXT DEFAULT ''
     );
   `);
-  // Migration: add missing columns if they don't exist yet
+  // Migration: add missing columns if they don't exist yet across all historical schemas
   try { db.execSync(`ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN size TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeImagePath TEXT DEFAULT ''`); } catch {}
@@ -153,60 +153,79 @@ function initDb() {
   try { db.execSync(`ALTER TABLE orders ADD COLUMN customerId TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`); } catch {}
   try { db.execSync(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`); } catch {}
+  try { db.execSync(`ALTER TABLE orders ADD COLUMN isCustom INTEGER DEFAULT 0`); } catch {}
+
+  try { db.execSync(`ALTER TABLE products ADD COLUMN thumbnailPath TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE products ADD COLUMN category TEXT DEFAULT ''`); } catch {}
+
   try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN title TEXT DEFAULT 'Monthly Goal'`); } catch {}
+  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN earnedAmount REAL DEFAULT 0`); } catch {}
+  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN startDate TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN endDate TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN status TEXT DEFAULT 'in_progress'`); } catch {}
+  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN updatedAt TEXT DEFAULT ''`); } catch {}
+
   try { db.execSync(`ALTER TABLE customers ADD COLUMN notes TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE customers ADD COLUMN size TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeImagePath TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeThumbnailPath TEXT DEFAULT ''`); } catch {}
   try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeImagePaths TEXT DEFAULT '[]'`); } catch {}
   try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeThumbnailPaths TEXT DEFAULT '[]'`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN igHandle TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN phone TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN email TEXT DEFAULT ''`); } catch {}
+  try { db.execSync(`ALTER TABLE customers ADD COLUMN address TEXT DEFAULT ''`); } catch {}
 
   // Backfill: Migrate size and size images from most recent order to customer if customer has none
+  // Gated by PRAGMA user_version so it only runs once per device instead of every app launch
   try {
-    db.execSync(`
-      UPDATE customers 
-      SET size = (
-        SELECT o.size FROM orders o 
-        WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
-          AND o.size IS NOT NULL AND o.size != ''
-        ORDER BY o.createdAt DESC LIMIT 1
-      )
-      WHERE size IS NULL OR size = '';
-    `);
-  } catch {}
-
-  try {
-    db.execSync(`
-      UPDATE customers 
-      SET 
-        sizeImagePath = (
-          SELECT o.sizeImagePath FROM orders o 
+    const userVersion = db.getFirstSync<{ user_version: number }>('PRAGMA user_version')?.user_version ?? 0;
+    if (userVersion < 1) {
+      db.execSync(`
+        UPDATE customers 
+        SET size = (
+          SELECT o.size FROM orders o 
           WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
-            AND o.sizeImagePath IS NOT NULL AND o.sizeImagePath != ''
-          ORDER BY o.createdAt DESC LIMIT 1
-        ),
-        sizeThumbnailPath = (
-          SELECT o.sizeThumbnailPath FROM orders o 
-          WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
-            AND o.sizeThumbnailPath IS NOT NULL AND o.sizeThumbnailPath != ''
-          ORDER BY o.createdAt DESC LIMIT 1
-        ),
-        sizeImagePaths = (
-          SELECT o.sizeImagePaths FROM orders o 
-          WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
-            AND o.sizeImagePaths IS NOT NULL AND o.sizeImagePaths != '' AND o.sizeImagePaths != '[]'
-          ORDER BY o.createdAt DESC LIMIT 1
-        ),
-        sizeThumbnailPaths = (
-          SELECT o.sizeThumbnailPaths FROM orders o 
-          WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
-            AND o.sizeThumbnailPaths IS NOT NULL AND o.sizeThumbnailPaths != '' AND o.sizeThumbnailPaths != '[]'
+            AND o.size IS NOT NULL AND o.size != ''
           ORDER BY o.createdAt DESC LIMIT 1
         )
-      WHERE (sizeImagePaths IS NULL OR sizeImagePaths = '' OR sizeImagePaths = '[]')
-        AND (sizeImagePath IS NULL OR sizeImagePath = '');
-    `);
-  } catch {}
+        WHERE size IS NULL OR size = '';
+
+        UPDATE customers 
+        SET 
+          sizeImagePath = (
+            SELECT o.sizeImagePath FROM orders o 
+            WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+              AND o.sizeImagePath IS NOT NULL AND o.sizeImagePath != ''
+            ORDER BY o.createdAt DESC LIMIT 1
+          ),
+          sizeThumbnailPath = (
+            SELECT o.sizeThumbnailPath FROM orders o 
+            WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+              AND o.sizeThumbnailPath IS NOT NULL AND o.sizeThumbnailPath != ''
+            ORDER BY o.createdAt DESC LIMIT 1
+          ),
+          sizeImagePaths = (
+            SELECT o.sizeImagePaths FROM orders o 
+            WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+              AND o.sizeImagePaths IS NOT NULL AND o.sizeImagePaths != '' AND o.sizeImagePaths != '[]'
+            ORDER BY o.createdAt DESC LIMIT 1
+          ),
+          sizeThumbnailPaths = (
+            SELECT o.sizeThumbnailPaths FROM orders o 
+            WHERE (o.customerId = customers.id OR LOWER(TRIM(o.customerName)) = LOWER(TRIM(customers.name))) 
+              AND o.sizeThumbnailPaths IS NOT NULL AND o.sizeThumbnailPaths != '' AND o.sizeThumbnailPaths != '[]'
+            ORDER BY o.createdAt DESC LIMIT 1
+          )
+        WHERE (sizeImagePaths IS NULL OR sizeImagePaths = '' OR sizeImagePaths = '[]')
+          AND (sizeImagePath IS NULL OR sizeImagePath = '');
+
+        PRAGMA user_version = 1;
+      `);
+    }
+  } catch (err) {
+    console.error("Migration backfill check error:", err);
+  }
 }
 
 function calculateEarnedForRange(ordersList: Order[], startDate: string, endDate: string): number {
@@ -626,8 +645,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateOrder = useCallback(async (id: string, updates: Partial<Order>) => {
+    const isClosing =
+      updates.status === 'Completed' ||
+      updates.status === 'Shipped' ||
+      updates.status === 'Delivered';
+
     if (!IS_WEB && db) {
       const u: any = { ...updates };
+      if (isClosing && updates.workingOn === undefined) {
+        u.workingOn = 0;
+      }
       if (u.items !== undefined) {
         u.items = JSON.stringify(u.items);
       }
@@ -654,7 +681,14 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setOrders(loaded);
     } else {
       setOrders(prev => {
-        const next = prev.map(o => o.id === id ? { ...o, ...updates } : o);
+        const next = prev.map(o => {
+          if (o.id !== id) return o;
+          const merged = { ...o, ...updates };
+          if (isClosing && updates.workingOn === undefined) {
+            merged.workingOn = 0;
+          }
+          return merged;
+        });
         AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
         return next;
       });
@@ -680,6 +714,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const toggleWorkingOn = useCallback(async (id: string) => {
     const order = orders.find(o => o.id === id);
     if (!order) return;
+    const isClosed =
+      order.status === 'Completed' ||
+      order.status === 'Shipped' ||
+      order.status === 'Delivered';
+    // Prevent toggling WIP on if the order is already closed
+    if (isClosed && !order.workingOn) return;
     const next = order.workingOn ? 0 : 1;
     await updateOrder(id, { workingOn: next });
   }, [orders, updateOrder]);

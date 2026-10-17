@@ -78,6 +78,11 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
 
   const outstanding = order.price - order.amountPaid;
   const isWorking = !!order.workingOn;
+  const isClosed =
+    order.status === "Completed" ||
+    order.status === "Shipped" ||
+    order.status === "Delivered";
+  const canSwipeWip = isWorking || !isClosed;
 
   // ─── Reanimated shared values (live on native UI thread) ──────────────
   const translateX = useSharedValue(0);
@@ -144,6 +149,7 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
   // ─── Gesture.Pan() — memoized to prevent re-creation during drag ────────
   const panGesture = useMemo(() => {
     return Gesture.Pan()
+      .enabled(canSwipeWip)
       .activeOffsetX(-8)
       .failOffsetY([-12, 12])
       .onStart(() => {
@@ -212,6 +218,7 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
         }
       });
   }, [
+    canSwipeWip,
     contextX,
     translateX,
     hasTriggeredHaptic,
@@ -250,19 +257,21 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
 
   return (
     <View style={[styles.wrapper, { marginHorizontal: 16, marginVertical: 5 }]}>
-      {/* ── Background action — revealed on left swipe ── */}
-      <View style={styles.actionBg}>
-        <Animated.View style={[styles.actionContent, actionContentStyle]}>
-          <Feather
-            name={isWorking ? "x-circle" : "tool"}
-            size={22}
-            color="#8B4D5C"
-          />
-          <Text style={[styles.actionLabel, { color: "#8B4D5C" }]}>
-            {isWorking ? "Remove WIP" : "Mark WIP"}
-          </Text>
-        </Animated.View>
-      </View>
+      {/* ── Background action — revealed on left swipe (only if eligible) ── */}
+      {canSwipeWip && (
+        <View style={styles.actionBg}>
+          <Animated.View style={[styles.actionContent, actionContentStyle]}>
+            <Feather
+              name={isWorking ? "x-circle" : "tool"}
+              size={22}
+              color="#8B4D5C"
+            />
+            <Text style={[styles.actionLabel, { color: "#8B4D5C" }]}>
+              {isWorking ? "Remove WIP" : "Mark WIP"}
+            </Text>
+          </Animated.View>
+        </View>
+      )}
 
       {/* ── Sliding card — drags left ── */}
       <GestureDetector gesture={panGesture}>
@@ -312,7 +321,9 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
                       styles.workingDot,
                       { backgroundColor: "#C06070", borderColor: colors.card },
                     ]}
-                  />
+                  >
+                    <Feather name="tool" size={10} color="#fff" />
+                  </View>
                 )}
               </View>
 
@@ -325,17 +336,6 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
                   >
                     {order.customerName || "Unknown"}
                   </Text>
-                  {isWorking && (
-                    <View
-                      style={[
-                        styles.workingPill,
-                        { backgroundColor: "#C06070" },
-                      ]}
-                    >
-                      <Feather name="tool" size={9} color="#fff" />
-                      <Text style={styles.workingLabel}>WIP</Text>
-                    </View>
-                  )}
                 </View>
 
                 <Text
@@ -487,10 +487,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -2,
     right: -2,
-    width: 12,
-    height: 12,
+    width: 20,
+    height: 20,
     borderRadius: 6,
     borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   middle: {
     flex: 1,

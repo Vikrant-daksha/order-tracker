@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusPill } from '@/components/StatusPill';
@@ -10,6 +10,27 @@ import { useDatabase } from '@/context/DatabaseContext';
 import { Order, OrderStatus } from '@/types';
 
 const COLUMNS: OrderStatus[] = ['Confirmed', 'Completed', 'Shipped', 'Delivered'];
+
+function getLocalDateString(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getOrderDateOnly(order: Order): string {
+  const dStr = order.orderDate || order.createdAt;
+  if (!dStr) return '';
+  return dStr.slice(0, 10);
+}
+
+function matchesToday(order: Order): boolean {
+  const dStr = getOrderDateOnly(order);
+  if (!dStr) return false;
+  const localToday = getLocalDateString();
+  const utcToday = new Date().toISOString().split('T')[0];
+  return dStr === localToday || dStr === utcToday;
+}
 
 function isOverdue(order: Order) {
   if (!order.dueDate || order.status === 'Delivered' || order.status === 'Shipped' || order.status === 'Completed') return false;
@@ -23,13 +44,22 @@ export default function KanbanScreen() {
   const { orders, updateOrder } = useDatabase();
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
+  const [filter, setFilter] = useState<'today' | 'all'>('today');
+
+  const todayCount = useMemo(() => orders.filter(matchesToday).length, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    if (filter === 'all') return orders;
+    return orders.filter(matchesToday);
+  }, [orders, filter]);
+
   const grouped = useMemo(() => {
     const map: Record<OrderStatus, Order[]> = { Confirmed: [], Completed: [], Shipped: [], Delivered: [] };
-    for (const o of orders) {
+    for (const o of filteredOrders) {
       if (map[o.status]) map[o.status].push(o);
     }
     return map;
-  }, [orders]);
+  }, [filteredOrders]);
 
   async function advanceStatus(order: Order) {
     const next: Record<string, OrderStatus> = { Confirmed: 'Completed', Completed: 'Shipped', Shipped: 'Delivered' };
@@ -55,11 +85,62 @@ export default function KanbanScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()}>
-          <Feather name="arrow-left" size={22} color={colors.foreground} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Kanban Board</Text>
-        <View style={{ width: 22 }} />
+        <View style={styles.headerTop}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
+          </Pressable>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={[styles.title, { color: colors.foreground }]}>Kanban Board</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              {filter === 'today' ? "Today's Orders" : 'All Orders'}
+            </Text>
+          </View>
+          <View style={{ width: 22 }} />
+        </View>
+
+        {/* Filter Toggle: Today / All */}
+        <View style={[styles.filterContainer, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <Pressable
+            onPress={() => {
+              setFilter('today');
+              Haptics.selectionAsync();
+            }}
+            style={[
+              styles.filterTab,
+              filter === 'today' && [styles.filterTabActive, { backgroundColor: colors.card }],
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterTabText,
+                { color: filter === 'today' ? colors.foreground : colors.mutedForeground },
+                filter === 'today' && styles.filterTabTextActive,
+              ]}
+            >
+              Today ({todayCount})
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setFilter('all');
+              Haptics.selectionAsync();
+            }}
+            style={[
+              styles.filterTab,
+              filter === 'all' && [styles.filterTabActive, { backgroundColor: colors.card }],
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterTabText,
+                { color: filter === 'all' ? colors.foreground : colors.mutedForeground },
+                filter === 'all' && styles.filterTabTextActive,
+              ]}
+            >
+              All ({orders.length})
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
@@ -114,7 +195,7 @@ export default function KanbanScreen() {
                       style={[styles.advanceBtn, { backgroundColor: colColors[col] }]}
                     >
                       <Text style={[styles.advanceBtnText, { color: colTextColors[col] }]}>
-                        {col === 'Confirmed' ? 'Mark Shipped' : 'Mark Delivered'}
+                        {col === 'Confirmed' ? 'Mark Completed' : col === 'Completed' ? 'Mark Shipped' : 'Mark Delivered'}
                       </Text>
                       <Feather name="arrow-right" size={12} color={colTextColors[col]} />
                     </Pressable>
@@ -123,7 +204,9 @@ export default function KanbanScreen() {
               )}
               ListEmptyComponent={
                 <View style={styles.emptyCol}>
-                  <Text style={[styles.emptyColText, { color: colors.mutedForeground }]}>No orders</Text>
+                  <Text style={[styles.emptyColText, { color: colors.mutedForeground }]}>
+                    {filter === 'today' ? 'No orders today' : 'No orders'}
+                  </Text>
                 </View>
               }
             />
@@ -137,10 +220,45 @@ export default function KanbanScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  subtitle: { fontSize: 11, fontFamily: 'Inter_500Medium', marginTop: 1 },
+  filterContainer: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 7,
+  },
+  filterTabActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filterTabText: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+  },
+  filterTabTextActive: {
+    fontFamily: 'Inter_600SemiBold',
+  },
   column: { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E5E5EA' },
   colHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
