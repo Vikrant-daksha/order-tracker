@@ -26,8 +26,6 @@ import { Order } from "@/types";
 import { ChatBubble } from "@/components/ChatBubble";
 import TickAnimation from "@/animation/TickAnimation";
 
-const PAGE_SIZE = 10;
-
 function isOverdue(order: Order) {
   if (
     !order.dueDate ||
@@ -368,19 +366,26 @@ export default function HomeScreen() {
                   Dashboard
                 </Text>
               </View>
-              <Pressable
-                onPress={() => router.push("/kanban" as any)}
-                style={[
-                  styles.headerBtn,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
-                <Feather
-                  name="columns"
-                  size={17}
-                  color={colors.mutedForeground}
-                />
-              </Pressable>
+                <Pressable
+                  onPress={() => router.push("/kanban" as any)}
+                  style={[
+                    styles.headerBtn,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="columns"
+                    size={17}
+                    color={colors.mutedForeground}
+                  />
+                </Pressable>
+              </View>
             </View>
 
             {/* ── Stats Row ───────────────────────────────────── */}

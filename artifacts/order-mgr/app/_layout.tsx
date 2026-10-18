@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Platform, View, StyleSheet } from "react-native";
+import { Platform, View, StyleSheet, AppState } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -22,10 +22,14 @@ import {
   getLastCheckDate,
   getActiveDownloadState,
   downloadAndInstall,
+  cancelActiveDownload,
+  cleanupDownloadedApk,
   installDownloadedApk,
   openDownloadInBrowser,
   addDownloadProgressListener,
   removeDownloadProgressListener,
+  addDownloadCancellationListener,
+  removeDownloadCancellationListener,
   UpdateInfo,
 } from "@/utils/githubUpdater";
 import { ChatBubble } from "@/components/ChatBubble";
@@ -40,7 +44,9 @@ interface UpdateContextValue {
   downloadProgress: number | null;
   isDownloading: boolean;
   isReadyToInstall: boolean;
+  downloadedVersion: string | null;
   startUpdateDownload: () => Promise<void>;
+  cancelUpdateDownload: () => Promise<void>;
   installUpdate: () => Promise<void>;
   downloadInBrowser: () => Promise<void>;
 }
@@ -53,7 +59,9 @@ export const UpdateContext = createContext<UpdateContextValue>({
   downloadProgress: null,
   isDownloading: false,
   isReadyToInstall: false,
+  downloadedVersion: null,
   startUpdateDownload: async () => {},
+  cancelUpdateDownload: async () => {},
   installUpdate: async () => {},
   downloadInBrowser: async () => {},
 });
@@ -82,7 +90,10 @@ function RootLayoutNav() {
         <Stack.Screen name="expenses" options={{ headerShown: false }} />
         <Stack.Screen name="customers/index" options={{ headerShown: false }} />
         <Stack.Screen name="customers/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="customers/edit/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="customers/edit/[id]"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="chat"
           options={{ headerShown: false, presentation: "modal" }}
@@ -146,6 +157,9 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isReadyToInstall, setIsReadyToInstall] = useState(false);
+  const [downloadedVersion, setDownloadedVersion] = useState<string | null>(
+    null,
+  );
 
   async function refreshLastChecked() {
     const ts = await getLastCheckDate();
@@ -158,11 +172,17 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
       const state = await getActiveDownloadState();
       if (state?.isComplete) {
         setIsReadyToInstall(true);
+        setDownloadedVersion(state.version);
         setDownloadProgress(1);
         setIsDownloading(false);
       } else if (state && state.progress > 0 && state.progress < 1) {
+        setDownloadedVersion(state.version);
         setDownloadProgress(state.progress);
         setIsDownloading(false); // Can be resumed
+      } else {
+        setIsReadyToInstall(false);
+        setDownloadedVersion(null);
+        setDownloadProgress(null);
       }
     } catch {}
   }
@@ -172,7 +192,17 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
     setIsChecking(true);
     try {
       const info = await checkForUpdate(force);
-      if (info) setUpdateInfo(info);
+      if (info) {
+        setUpdateInfo(info);
+        if (!info.hasUpdate) {
+          // Current app is up to date or already on latest version! Clean up any leftover downloaded APK or states
+          setIsReadyToInstall(false);
+          setDownloadedVersion(null);
+          setDownloadProgress(null);
+          setIsDownloading(false);
+          await cleanupDownloadedApk();
+        }
+      }
       await refreshLastChecked();
       await checkDownloadStatus();
     } catch (e) {
@@ -197,11 +227,38 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
     };
     addDownloadProgressListener(listener);
 
-    // Handle tapping the download completion notification
+    // Subscribe to download cancellations
+    const cancelSub = () => {
+      setIsDownloading(false);
+      setDownloadProgress(null);
+      setIsReadyToInstall(false);
+      setDownloadedVersion(null);
+    };
+    addDownloadCancellationListener(cancelSub);
+
+    // Recheck status when app comes to foreground (e.g. after returning from APK installer)
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        checkDownloadStatus();
+      }
+    });
+
+    // Handle tapping the download completion or cancel action notification
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
+        const actionId = response.actionIdentifier;
         const data = response.notification.request.content.data;
-        if (data?.action === "INSTALL_UPDATE" && typeof data?.fileUri === "string") {
+        if (
+          actionId === "CANCEL_DOWNLOAD" ||
+          data?.action === "CANCEL_DOWNLOAD"
+        ) {
+          cancelActiveDownload().catch(console.error);
+          return;
+        }
+        if (
+          data?.action === "INSTALL_UPDATE" &&
+          typeof data?.fileUri === "string"
+        ) {
           installDownloadedApk(data.fileUri).catch(console.error);
         }
       },
@@ -209,6 +266,8 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       removeDownloadProgressListener(listener);
+      removeDownloadCancellationListener(cancelSub);
+      appStateSub.remove();
       sub.remove();
     };
   }, []);
@@ -218,6 +277,7 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
     setIsDownloading(true);
     setDownloadProgress(0);
     setIsReadyToInstall(false);
+    setDownloadedVersion(updateInfo.latestVersion);
     try {
       await downloadAndInstall(
         updateInfo.apkUrl,
@@ -231,6 +291,14 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsDownloading(false);
     }
+  }
+
+  async function cancelUpdateDownload() {
+    setIsDownloading(false);
+    setDownloadProgress(null);
+    setIsReadyToInstall(false);
+    setDownloadedVersion(null);
+    await cancelActiveDownload();
   }
 
   async function installUpdate() {
@@ -252,7 +320,9 @@ function UpdateProvider({ children }: { children: React.ReactNode }) {
         downloadProgress,
         isDownloading,
         isReadyToInstall,
+        downloadedVersion,
         startUpdateDownload,
+        cancelUpdateDownload,
         installUpdate,
         downloadInBrowser,
       }}

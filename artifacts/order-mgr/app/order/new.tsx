@@ -313,8 +313,8 @@ export default function NewOrderScreen() {
   const unlinkedIds = useRef(new Set<string>());
 
   useEffect(() => {
-    const cleanIg = igHandle.replace('@', '').trim();
-    const cleanPhone = phone.replace(/[^0-9]/g, '').trim();
+    const cleanIg = igHandle.replace("@", "").trim();
+    const cleanPhone = phone.replace(/[^0-9]/g, "").trim();
 
     if (isEditing || (!cleanIg && !cleanPhone)) {
       setIsSearching(false);
@@ -330,8 +330,10 @@ export default function NewOrderScreen() {
     // If already linked to this exact handle or phone, no need to show search indicator
     if (
       linkedCustomer &&
-      ((cleanIg && linkedCustomer.igHandle?.toLowerCase() === cleanIg.toLowerCase()) ||
-        (cleanPhone && linkedCustomer.phone?.replace(/[^0-9]/g, '') === cleanPhone))
+      ((cleanIg &&
+        linkedCustomer.igHandle?.toLowerCase() === cleanIg.toLowerCase()) ||
+        (cleanPhone &&
+          linkedCustomer.phone?.replace(/[^0-9]/g, "") === cleanPhone))
     ) {
       setIsSearching(false);
       return;
@@ -368,7 +370,14 @@ export default function NewOrderScreen() {
     return () => {
       clearTimeout(timer);
     };
-  }, [igHandle, phone, isEditing, linkedCustomer, findCustomerByIg, findCustomerByPhone]);
+  }, [
+    igHandle,
+    phone,
+    isEditing,
+    linkedCustomer,
+    findCustomerByIg,
+    findCustomerByPhone,
+  ]);
 
   const pickedImagesRef = useRef<{ fullPath: string; thumbnailPath: string }[]>(
     [],
@@ -1191,7 +1200,6 @@ export default function NewOrderScreen() {
                         gap: 3,
                       }}
                     >
-                      <Feather name="maximize-2" size={16} color="#C06070" />
                       <Feather
                         name="plus"
                         size={14}

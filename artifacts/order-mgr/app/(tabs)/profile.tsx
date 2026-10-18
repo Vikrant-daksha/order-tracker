@@ -43,7 +43,9 @@ export default function ProfileScreen() {
     downloadProgress,
     isDownloading,
     isReadyToInstall,
+    downloadedVersion,
     startUpdateDownload,
+    cancelUpdateDownload,
     installUpdate,
     downloadInBrowser,
   } = useUpdateContext();
@@ -61,6 +63,24 @@ export default function ProfileScreen() {
     if (val) {
       await rescheduleAllReminders(orders);
     }
+  }
+
+  async function handleCancelDownload() {
+    Alert.alert(
+      "Cancel Download?",
+      "Do you want to stop and discard this update download?",
+      [
+        { text: "No, Continue", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            await cancelUpdateDownload();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          },
+        },
+      ],
+    );
   }
 
   const stats = useMemo(() => {
@@ -451,83 +471,138 @@ export default function ProfileScreen() {
                     { color: colors.mutedForeground, marginTop: 0 },
                   ]}
                 >
-                  Downloading in background… {Math.round((downloadProgress || 0) * 100)}%
+                  Downloading update… {Math.round((downloadProgress || 0) * 100)}%
                 </Text>
-                <Pressable onPress={downloadInBrowser} hitSlop={8}>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: "#C06070",
-                      fontFamily: "Inter_500Medium",
-                    }}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <Pressable
+                    onPress={handleCancelDownload}
+                    hitSlop={8}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
                   >
-                    Open in Browser
-                  </Text>
-                </Pressable>
+                    <Feather name="x-circle" size={13} color="#D9534F" />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: "#D9534F",
+                        fontFamily: "Inter_600SemiBold",
+                      }}
+                    >
+                      Cancel
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={downloadInBrowser}
+                    hitSlop={8}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                  >
+                    <Feather name="external-link" size={12} color="#C06070" />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: "#C06070",
+                        fontFamily: "Inter_500Medium",
+                      }}
+                    >
+                      Browser
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
           )}
 
           {/* Action row */}
           {(downloadProgress === null || isReadyToInstall) && (
-            <Pressable
-              onPress={
-                isReadyToInstall || updateInfo?.hasUpdate
-                  ? handleDownloadUpdate
-                  : recheckUpdate
-              }
-              disabled={isChecking || isDownloading}
-              style={({ pressed }) => [
-                styles.menuRow,
-                { opacity: pressed || isChecking ? 0.6 : 1 },
-              ]}
-            >
-              {isChecking ? (
-                <ActivityIndicator size={18} color="#C06070" />
-              ) : isReadyToInstall ? (
-                <Feather name="check-circle" size={18} color="#4E9F3D" />
-              ) : (
+            <>
+              <Pressable
+                onPress={
+                  isReadyToInstall || updateInfo?.hasUpdate
+                    ? handleDownloadUpdate
+                    : recheckUpdate
+                }
+                disabled={isChecking || isDownloading}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  { opacity: pressed || isChecking ? 0.6 : 1 },
+                ]}
+              >
+                {isChecking ? (
+                  <ActivityIndicator size={18} color="#C06070" />
+                ) : isReadyToInstall ? (
+                  <Feather name="check-circle" size={18} color="#4E9F3D" />
+                ) : (
+                  <Feather
+                    name={updateInfo?.hasUpdate ? "download-cloud" : "refresh-cw"}
+                    size={18}
+                    color={updateInfo?.hasUpdate ? "#C06070" : colors.mutedForeground}
+                  />
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.menuRowLabel,
+                      {
+                        color: isReadyToInstall
+                          ? "#4E9F3D"
+                          : updateInfo?.hasUpdate
+                          ? "#C06070"
+                          : colors.foreground,
+                      },
+                    ]}
+                  >
+                    {isChecking
+                      ? "Checking…"
+                      : isReadyToInstall
+                      ? `Install Update v${updateInfo?.latestVersion || downloadedVersion || ""}`
+                      : updateInfo?.hasUpdate
+                      ? `Update to v${updateInfo.latestVersion}`
+                      : "Check for Updates"}
+                  </Text>
+                  <Text style={[styles.menuSub, { color: colors.mutedForeground }]}>
+                    {isReadyToInstall
+                      ? "Download complete! Tap to install APK now"
+                      : updateInfo?.hasUpdate
+                      ? "Tap to download in background"
+                      : updateInfo && !updateInfo.hasUpdate
+                      ? `Up to date (v${updateInfo.currentVersion}) • Tap to re-check`
+                      : formatLastChecked(lastChecked)}
+                  </Text>
+                </View>
                 <Feather
-                  name={updateInfo?.hasUpdate ? "download-cloud" : "refresh-cw"}
-                  size={18}
-                  color={updateInfo?.hasUpdate ? "#C06070" : colors.mutedForeground}
+                  name="chevron-right"
+                  size={16}
+                  color={colors.mutedForeground}
                 />
-              )}
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    styles.menuRowLabel,
-                    {
-                      color: isReadyToInstall
-                        ? "#4E9F3D"
-                        : updateInfo?.hasUpdate
-                        ? "#C06070"
-                        : colors.foreground,
-                    },
-                  ]}
+              </Pressable>
+
+              {isReadyToInstall && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    paddingHorizontal: 16,
+                    paddingBottom: 10,
+                  }}
                 >
-                  {isChecking
-                    ? "Checking…"
-                    : isReadyToInstall
-                    ? `Install Update v${updateInfo?.latestVersion || ""}`
-                    : updateInfo?.hasUpdate
-                    ? `Update to v${updateInfo.latestVersion}`
-                    : "Check for Updates"}
-                </Text>
-                <Text style={[styles.menuSub, { color: colors.mutedForeground }]}>
-                  {isReadyToInstall
-                    ? "Download complete! Tap to install APK now"
-                    : updateInfo?.hasUpdate
-                    ? "Tap to download in background"
-                    : formatLastChecked(lastChecked)}
-                </Text>
-              </View>
-              <Feather
-                name="chevron-right"
-                size={16}
-                color={colors.mutedForeground}
-              />
-            </Pressable>
+                  <Pressable
+                    onPress={handleCancelDownload}
+                    hitSlop={8}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                  >
+                    <Feather name="trash-2" size={12} color={colors.mutedForeground} />
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: colors.mutedForeground,
+                        fontFamily: "Inter_500Medium",
+                      }}
+                    >
+                      Discard downloaded update
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+            </>
           )}
         </View>
       )}

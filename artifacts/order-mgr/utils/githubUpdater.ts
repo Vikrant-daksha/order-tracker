@@ -11,6 +11,7 @@ import { Linking, Platform } from "react-native";
 import {
   DOWNLOAD_CHANNEL_ID,
   DOWNLOAD_NOTIFICATION_ID,
+  DOWNLOAD_CATEGORY_ID,
   setupDownloadNotificationChannel,
 } from "./notifications";
 
@@ -18,6 +19,7 @@ const GITHUB_OWNER = "Vikrant-daksha";
 const GITHUB_REPO = "order-tracker";
 const API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 const LAST_CHECK_KEY = "@orderflow_last_update_check";
+const CACHED_RELEASE_KEY = "@orderflow_cached_release_info";
 export const ACTIVE_DOWNLOAD_KEY = "@orderflow_active_download";
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const APK_FILE_PATH = `${FileSystem.cacheDirectory}orderflow_update.apk`;
@@ -42,6 +44,7 @@ export interface DownloadState {
 
 let activeDownloadResumable: FileSystem.DownloadResumable | null = null;
 const progressListeners = new Set<(progress: number) => void>();
+const cancelListeners = new Set<() => void>();
 
 export function addDownloadProgressListener(listener: (p: number) => void) {
   progressListeners.add(listener);
@@ -59,7 +62,30 @@ function notifyProgress(p: number) {
   });
 }
 
-function isNewerVersion(local: string, remote: string): boolean {
+export function addDownloadCancellationListener(listener: () => void) {
+  cancelListeners.add(listener);
+}
+
+export function removeDownloadCancellationListener(listener: () => void) {
+  cancelListeners.delete(listener);
+}
+
+function notifyCancelled() {
+  cancelListeners.forEach((l) => {
+    try {
+      l();
+    } catch {}
+  });
+}
+
+export function getCurrentAppVersion(): string {
+  const jsonVersion = require("@/app.json")?.expo?.version;
+  const configVersion = Constants.expoConfig?.version;
+  const version = configVersion || jsonVersion || "0.0.0";
+  return String(version).replace(/^v/, "").trim();
+}
+
+export function isNewerVersion(local: string, remote: string): boolean {
   const parse = (v: string) =>
     v
       .replace(/^v/, "")
@@ -72,16 +98,47 @@ function isNewerVersion(local: string, remote: string): boolean {
   return rPatch > lPatch;
 }
 
+export async function cleanupDownloadedApk(customFileUri?: string): Promise<void> {
+  await AsyncStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+  try {
+    await FileSystem.deleteAsync(customFileUri || APK_FILE_PATH, {
+      idempotent: true,
+    });
+  } catch {}
+  try {
+    await Notifications.dismissNotificationAsync(DOWNLOAD_NOTIFICATION_ID);
+  } catch {}
+  try {
+    await Notifications.dismissNotificationAsync("orderflow-update-ready");
+  } catch {}
+}
+
 export async function checkForUpdate(
   forceCheck = false,
 ): Promise<UpdateInfo | null> {
   if (Platform.OS !== "android") return null;
 
+  const currentVersion = getCurrentAppVersion();
+
   if (!forceCheck) {
     const lastCheck = await AsyncStorage.getItem(LAST_CHECK_KEY);
     if (lastCheck) {
       const elapsed = Date.now() - parseInt(lastCheck, 10);
-      if (elapsed < SEVEN_DAYS_MS) return null;
+      if (elapsed < SEVEN_DAYS_MS) {
+        // Return cached release info if available, recalculated with currentVersion
+        const cachedRaw = await AsyncStorage.getItem(CACHED_RELEASE_KEY);
+        if (cachedRaw) {
+          try {
+            const cached: UpdateInfo = JSON.parse(cachedRaw);
+            return {
+              ...cached,
+              currentVersion,
+              hasUpdate: isNewerVersion(currentVersion, cached.latestVersion),
+            };
+          } catch {}
+        }
+        return null;
+      }
     }
   }
 
@@ -98,17 +155,13 @@ export async function checkForUpdate(
 
   const release = await response.json();
   const latestVersion = (release.tag_name as string).replace(/^v/, "");
-  const currentVersion = (Constants.expoConfig?.version ?? "0.0.0").replace(
-    /^v/,
-    "",
-  );
 
   const apkAsset = (release.assets as any[]).find(
     (a: any) =>
       typeof a.name === "string" && a.name.toLowerCase().endsWith(".apk"),
   );
 
-  return {
+  const info: UpdateInfo = {
     hasUpdate: isNewerVersion(currentVersion, latestVersion),
     latestVersion,
     currentVersion,
@@ -116,6 +169,9 @@ export async function checkForUpdate(
     releaseNotes: release.body ?? "",
     htmlUrl: release.html_url ?? "",
   };
+
+  await AsyncStorage.setItem(CACHED_RELEASE_KEY, JSON.stringify(info));
+  return info;
 }
 
 export async function getActiveDownloadState(): Promise<DownloadState | null> {
@@ -125,13 +181,24 @@ export async function getActiveDownloadState(): Promise<DownloadState | null> {
     if (!raw) return null;
     const parsed: DownloadState = JSON.parse(raw);
 
+    const currentVersion = getCurrentAppVersion();
+
+    // If the version is already installed (or older), clean up and return null
+    if (parsed.version && !isNewerVersion(currentVersion, parsed.version)) {
+      console.log(
+        `[Updater] Downloaded version v${parsed.version} is already installed (current: v${currentVersion}). Cleaning up cache.`,
+      );
+      await cleanupDownloadedApk(parsed.fileUri);
+      return null;
+    }
+
     // If marked complete, ensure the file actually exists on disk
     if (parsed.isComplete) {
       const info = await FileSystem.getInfoAsync(
         parsed.fileUri || APK_FILE_PATH,
       );
       if (!info.exists || (info.size && info.size < 1000000)) {
-        await AsyncStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+        await cleanupDownloadedApk(parsed.fileUri);
         return null;
       }
     }
@@ -203,6 +270,7 @@ async function postDownloadNotification(
         title: `Downloading OrderFlow Update (${percent}%)`,
         body: bodyText,
         data: { apkUrl, fileUri, isDownloadProgress: true },
+        categoryIdentifier: DOWNLOAD_CATEGORY_ID,
         sound: false,
         vibrate: [],
         priority: Notifications.AndroidNotificationPriority.LOW,
@@ -381,11 +449,17 @@ export async function downloadAndInstall(
 
     // Prompt package installer
     await installDownloadedApk(result.uri);
-  } catch (err) {
-    // If download failed, dismiss progress notification so it doesn't linger
+  } catch (err: any) {
+    // If download failed or was cancelled, dismiss progress notification so it doesn't linger
     try {
       await Notifications.dismissNotificationAsync(DOWNLOAD_NOTIFICATION_ID);
     } catch {}
+    // If download was intentionally cancelled, do not throw an error alert
+    const isCancelled =
+      err?.message?.toLowerCase().includes("cancel") || !activeDownloadResumable;
+    if (isCancelled) {
+      return;
+    }
     throw err;
   } finally {
     activeDownloadResumable = null;
@@ -401,17 +475,13 @@ export async function cancelActiveDownload(): Promise<void> {
   if (activeDownloadResumable) {
     try {
       await activeDownloadResumable.cancelAsync();
-    } catch {}
+    } catch (e) {
+      console.warn("[Updater] cancelAsync warning:", e);
+    }
     activeDownloadResumable = null;
   }
-  await AsyncStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-  try {
-    await FileSystem.deleteAsync(APK_FILE_PATH, { idempotent: true });
-  } catch {}
-  try {
-    await Notifications.dismissNotificationAsync(DOWNLOAD_NOTIFICATION_ID);
-  } catch {}
-  notifyProgress(0);
+  await cleanupDownloadedApk();
+  notifyCancelled();
 }
 
 export async function getLastCheckDate(): Promise<number | null> {

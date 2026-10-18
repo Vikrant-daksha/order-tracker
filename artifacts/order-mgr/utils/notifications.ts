@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const DOWNLOAD_CHANNEL_ID = 'download-progress-channel';
 export const DOWNLOAD_NOTIFICATION_ID = 'orderflow-apk-download-notification';
+export const DOWNLOAD_CATEGORY_ID = 'download_progress_category';
+export const CANCEL_DOWNLOAD_ACTION_ID = 'CANCEL_DOWNLOAD';
 
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
@@ -37,6 +39,21 @@ export async function setupDownloadNotificationChannel(): Promise<void> {
     });
   } catch (e) {
     console.warn('Failed to configure download notification channel:', e);
+  }
+
+  try {
+    await Notifications.setNotificationCategoryAsync(DOWNLOAD_CATEGORY_ID, [
+      {
+        identifier: CANCEL_DOWNLOAD_ACTION_ID,
+        buttonTitle: 'Cancel Download',
+        options: {
+          opensAppToForeground: false,
+          isDestructive: true,
+        },
+      },
+    ]);
+  } catch (e) {
+    console.warn('Failed to configure download notification category:', e);
   }
 }
 

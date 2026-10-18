@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PaymentPill, StatusPill } from "@/components/StatusPill";
+import { OrderDetailsCard } from "@/components/orderDetails";
 import { useColors } from "@/hooks/useColors";
 import { useDatabase } from "@/context/DatabaseContext";
 import {
@@ -101,7 +102,7 @@ export default function OrderDetailScreen() {
         ? customers.find((c) => c.id === order.customerId)
         : null) ||
       customers.find(
-        (c) => c.name.toLowerCase() === order.customerName.toLowerCase()
+        (c) => c.name.toLowerCase() === order.customerName.toLowerCase(),
       ) ||
       null
     );
@@ -156,7 +157,12 @@ export default function OrderDetailScreen() {
       return [customer.sizeImagePath];
     }
     return [];
-  }, [selectedItem, activeOrder.sizeImagePaths, activeOrder.sizeImagePath, customer]);
+  }, [
+    selectedItem,
+    activeOrder.sizeImagePaths,
+    activeOrder.sizeImagePath,
+    customer,
+  ]);
 
   const hasProductImages = productImages.length > 0;
   const hasSizeImages = sizeImages.length > 0;
@@ -360,7 +366,7 @@ export default function OrderDetailScreen() {
                       effectiveTab === "product" && styles.galleryTabTextActive,
                     ]}
                   >
-                    Product ({productImages.length})
+                    Product
                   </Text>
                 </Pressable>
 
@@ -399,7 +405,7 @@ export default function OrderDetailScreen() {
                       effectiveTab === "size" && styles.galleryTabTextActive,
                     ]}
                   >
-                    Custom Size ({sizeImages.length})
+                    Custom Size
                   </Text>
                 </Pressable>
               </View>
@@ -551,43 +557,11 @@ export default function OrderDetailScreen() {
         ) : null}
 
         {/* Size badge & Custom Size Photos */}
-        {selectedItem?.size || activeOrder.size || customer?.size || sizeImages.length > 0 ? (
+        {selectedItem?.size ||
+        activeOrder.size ||
+        customer?.size ||
+        sizeImages.length > 0 ? (
           <View style={{ marginBottom: 12, gap: 8 }}>
-            {selectedItem?.size || activeOrder.size || customer?.size ? (
-              <View
-                style={[
-                  styles.sizeBadgeRow,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    marginBottom: 0,
-                  },
-                ]}
-              >
-                <View
-                  style={[styles.sizeBadge, { backgroundColor: colors.accent }]}
-                >
-                  <Feather name="maximize-2" size={12} color="#C06070" />
-                  <Text
-                    style={[
-                      styles.sizeBadgeLabel,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    SIZE
-                  </Text>
-                  <Text
-                    style={[
-                      styles.sizeBadgeValue,
-                      { color: colors.foreground },
-                    ]}
-                  >
-                    {selectedItem?.size || activeOrder.size || customer?.size}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-
             {sizeImages.length > 0 ? (
               <View
                 style={[
@@ -643,7 +617,6 @@ export default function OrderDetailScreen() {
                       backgroundColor: colors.accent,
                     }}
                   >
-                    <Feather name="arrow-up" size={11} color="#C06070" />
                     <Text
                       style={{
                         fontSize: 11,
@@ -651,7 +624,8 @@ export default function OrderDetailScreen() {
                         color: "#C06070",
                       }}
                     >
-                      View at top
+                      SIZE :{" "}
+                      {selectedItem?.size || activeOrder.size || customer?.size}
                     </Text>
                   </Pressable>
                 </View>
@@ -664,12 +638,6 @@ export default function OrderDetailScreen() {
                     <Pressable
                       key={sIdx}
                       onPress={() => {
-                        setGalleryTab("size");
-                        setActiveImageIndex(sIdx);
-                        carouselRef.current?.scrollTo({
-                          x: sIdx * CAROUSEL_WIDTH,
-                          animated: false,
-                        });
                         setActiveViewerImage(sImg);
                       }}
                       style={{
@@ -694,387 +662,92 @@ export default function OrderDetailScreen() {
           </View>
         ) : null}
 
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.customerHeader}>
-            <View
-              style={[styles.sourceIcon, { backgroundColor: colors.accent }]}
-            >
-              <Feather
-                name={(SOURCE_ICONS[order.source] as any) || "package"}
-                size={18}
-                color="#C06070"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.customerName, { color: colors.foreground }]}>
-                {order.customerName}
-              </Text>
-              {order.contactInfo
-                ? order.contactInfo.split("\n").map((line, i) => {
-                    if (!line.trim()) return null;
-                    const icon =
-                      i === 0 ? "at-sign" : i === 1 ? "phone" : "mail";
-                    return (
-                      <Text
-                        key={i}
-                        style={[
-                          styles.contactInfo,
-                          { color: colors.mutedForeground },
-                        ]}
-                      >
-                        {line}
-                      </Text>
-                    );
-                  })
-                : null}
-              {order.address ? (
-                <Text
-                  style={[
-                    styles.contactInfo,
-                    { color: colors.mutedForeground },
-                  ]}
-                  numberOfLines={2}
-                >
-                  📍 {order.address}
-                </Text>
-              ) : null}
-              {customer?.notes ? (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "flex-start",
-                    gap: 6,
-                    marginTop: 8,
-                    padding: 8,
-                    borderRadius: 8,
-                    backgroundColor: colors.accent,
-                    borderWidth: 1,
-                    borderColor: "#C0607033",
-                  }}
-                >
-                  <Feather
-                    name="file-text"
-                    size={13}
-                    color="#C06070"
-                    style={{ marginTop: 2 }}
-                  />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontFamily: "Inter_600SemiBold",
-                        color: "#C06070",
-                      }}
-                    >
-                      Customer Notes
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontFamily: "Inter_400Regular",
-                        color: colors.foreground,
-                        lineHeight: 16,
-                      }}
-                    >
-                      {customer.notes}
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
-            </View>
-            <StatusPill status={order.status} />
-          </View>
+        {(() => {
+          const rawAddress = activeOrder.address || customer?.address || "";
+          const addressLines = rawAddress
+            ? (rawAddress.includes("\n")
+                ? rawAddress.split("\n")
+                : rawAddress.split(",")
+              )
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [];
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          <View style={styles.infoGrid}>
-            <InfoItem label="Source" value={order.source} colors={colors} />
-            <InfoItem
-              label="Order Date"
-              value={formatDate(order.orderDate)}
-              colors={colors}
-            />
-            <InfoItem
-              label="Due Date"
-              value={formatDate(order.dueDate)}
-              colors={colors}
-            />
-          </View>
-
-          {/* Due-date reminder hint */}
-          {order.dueDate &&
-            order.status !== "Delivered" &&
-            (() => {
-              const due = new Date(`${order.dueDate}T00:00:00`);
-              const reminder = new Date(due);
-              reminder.setDate(due.getDate() - 2);
-              reminder.setHours(10, 0, 0, 0);
-              if (reminder > new Date()) {
-                return (
-                  <View
-                    style={[
-                      styles.reminderBanner,
-                      { backgroundColor: colors.accent },
-                    ]}
-                  >
-                    <Feather name="bell" size={13} color="#C06070" />
-                    <Text style={[styles.reminderText, { color: "#8B4D5C" }]}>
-                      Reminder set for{" "}
-                      {formatDate(reminder.toISOString().split("T")[0])} at
-                      10:00 AM
-                    </Text>
-                  </View>
-                );
-              }
-              return null;
-            })()}
-        </View>
-
-        {/* Order Products Card */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-            Order Products ({order.items?.length || 1})
-          </Text>
-          <View style={{ gap: 12, marginTop: 4 }}>
-            {(order.items && order.items.length > 0
-              ? order.items
+          const mappedItems = (
+            activeOrder.items && activeOrder.items.length > 0
+              ? activeOrder.items
               : [
                   {
-                    id: "legacy-" + order.id,
-                    productName: order.customName || "Custom item",
-                    price: order.price,
+                    id: "legacy-" + activeOrder.id,
+                    productName: activeOrder.customName || "Custom item",
+                    price: activeOrder.price,
                     quantity: 1,
-                    size: order.size,
-                    imagePath: order.referenceImagePath,
-                    thumbnailPath: order.thumbnailPath,
-                    isCustom: !!order.isCustom,
+                    size: activeOrder.size,
+                    isCustom: !!activeOrder.isCustom,
                   },
                 ]
-            ).map((item, idx) => {
-              const isSelected = idx === selectedItemIndex;
-              const hasImages =
-                (item.imagePaths && item.imagePaths.length > 0) ||
-                !!item.imagePath ||
-                !!item.thumbnailPath;
-              const displayUri =
-                item.thumbnailPath ||
-                item.imagePath ||
-                (item.imagePaths && item.imagePaths[0]);
+          ).map((it, idx) => ({
+            id: it.id || String(idx),
+            quantity: it.quantity || 1,
+            name: it.productName || (it as any).name || "Item",
+            price: Number(it.price || 0) * (it.quantity || 1),
+            size: it.size,
+            isCustom: it.isCustom,
+          }));
 
-              return (
-                <Pressable
-                  key={item.id || idx}
-                  onPress={() => {
-                    setSelectedItemIndex(idx);
-                    setActiveImageIndex(0);
-                  }}
-                  style={[
-                    {
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      paddingVertical: 8,
-                      paddingHorizontal: 8,
-                      borderRadius: 10,
-                    },
-                    isSelected && {
-                      backgroundColor: colors.accent,
-                      borderWidth: 1.5,
-                      borderColor: "#C06070",
-                    },
-                  ]}
-                >
-                  {hasImages ? (
-                    <View>
-                      <Image
-                        source={{ uri: displayUri }}
-                        style={{
-                          width: 50,
-                          height: 50,
-                          borderRadius: 8,
-                          backgroundColor: colors.accent,
-                        }}
-                        contentFit="cover"
-                      />
-                    </View>
-                  ) : (
-                    <View
-                      style={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: 8,
-                        backgroundColor: colors.accent,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Feather name="package" size={20} color="#C06070" />
-                    </View>
-                  )}
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontFamily: "Inter_600SemiBold",
-                        color: colors.foreground,
-                      }}
-                    >
-                      {item.productName}
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontFamily: "Inter_500Medium",
-                          color: colors.mutedForeground,
-                        }}
-                      >
-                        Qty: {item.quantity}
-                      </Text>
-                      {item.size ? (
-                        <View
-                          style={[
-                            styles.sizeInlineChip,
-                            {
-                              backgroundColor: isSelected
-                                ? "#C06070"
-                                : colors.accent,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.sizeInlineText,
-                              { color: isSelected ? "#fff" : "#C06070" },
-                            ]}
-                          >
-                            {item.size}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {item.isCustom ? (
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontFamily: "Inter_500Medium",
-                            color: "#C06070",
-                            backgroundColor: colors.accent,
-                            paddingHorizontal: 6,
-                            paddingVertical: 1,
-                            borderRadius: 4,
-                          }}
-                        >
-                          Custom
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontFamily: "Inter_700Bold",
-                        color: colors.foreground,
-                      }}
-                    >
-                      ₹{(item.price * item.quantity).toFixed(2)}
-                    </Text>
-                    {item.quantity > 1 ? (
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontFamily: "Inter_400Regular",
-                          color: colors.mutedForeground,
-                        }}
-                      >
-                        ₹{item.price.toFixed(2)} each
-                      </Text>
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+          let reminderText: string | null = null;
+          if (activeOrder.dueDate && activeOrder.status !== "Delivered") {
+            const due = new Date(`${activeOrder.dueDate}T00:00:00`);
+            const reminder = new Date(due);
+            reminder.setDate(due.getDate() - 2);
+            reminder.setHours(10, 0, 0, 0);
+            if (reminder > new Date()) {
+              reminderText = `Reminder set for ${formatDate(
+                reminder.toISOString().split("T")[0],
+              )} at 10:00 AM`;
+            }
+          }
 
-        {/* Payment Card */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-            Payment
-          </Text>
-          <View style={styles.paymentRow}>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[styles.priceLabel, { color: colors.mutedForeground }]}
-              >
-                Total
-              </Text>
-              <Text style={[styles.priceValue, { color: colors.foreground }]}>
-                ₹{order.price.toFixed(2)}
-              </Text>
-            </View>
-            <View style={{ flex: 1, alignItems: "center" }}>
-              <Text
-                style={[styles.priceLabel, { color: colors.mutedForeground }]}
-              >
-                Paid
-              </Text>
-              <Text
-                style={[styles.priceValue, { color: colors.deliveredText }]}
-              >
-                ₹{order.amountPaid.toFixed(2)}
-              </Text>
-            </View>
-            <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <Text
-                style={[styles.priceLabel, { color: colors.mutedForeground }]}
-              >
-                Balance
-              </Text>
-              <Text
-                style={[
-                  styles.priceValue,
-                  {
-                    color:
-                      outstanding > 0
-                        ? colors.overdueText
-                        : colors.deliveredText,
-                  },
-                ]}
-              >
-                ₹{outstanding.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-          <PaymentPill status={order.paymentStatus} />
-        </View>
+          return (
+            <OrderDetailsCard
+              orderId={`#${activeOrder.id}`}
+              customerName={activeOrder.customerName}
+              channel={activeOrder.source || "Direct"}
+              addressLines={addressLines}
+              phone={(phone || customer?.phone || "").trim()}
+              instagram={(ig || customer?.igHandle || "").trim()}
+              email={(email || customer?.email || "").trim()}
+              orderDate={formatDate(activeOrder.orderDate)}
+              dueDate={formatDate(activeOrder.dueDate)}
+              items={mappedItems}
+              totalAmount={activeOrder.price}
+              paidAmount={activeOrder.amountPaid || 0}
+              balanceAmount={outstanding}
+              currencySymbol="₹"
+              selectedItemIndex={selectedItemIndex}
+              onSelectItem={(idx) => {
+                setSelectedItemIndex(idx);
+                setActiveImageIndex(0);
+              }}
+              customerNotes={customer?.notes || null}
+              statusPill={<StatusPill status={activeOrder.status} />}
+              paymentPill={
+                <PaymentPill status={activeOrder.paymentStatus} fullWidth />
+              }
+              reminderText={reminderText}
+            />
+          );
+        })()}
 
         {/* Status Timeline */}
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              marginTop: 12,
+            },
           ]}
         >
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>
@@ -1280,11 +953,19 @@ export default function OrderDetailScreen() {
                   await Linking.openURL(fallbackLink);
                 }
               }}
-              style={[styles.sendBtn, { flex: 1, backgroundColor: "#E1306C" }]}
+              style={[
+                styles.sendBtn,
+                {
+                  flex: 1,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                },
+              ]}
             >
-              <Feather name="instagram" size={18} color="#fff" />
+              <Feather name="instagram" size={18} color="#C13584" />
               <Text
-                style={[styles.sendBtnText, { color: "#fff", fontSize: 14 }]}
+                style={[styles.sendBtnText, { color: "#C13584", fontSize: 14 }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -1301,11 +982,19 @@ export default function OrderDetailScreen() {
                   `https://wa.me/${p}?text=${encodeURIComponent(message)}`,
                 );
               }}
-              style={[styles.sendBtn, { flex: 1, backgroundColor: "#25D366" }]}
+              style={[
+                styles.sendBtn,
+                {
+                  flex: 1,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                },
+              ]}
             >
-              <Feather name="message-circle" size={18} color="#fff" />
+              <Feather name="message-circle" size={18} color="#128C7E" />
               <Text
-                style={[styles.sendBtnText, { color: "#fff", fontSize: 14 }]}
+                style={[styles.sendBtnText, { color: "#128C7E", fontSize: 14 }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -1327,15 +1016,17 @@ export default function OrderDetailScreen() {
               }}
               style={[
                 styles.sendBtn,
-                { flex: 1, backgroundColor: colors.primary },
+                {
+                  flex: 1,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                },
               ]}
             >
-              <Feather name="mail" size={18} color={colors.primaryForeground} />
+              <Feather name="mail" size={18} color="#000000" />
               <Text
-                style={[
-                  styles.sendBtnText,
-                  { color: colors.primaryForeground, fontSize: 14 },
-                ]}
+                style={[styles.sendBtnText, { color: "#000000", fontSize: 14 }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -1349,15 +1040,17 @@ export default function OrderDetailScreen() {
               onPress={handleSend}
               style={[
                 styles.sendBtn,
-                { flex: 1, backgroundColor: colors.primary },
+                {
+                  flex: 1,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                },
               ]}
             >
-              <Feather name="send" size={18} color={colors.primaryForeground} />
+              <Feather name="send" size={18} color="#000000" />
               <Text
-                style={[
-                  styles.sendBtnText,
-                  { color: colors.primaryForeground, fontSize: 14 },
-                ]}
+                style={[styles.sendBtnText, { color: "#000000", fontSize: 14 }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >

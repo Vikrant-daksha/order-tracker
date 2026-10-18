@@ -94,9 +94,16 @@ export function StatusPill({
 interface PaymentPillProps {
   status: PaymentStatus;
   size?: "sm" | "md";
+  fullWidth?: boolean;
+  style?: any;
 }
 
-export function PaymentPill({ status, size = "md" }: PaymentPillProps) {
+export function PaymentPill({
+  status,
+  size = "md",
+  fullWidth = false,
+  style,
+}: PaymentPillProps) {
   const colors = useColors();
 
   const config = {
@@ -105,7 +112,7 @@ export function PaymentPill({ status, size = "md" }: PaymentPillProps) {
     Paid: { bg: colors.paid, text: colors.paidText },
   };
 
-  const { bg, text } = config[status];
+  const { bg, text } = config[status] || config.Unpaid;
   const isSmall = size === "sm";
 
   return (
@@ -117,9 +124,27 @@ export function PaymentPill({ status, size = "md" }: PaymentPillProps) {
           paddingHorizontal: isSmall ? 8 : 12,
           paddingVertical: isSmall ? 3 : 5,
         },
+        fullWidth && {
+          alignSelf: "stretch",
+          width: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 0,
+          paddingVertical: isSmall ? 6 : 9,
+        },
+        style,
       ]}
     >
-      <Text style={[styles.text, { color: text, fontSize: isSmall ? 10 : 12 }]}>
+      <Text
+        style={[
+          styles.text,
+          {
+            color: text,
+            fontSize: isSmall ? 10 : 12,
+            textAlign: "center",
+          },
+        ]}
+      >
         {status.toUpperCase()}
       </Text>
     </View>
