@@ -557,11 +557,46 @@ export default function OrderDetailScreen() {
         ) : null}
 
         {/* Size badge & Custom Size Photos */}
+
         {selectedItem?.size ||
         activeOrder.size ||
         customer?.size ||
         sizeImages.length > 0 ? (
           <View style={{ marginBottom: 12, gap: 8 }}>
+            {selectedItem?.size || activeOrder.size || customer?.size ? (
+              <View
+                style={[
+                  styles.sizeBadgeRow,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    marginBottom: 0,
+                  },
+                ]}
+              >
+                <View
+                  style={[styles.sizeBadge, { backgroundColor: colors.accent }]}
+                >
+                  <Feather name="maximize-2" size={12} color="#C06070" />
+                  <Text
+                    style={[
+                      styles.sizeBadgeLabel,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    SIZE
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sizeBadgeValue,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    {selectedItem?.size || activeOrder.size || customer?.size}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
             {sizeImages.length > 0 ? (
               <View
                 style={[
@@ -619,12 +654,11 @@ export default function OrderDetailScreen() {
                   >
                     <Text
                       style={{
-                        fontSize: 11,
+                        fontSize: 10,
                         fontFamily: "Inter_600SemiBold",
                         color: "#C06070",
                       }}
                     >
-                      SIZE :{" "}
                       {selectedItem?.size || activeOrder.size || customer?.size}
                     </Text>
                   </Pressable>
@@ -641,8 +675,8 @@ export default function OrderDetailScreen() {
                         setActiveViewerImage(sImg);
                       }}
                       style={{
-                        width: 75,
-                        height: 75,
+                        width: 55,
+                        height: 55,
                         borderRadius: 8,
                         overflow: "hidden",
                         borderWidth: 1,
@@ -661,6 +695,172 @@ export default function OrderDetailScreen() {
             ) : null}
           </View>
         ) : null}
+
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+            Order Products ({order.items?.length || 1})
+          </Text>
+          <View style={{ gap: 12, marginTop: 2 }}>
+            {(order.items && order.items.length > 0
+              ? order.items
+              : [
+                  {
+                    id: "legacy-" + order.id,
+                    productName: order.customName || "Custom item",
+                    price: order.price,
+                    quantity: 1,
+                    size: order.size,
+                    imagePath: order.referenceImagePath,
+                    thumbnailPath: order.thumbnailPath,
+                    isCustom: !!order.isCustom,
+                  },
+                ]
+            ).map((item, idx) => {
+              const isSelected = idx === selectedItemIndex;
+              const hasImages =
+                (item.imagePaths && item.imagePaths.length > 0) ||
+                !!item.imagePath ||
+                !!item.thumbnailPath;
+              const displayUri =
+                item.thumbnailPath ||
+                item.imagePath ||
+                (item.imagePaths && item.imagePaths[0]);
+
+              return (
+                <Pressable
+                  key={item.id || idx}
+                  onPress={() => {
+                    setSelectedItemIndex(idx);
+                    setActiveImageIndex(0);
+                  }}
+                  style={[
+                    {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                      paddingVertical: 6,
+                      paddingHorizontal: 8,
+                      borderRadius: 10,
+                    },
+                    isSelected && {
+                      backgroundColor: colors.accent,
+                      borderWidth: 1,
+                      borderColor: "#C06070",
+                    },
+                  ]}
+                >
+                  {hasImages ? (
+                    <View>
+                      <Image
+                        source={{ uri: displayUri }}
+                        style={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: 8,
+                          backgroundColor: colors.accent,
+                        }}
+                        contentFit="cover"
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      style={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: 8,
+                        backgroundColor: colors.accent,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Feather name="package" size={20} color="#C06070" />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: "Inter_600SemiBold",
+                        color: colors.foreground,
+                      }}
+                    >
+                      {item.productName}
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontFamily: "Inter_500Medium",
+                          color: colors.mutedForeground,
+                        }}
+                      >
+                        Qty: {item.quantity}
+                      </Text>
+                      {item.size ? (
+                        <View
+                          style={[
+                            styles.sizeInlineChip,
+                            {
+                              backgroundColor: isSelected
+                                ? "#C06070"
+                                : colors.accent,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.sizeInlineText,
+                              { color: isSelected ? "#fff" : "#C06070" },
+                            ]}
+                          >
+                            {item.size}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {item.isCustom ? (
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontFamily: "Inter_500Medium",
+                            color: "#C06070",
+                            backgroundColor: colors.accent,
+                            paddingHorizontal: 6,
+                            paddingVertical: 1,
+                            borderRadius: 4,
+                          }}
+                        >
+                          Custom
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  {item.price != null ? (
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontFamily: "Inter_600SemiBold",
+                        color: colors.foreground,
+                      }}
+                    >
+                      ₹{item.price}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
         {(() => {
           const rawAddress = activeOrder.address || customer?.address || "";

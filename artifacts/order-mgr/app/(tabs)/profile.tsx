@@ -217,8 +217,19 @@ export default function ProfileScreen() {
       </View>
 
       {/* Outstanding Payments */}
-      <View
-        style={[styles.outstandingCard, { backgroundColor: colors.unpaid }]}
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          router.push({
+            pathname: "/orders" as any,
+            params: { filter: "Unpaid" },
+          });
+        }}
+        style={({ pressed }) => [
+          styles.outstandingCard,
+          { backgroundColor: colors.unpaid },
+          pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
+        ]}
       >
         <View style={styles.outstandingRow}>
           <FontAwesome name="rupee" size={22} color={colors.unpaidText} />
@@ -234,6 +245,7 @@ export default function ProfileScreen() {
               ₹{stats.outstanding.toFixed(2)}
             </Text>
           </View>
+          <Feather name="chevron-right" size={20} color={colors.unpaidText} />
         </View>
         <View style={styles.paymentBreakdown}>
           <View style={styles.paymentItem}>
@@ -253,7 +265,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* Quick Stats */}
       <View style={styles.statsRow}>

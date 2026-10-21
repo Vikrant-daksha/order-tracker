@@ -388,6 +388,16 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
 
               {/* Right: price (+4px larger) + payment status aligned to right */}
               <View style={styles.right}>
+                {paymentStatusText === "Partial" && outstanding > 0 && (
+                  <Text
+                    style={[
+                      styles.outstandingText,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Due ₹{outstanding.toFixed(0)}
+                  </Text>
+                )}
                 <Text style={[styles.price, { color: colors.foreground }]}>
                   ₹{order.price.toFixed(0)}
                 </Text>
@@ -406,16 +416,6 @@ export function OrderCard({ order, isOverdue, onSwipeActive }: OrderCardProps) {
                     {paymentStatusText}
                   </Text>
                 </View>
-                {paymentStatusText === "Partial" && outstanding > 0 && (
-                  <Text
-                    style={[
-                      styles.outstandingText,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    Due ₹{outstanding.toFixed(0)}
-                  </Text>
-                )}
               </View>
             </View>
           </Pressable>

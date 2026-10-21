@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import React, { useMemo, useState, useCallback } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   FlatList,
   Platform,
@@ -19,9 +19,10 @@ import { useDatabase } from "@/context/DatabaseContext";
 import { Order, OrderStatus } from "@/types";
 import { ChatBubble } from "@/components/ChatBubble";
 
-type FilterOption = "All" | OrderStatus;
+type FilterOption = "All" | "Unpaid" | OrderStatus;
 const FILTERS: FilterOption[] = [
   "All",
+  "Unpaid",
   "Confirmed",
   "Completed",
   "Shipped",
@@ -155,15 +156,35 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { orders } = useDatabase();
-  const [filter, setFilter] = useState<FilterOption>("All");
+  const params = useLocalSearchParams<{ filter?: string }>();
+
+  const [filter, setFilter] = useState<FilterOption>(() => {
+    if (params.filter && FILTERS.includes(params.filter as FilterOption)) {
+      return params.filter as FilterOption;
+    }
+    return "All";
+  });
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+
+  useEffect(() => {
+    if (params.filter && FILTERS.includes(params.filter as FilterOption)) {
+      setFilter(params.filter as FilterOption);
+    }
+  }, [params.filter]);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
   const filtered = useMemo(() => {
-    let list =
-      filter === "All" ? orders : orders.filter((o) => o.status === filter);
+    let list = orders;
+    if (filter === "Unpaid") {
+      list = orders.filter(
+        (o) => o.paymentStatus === "Unpaid" || o.paymentStatus === "Partial",
+      );
+    } else if (filter !== "All") {
+      list = orders.filter((o) => o.status === filter);
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -256,6 +277,10 @@ export default function OrdersScreen() {
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               {search
                 ? "No orders match your search"
+                : filter === "Unpaid"
+                ? "No unpaid or partial orders"
+                : filter !== "All"
+                ? `No ${filter.toLowerCase()} orders`
                 : "Tap + to create your first order"}
             </Text>
           </View>
