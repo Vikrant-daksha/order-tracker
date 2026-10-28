@@ -211,14 +211,8 @@ export const OrderDetailsCard: React.FC<OrderDetailsCardProps> = ({
               addressLines.map((line, idx) => (
                 <Text
                   key={idx}
-                  style={[
-                    styles.addressLine,
-                    idx === addressLines.length - 1 &&
-                      addressLines.length > 2 && {
-                        color: COLORS.onSurfaceVariant,
-                      },
-                  ]}
-                  numberOfLines={1}
+                  style={styles.addressLine}
+                  selectable={true}
                 >
                   {line}
                 </Text>
@@ -694,14 +688,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceLow,
     borderWidth: 1,
     borderColor: COLORS.outlineVariantBorder,
-    borderRadius: 4,
-    padding: 8,
-    gap: 2,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
   },
   addressLine: {
     fontSize: 13,
     color: COLORS.onSurface,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   emptyText: {
     fontSize: 13,

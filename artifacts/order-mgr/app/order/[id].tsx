@@ -864,10 +864,13 @@ export default function OrderDetailScreen() {
 
         {(() => {
           const rawAddress = activeOrder.address || customer?.address || "";
-          const addressLines = rawAddress
-            ? (rawAddress.includes("\n")
-                ? rawAddress.split("\n")
-                : rawAddress.split(",")
+          const normalizedAddress = rawAddress
+            .replace(/\r\n/g, "\n")
+            .replace(/\r/g, "\n");
+          const addressLines = normalizedAddress
+            ? (normalizedAddress.includes("\n")
+                ? normalizedAddress.split("\n")
+                : normalizedAddress.split(",")
               )
                 .map((s) => s.trim())
                 .filter(Boolean)
