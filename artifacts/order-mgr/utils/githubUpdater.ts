@@ -233,13 +233,6 @@ function formatBytes(bytes: number): string {
   return `${mb.toFixed(1)} MB`;
 }
 
-function formatProgressBar(pct: number, length = 10): string {
-  const clamped = Math.max(0, Math.min(1, pct));
-  const filled = Math.round(clamped * length);
-  const empty = length - filled;
-  return "█".repeat(filled) + "░".repeat(empty);
-}
-
 let isUpdatingNotification = false;
 
 async function postDownloadNotification(
@@ -255,19 +248,18 @@ async function postDownloadNotification(
   isUpdatingNotification = true;
   try {
     const percent = Math.floor(Math.max(0, Math.min(1, pct)) * 100);
-    const bar = formatProgressBar(pct, 10);
     const writtenStr = formatBytes(writtenBytes);
     const totalStr = formatBytes(totalBytes);
 
     const bodyText =
       totalBytes > 0
-        ? `${bar} ${percent}% (${writtenStr} / ${totalStr}) • v${version}`
-        : `${bar} ${percent}% • Downloading v${version}...`;
+        ? `${percent}% (${writtenStr} / ${totalStr}) • v${version}`
+        : `${percent}% • Downloading v${version}...`;
 
     await Notifications.scheduleNotificationAsync({
       identifier: DOWNLOAD_NOTIFICATION_ID,
       content: {
-        title: `Downloading OrderFlow Update (${percent}%)`,
+        title: `Downloading OrderFlow Update`,
         body: bodyText,
         data: { apkUrl, fileUri, isDownloadProgress: true },
         categoryIdentifier: DOWNLOAD_CATEGORY_ID,
@@ -276,6 +268,12 @@ async function postDownloadNotification(
         priority: Notifications.AndroidNotificationPriority.LOW,
         sticky: true,
         autoDismiss: false,
+        // @ts-expect-error progressBar is not in type definitions but exists at runtime
+        progressBar: {
+          progress: pct,
+          max: 1,
+          indeterminate: false,
+        },
       },
       trigger: {
         channelId: DOWNLOAD_CHANNEL_ID,
@@ -436,7 +434,7 @@ export async function downloadAndInstall(
       await Notifications.scheduleNotificationAsync({
         identifier: "orderflow-update-ready",
         content: {
-          title: "OrderFlow Update is Ready! 🎉",
+          title: "OrderFlow Update is Ready",
           body: `Version ${targetVersion} has finished downloading. Tap to install now.`,
           data: { fileUri: result.uri, action: "INSTALL_UPDATE" },
           sound: true,

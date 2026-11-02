@@ -197,11 +197,294 @@ function extractPincode(text: string): string | undefined {
   return undefined;
 }
 
-// ── Address Extraction ───────────────────────────────────────────────────────
-// Looks for labeled blocks or lines containing address keywords
+// ── Address Component Extraction ──────────────────────────────────────────────
+// Extracts address components (area, city, state, pincode, landmark) and returns concatenated string
 
+const INDIAN_STATES = [
+  "andhra pradesh",
+  "arunachal pradesh",
+  "assam",
+  "bihar",
+  "chhattisgarh",
+  "goa",
+  "gujarat",
+  "haryana",
+  "himachal pradesh",
+  "jharkhand",
+  "karnataka",
+  "kerala",
+  "madhya pradesh",
+  "maharashtra",
+  "manipur",
+  "meghalaya",
+  "mizoram",
+  "nagaland",
+  "odisha",
+  "punjab",
+  "rajasthan",
+  "sikkim",
+  "tamil nadu",
+  "telangana",
+  "tripura",
+  "uttar pradesh",
+  "uttarakhand",
+  "west bengal",
+  // Union territories
+  "andaman and nicobar islands",
+  "chandigarh",
+  "dadra and nagar haveli and daman and diu",
+  "delhi",
+  "jammu and kashmir",
+  "ladakh",
+  "lakshadweep",
+  "puducherry",
+];
+
+const STATE_ABBREVIATIONS: Record<string, string> = {
+  ap: "Andhra Pradesh",
+  ar: "Arunachal Pradesh",
+  as: "Assam",
+  br: "Bihar",
+  cg: "Chhattisgarh",
+  ga: "Goa",
+  gj: "Gujarat",
+  hr: "Haryana",
+  hp: "Himachal Pradesh",
+  jh: "Jharkhand",
+  ka: "Karnataka",
+  kl: "Kerala",
+  mp: "Madhya Pradesh",
+  mh: "Maharashtra",
+  mn: "Manipur",
+  ml: "Meghalaya",
+  mz: "Mizoram",
+  nl: "Nagaland",
+  or: "Odisha",
+  pb: "Punjab",
+  rj: "Rajasthan",
+  sk: "Sikkim",
+  tn: "Tamil Nadu",
+  tg: "Telangana",
+  tr: "Tripura",
+  up: "Uttar Pradesh",
+  uk: "Uttarakhand",
+  wb: "West Bengal",
+  an: "Andaman and Nicobar Islands",
+  ch: "Chandigarh",
+  dn: "Dadra and Nagar Haveli and Daman and Diu",
+  dl: "Delhi",
+  jk: "Jammu and Kashmir",
+  la: "Ladakh",
+  ld: "Lakshadweep",
+  py: "Puducherry",
+};
+
+function extractState(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  for (const state of INDIAN_STATES) {
+    if (lower.includes(state))
+      return state.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  for (const [abbr, full] of Object.entries(STATE_ABBREVIATIONS)) {
+    if (new RegExp(`\\b${abbr}\\b`, "i").test(lower)) return full;
+  }
+  return undefined;
+}
+
+function extractPincodeFromText(text: string): string | undefined {
+  const labeled = text.match(
+    /(?:pin(?:\s*code)?|zip(?:\s*code)?|postal(?:\s*code)?)[.\s:-]*(\d{3}[\s\-]?\d{3})(?!\d)/i,
+  );
+  if (labeled) return labeled[1].replace(/[\s\-]/, "");
+  const standalone = text.match(/(?<!\d)([1-9]\d{5})(?!\d)/);
+  if (standalone) return standalone[1];
+  return undefined;
+}
+
+const MAJOR_CITIES = [
+  "mumbai",
+  "delhi",
+  "bangalore",
+  "bengaluru",
+  "hyderabad",
+  "chennai",
+  "kolkata",
+  "pune",
+  "ahmedabad",
+  "jaipur",
+  "surat",
+  "lucknow",
+  "kanpur",
+  "nagpur",
+  "indore",
+  "thane",
+  "bhopal",
+  "visakhapatnam",
+  "pimpri-chinchwad",
+  "patna",
+  "vadodara",
+  "ghaziabad",
+  "ludhiana",
+  "agra",
+  "nashik",
+  "faridabad",
+  "meerut",
+  "rajkot",
+  "kalyan-dombivli",
+  "vasai-virar",
+  "varanasi",
+  "srinagar",
+  "aurangabad",
+  "dhanbad",
+  "amritsar",
+  "navi mumbai",
+  "allahabad",
+  "prayagraj",
+  "ranchi",
+  "howrah",
+  "coimbatore",
+  "jabalpur",
+  "gwalior",
+  "vijayawada",
+  "jodhpur",
+  "madurai",
+  "raipur",
+  "kota",
+  "guwahati",
+  "chandigarh",
+  "solapur",
+  "hubli-dharwad",
+  "bareilly",
+  "mysore",
+  "tiruppur",
+  "gurgaon",
+  "gurugram",
+  "noida",
+  "greater noida",
+];
+
+function extractCity(text: string, state?: string): string | undefined {
+  const lower = text.toLowerCase();
+  for (const city of MAJOR_CITIES) {
+    if (lower.includes(city)) {
+      return city.replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+  }
+  const cityMatch = text.match(
+    /(?:city|town|district)[.\s:-]+([a-zA-Z\s]{2,30})/i,
+  );
+  if (cityMatch)
+    return cityMatch[1].trim().replace(/\b\w/g, (c) => c.toUpperCase());
+  return undefined;
+}
+
+function stripAddressLabel(text: string): string {
+  return text
+    .replace(
+      /^(?:address|addr|add\.?|delivery\s*(?:addr(?:ess)?)?\s*(?:to)?|ship(?:ping)?\s*(?:to|addr(?:ess)?)?|deliver\s*(?:y\s*)?to|city|pincode|pin|zip|postal)[.\s:-]+/i,
+      "",
+    )
+    .trim();
+}
+
+function extractArea(
+  text: string,
+  knownCity?: string,
+  knownState?: string,
+): string | undefined {
+  const areaKeywords =
+    /\b(flat|house|floor|plot|no\.?|road|street|lane|nagar|colony|sector|phase|block|area|near|opp|behind|above|below|landmark|apartment|apt|tower|building|bldg)\b/i;
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (areaKeywords.test(line)) {
+      let clean = stripAddressLabel(line);
+      clean = clean.replace(
+        /(?:pin(?:code)?|zip|postal)[.\s:-]*\d{3}[\s\-]?\d{3}/gi,
+        "",
+      );
+      clean = clean.replace(/(?<!\d)[1-9]\d{5}(?!\d)/g, "");
+      // Remove known city/state from area to avoid duplication
+      if (knownCity)
+        clean = clean
+          .replace(
+            new RegExp(knownCity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
+            "",
+          )
+          .trim();
+      if (knownState)
+        clean = clean
+          .replace(
+            new RegExp(knownState.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
+            "",
+          )
+          .trim();
+      // Also remove common state abbreviations
+      clean = clean
+        .replace(
+          /\b(AP|AR|AS|BR|CG|GA|GJ|HR|HP|JH|KA|KL|MP|MH|MN|ML|MZ|NL|OR|PB|RJ|SK|TN|TG|TR|UP|UK|WB|AN|CH|DN|DL|JK|LA|LD|PY)\b/gi,
+          "",
+        )
+        .trim();
+      clean = clean.replace(/^[,\s\-:]+|[,\s\-:]+$/g, "").trim();
+      // Clean up multiple commas/spaces
+      clean = clean.replace(/,+/g, ",").replace(/\s+/g, " ").trim();
+      if (clean.length > 3) return clean;
+    }
+  }
+  return undefined;
+}
+
+function extractAddressComponents(text: string): {
+  area?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+} {
+  const state = extractState(text);
+  const pincode = extractPincodeFromText(text);
+  const city = extractCity(text, state);
+  const area = extractArea(text, city, state);
+  return { area, city, state, pincode };
+}
+
+// Union territories that are also city names (avoid "Delhi, Delhi" duplicates)
+const CITY_STATES = new Set([
+  "delhi",
+  "chandigarh",
+  "puducherry",
+  "daman",
+  "diu",
+  "dadra",
+  "nagar haveli",
+]);
+
+function buildConcatenatedAddress(components: {
+  area?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+}): string {
+  const parts: string[] = [];
+  if (components.area) parts.push(components.area);
+  if (components.city) parts.push(components.city);
+  if (components.state) {
+    // Skip state if it's the same as city (for city-states/UTs like Delhi, Chandigarh)
+    const cityLower = components.city?.toLowerCase();
+    const stateLower = components.state.toLowerCase();
+    if (!cityLower || !CITY_STATES.has(cityLower) || cityLower !== stateLower) {
+      parts.push(components.state);
+    }
+  }
+  if (components.pincode) parts.push(components.pincode);
+  return parts.join(", ");
+}
+
+// ── Address Extraction (legacy - kept for backward compat) ────────────────────
 function extractAddress(lines: string[]): string | undefined {
-  // 1. Labeled single-line
   for (const line of lines) {
     const labeled = line.match(
       /(?:address|addr|add\.?|delivery\s*(?:addr(?:ess)?)?|ship(?:ping)?\s*(?:to|addr(?:ess)?)?|deliver\s*to)[.\s:-]+(.+)/i,
@@ -209,7 +492,6 @@ function extractAddress(lines: string[]): string | undefined {
     if (labeled && labeled[1].trim().length > 4) return labeled[1].trim();
   }
 
-  // 2. Multi-line address block: collect lines that look address-like
   const addressKeywords =
     /\b(flat|house|floor|plot|no\.|road|street|lane|nagar|colony|sector|phase|block|area|town|city|district|state|near|opp|behind|above|below|landmark)\b/i;
   const addressLines: string[] = [];
@@ -220,7 +502,6 @@ function extractAddress(lines: string[]): string | undefined {
     }
     if (capturing) {
       addressLines.push(line);
-      // Stop after 4 lines or on an empty pattern
       if (addressLines.length >= 4) break;
     }
   }
@@ -334,7 +615,10 @@ export function parseOrderText(text: string): ParsedOrder {
     doc.tokens().each((token: any) => {
       const val = token.out();
       const type = token.out(its.type);
-      if (type === "email" || /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(val)) {
+      if (
+        type === "email" ||
+        /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(val)
+      ) {
         email = val;
       } else if (val.startsWith("@") && val.length > 1) {
         instagram = val;
@@ -363,7 +647,10 @@ export function parseOrderText(text: string): ParsedOrder {
           const nameTokens: string[] = [];
           let j = i + 1;
           // Skip punctuation
-          while (j < length && tokens.itemAt(j).out(its.type) === "punctuation") {
+          while (
+            j < length &&
+            tokens.itemAt(j).out(its.type) === "punctuation"
+          ) {
             j++;
           }
           while (j < length && tokens.itemAt(j).out(its.pos) === "PROPN") {
@@ -398,7 +685,9 @@ export function parseOrderText(text: string): ParsedOrder {
 
     const lineDoc = nlp.readDoc(firstLineClean);
     const tokens = lineDoc.tokens();
-    const nonPunct = tokens.filter((t: any) => t.out(its.type) !== "punctuation");
+    const nonPunct = tokens.filter(
+      (t: any) => t.out(its.type) !== "punctuation",
+    );
 
     if (nonPunct.length() > 0 && nonPunct.length() <= 3) {
       let allNouns = true;
@@ -428,14 +717,19 @@ export function parseOrderText(text: string): ParsedOrder {
   if (!result.orderDate) result.orderDate = extractDate(text);
   if (!result.price) result.price = extractPrice(text);
 
-  // ── Pass 3: Address ───────────────────────────────────────────────────────
+  // ── Pass 3: Address (Component-based extraction for 80-90% edge cases) ──────
+  // Extract structured components from full text, then build concatenated string
+  const addressComponents = extractAddressComponents(text);
+  result.address = buildConcatenatedAddress(addressComponents);
+  result.pincode = addressComponents.pincode;
+
+  // Fallback to legacy extraction if new method yields nothing
   if (!result.address) {
     result.address = extractAddress(lines);
   }
   if (!result.address && lines.length > 0) {
     const addressCandidateLines = lines.filter((line) => {
       const l = line.toLowerCase();
-      // Filter out lines containing resolved metadata to avoid matching them as addresses
       if (result.customerName && l.includes(result.customerName.toLowerCase()))
         return false;
       if (result.phone && l.includes(result.phone.replace(/\s+/g, "")))
@@ -444,9 +738,7 @@ export function parseOrderText(text: string): ParsedOrder {
         return false;
       if (result.customName && l.includes(result.customName.toLowerCase()))
         return false;
-      if (result.price && l.includes(result.price.toString()))
-        return false;
-      // Filter out patterns typical for price, quantity, labels, greeting
+      if (result.price && l.includes(result.price.toString())) return false;
       if (/^\+?\d[\d\s\-()]+$/.test(line)) return false;
       if (/price|total|cost|₹|\$/i.test(l)) return false;
       if (/item|product|qty|quantity/i.test(l)) return false;
@@ -478,17 +770,13 @@ export function parseOrderText(text: string): ParsedOrder {
     }
   }
 
-  // ── Pass 4: Pincode ───────────────────────────────────────────────────────
-  if (!result.pincode) {
-    result.pincode = extractPincode(text);
-    // Append pincode to address if found but not already in there
-    if (
-      result.pincode &&
-      result.address &&
-      !result.address.includes(result.pincode)
-    ) {
-      result.address = result.address + " - " + result.pincode;
-    }
+  // Ensure pincode is in address if we have one
+  if (
+    result.pincode &&
+    result.address &&
+    !result.address.includes(result.pincode)
+  ) {
+    result.address = result.address + ", PINCODE: " + result.pincode;
   }
 
   // Notes: append order ref

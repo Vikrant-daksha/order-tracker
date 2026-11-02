@@ -112,7 +112,7 @@ export async function scheduleOrderReminder(
     await Notifications.scheduleNotificationAsync({
       identifier: reminderKey(orderId),
       content: {
-        title: '📦 Order Due in 2 Days',
+        title: 'Order Due in 2 Days',
         body: `${customerName}'s order${productName ? ` for "${productName}"` : ''} is due on ${dueDate}.`,
         data: { orderId },
         sound: true,

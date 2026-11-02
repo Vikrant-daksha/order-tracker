@@ -3,7 +3,7 @@
     "name": "OrderFlow",
     "slug": "order-mgr",
     "owner": "vikrant_05",
-    "version": "1.3.8",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.jpg",
     "scheme": "order-mgr",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.vikrant05.orderflow",
-      "versionCode": 9,
+      "versionCode": 10,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES",
         "android.permission.RECORD_AUDIO"
