@@ -4,17 +4,16 @@ import router from "./routes";
 
 const app: Express = express();
 
-// Allow ALL origins, methods, and headers
+// Allow ALL origins, methods, and headers (cors() middleware automatically handles OPTIONS pre-flight)
 app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["*"],
     credentials: false,
+    optionsSuccessStatus: 200,
   }),
 );
-// Pre-flight for every route
-app.options("*", cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

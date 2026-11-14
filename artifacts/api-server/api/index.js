@@ -88580,10 +88580,10 @@ app.use(
     origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["*"],
-    credentials: false
+    credentials: false,
+    optionsSuccessStatus: 200
   })
 );
-app.options("*", (0, import_cors.default)());
 app.use(import_express6.default.json());
 app.use(import_express6.default.urlencoded({ extended: true }));
 app.use((req, _res, next) => {
