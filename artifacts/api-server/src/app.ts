@@ -25,6 +25,12 @@ app.use((req, _res, next) => {
   next();
 });
 
+app.get("/", (_req, res) => {
+  res.json({ status: "ok", message: "Cherrybrush API server is running" });
+});
+
+// Support both /api/path and /path directly
 app.use("/api", router);
+app.use(router);
 
 export default app;
