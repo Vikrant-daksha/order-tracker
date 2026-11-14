@@ -34,7 +34,6 @@ export interface Order {
   id: string;
   source: OrderSource;
   customerName: string;
-  contactInfo: string;
   address: string;
   orderDate: string;
   dueDate: string;
@@ -59,9 +58,7 @@ export interface Order {
 
 function genId() {
   return (
-    `CHERRYBRUSH` +
-    Date.now().toString(36) +
-    Math.random().toString(36).substring(2, 10)
+    `CB` + Date.now().toString(36) + Math.random().toString(36).substring(2, 8)
   );
 }
 
@@ -179,7 +176,7 @@ ordersRouter.post("/create-orders", async (req: Request, res: Response) => {
         .json({ error: "Order cannot be created without a Customer" });
     }
 
-    // 1. Create or save customer (contains customerImages)
+    // 1. Create or save customer (contact information belongs strictly to Customer)
     const customerId = await createCustomer(customerData);
     if (!customerId) {
       return res.status(400).json({ error: "Failed to create Customer" });
@@ -189,9 +186,13 @@ ordersRouter.post("/create-orders", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No order data received" });
     }
 
+    // Ensure contactInfo is stripped from orderData (only Customer holds contact info)
+    const { contactInfo: _discardedContact, ...sanitizedOrderData } =
+      orderData as any;
+
     // 2. Check if isCustom is OFF: ensure standard products exist in catalog
-    if (orderData.items && Array.isArray(orderData.items)) {
-      for (const item of orderData.items) {
+    if (sanitizedOrderData.items && Array.isArray(sanitizedOrderData.items)) {
+      for (const item of sanitizedOrderData.items) {
         // If isCustom is off (false), auto-add product to catalog if not already present
         if (!item.isCustom && item.productName) {
           const productResult = await createProduct({
@@ -205,17 +206,18 @@ ordersRouter.post("/create-orders", async (req: Request, res: Response) => {
           }
         }
       }
-    } else if (orderData.isCustom === 0) {
-      const name = (orderData as any).productName || (orderData as any).customName;
+    } else if (sanitizedOrderData.isCustom === 0) {
+      const name =
+        sanitizedOrderData.productName || sanitizedOrderData.customName;
       if (name) {
         const productResult = await createProduct({
           name,
-          price: orderData.price,
-          size: orderData.size,
-          imagePaths: orderData.sizeImagePaths || [],
+          price: sanitizedOrderData.price,
+          size: sanitizedOrderData.size,
+          imagePaths: sanitizedOrderData.sizeImagePaths || [],
         });
         if (productResult.success && productResult.product?.id) {
-          orderData.productId = productResult.product.id;
+          sanitizedOrderData.productId = productResult.product.id;
         }
       }
     }
@@ -223,11 +225,12 @@ ordersRouter.post("/create-orders", async (req: Request, res: Response) => {
     // 3. Insert order document (items contains imagePaths for each product)
     const newOrder: Order = {
       _id: id,
-      ...orderData,
+      ...sanitizedOrderData,
       id: id,
       customerId: customerId.toString(),
       createdAt: createdAt,
       deleted: false,
+      userEmailId: "cherrybrush.in@gmail.com",
     } as any;
 
     await collection.insertOne(newOrder as any);
@@ -271,10 +274,13 @@ ordersRouter.put("/update-order/:id", async (req: Request, res: Response) => {
       }
     }
 
-    // 2. Update order if orderData is passed (including updated items)
+    // 2. Update order if orderData is passed (ensuring contactInfo is stripped)
     if (orderData) {
-      if (orderData.items && Array.isArray(orderData.items)) {
-        for (const item of orderData.items) {
+      const { contactInfo: _discardedContact, ...sanitizedOrderData } =
+        orderData as any;
+
+      if (sanitizedOrderData.items && Array.isArray(sanitizedOrderData.items)) {
+        for (const item of sanitizedOrderData.items) {
           if (!item.isCustom && item.productName) {
             const productResult = await createProduct({
               name: item.productName,
@@ -291,7 +297,7 @@ ordersRouter.put("/update-order/:id", async (req: Request, res: Response) => {
 
       const update = await collection.updateOne(
         { _id: id as any },
-        { $set: { ...orderData, updatedAt } },
+        { $set: { ...sanitizedOrderData, updatedAt } },
       );
 
       if (update.matchedCount === 0) {
@@ -351,7 +357,7 @@ ordersRouter.put("/order-status/:id", async (req: Request, res: Response) => {
 
     await collection.findOneAndUpdate(
       { _id: id as any },
-      { $set: { workingOn: next }, updatedAt },
+      { $set: { workingOn: next, updatedAt } },
     );
 
     return res

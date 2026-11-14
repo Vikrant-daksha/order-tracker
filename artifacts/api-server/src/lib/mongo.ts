@@ -11,7 +11,7 @@ export async function getDb(): Promise<Db | any> {
     if (!db) {
       await client.connect();
       // Specify your database name here
-      db = client.db(process.env.MONGODB_DB_NAME || "cherrybrush_db");
+      db = client.db(process.env.MONGODB_DB_NAME || "orderflow");
       console.log("Connected to MongoDB successfully!");
     }
     return db;

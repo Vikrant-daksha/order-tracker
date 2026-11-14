@@ -2,11 +2,18 @@ import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState, useRef, useCallback } from "react";
+import React, {
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   FlatList,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -124,10 +131,15 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { orders } = useDatabase();
+  const { orders, syncAllPendingOrders, syncProgress } = useDatabase();
   const [attentionPage, setAttentionPage] = useState(1);
   const [listScrollEnabled, setListScrollEnabled] = useState(true);
   const [dueFilter, setDueFilter] = useState<"withDue" | "noDue">("withDue");
+
+  // Check and sync any pending previous orders once on mount
+  useEffect(() => {
+    syncAllPendingOrders();
+  }, []);
 
   const active = useMemo(
     () =>
@@ -321,6 +333,20 @@ export default function HomeScreen() {
         data={listItems}
         keyExtractor={(item) => item.id}
         scrollEnabled={listScrollEnabled}
+        refreshControl={
+          <RefreshControl
+            refreshing={syncProgress.isSyncing}
+            onRefresh={syncAllPendingOrders}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+        onEndReached={() => {
+          if (!syncProgress.isSyncing) {
+            syncAllPendingOrders();
+          }
+        }}
+        onEndReachedThreshold={0.2}
         renderItem={({ item }) => {
           if (item.type === "header") {
             return (

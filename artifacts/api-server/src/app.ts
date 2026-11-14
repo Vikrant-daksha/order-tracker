@@ -25,7 +25,7 @@ app.use((req, _res, next) => {
 });
 
 app.get("/", (_req, res) => {
-  res.json({ status: "ok", message: "Cherrybrush API server is running" });
+  res.json({ status: "ok", message: "OrderFlow API server is running" });
 });
 
 // Support both /api/path and /path directly

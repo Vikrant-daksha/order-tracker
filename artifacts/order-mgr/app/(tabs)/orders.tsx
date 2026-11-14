@@ -6,6 +6,7 @@ import {
   FlatList,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -155,8 +156,13 @@ export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { orders } = useDatabase();
+  const { orders, syncAllPendingOrders, syncProgress } = useDatabase();
   const params = useLocalSearchParams<{ filter?: string }>();
+
+  // Check and sync any pending previous orders once on mount
+  useEffect(() => {
+    syncAllPendingOrders();
+  }, []);
 
   const [filter, setFilter] = useState<FilterOption>(() => {
     if (params.filter && FILTERS.includes(params.filter as FilterOption)) {
@@ -211,6 +217,20 @@ export default function OrdersScreen() {
           <DateGroupSection group={item} defaultOpen={index === 0} />
         )}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={syncProgress.isSyncing}
+            onRefresh={syncAllPendingOrders}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+        onEndReached={() => {
+          if (!syncProgress.isSyncing) {
+            syncAllPendingOrders();
+          }
+        }}
+        onEndReachedThreshold={0.2}
         contentContainerStyle={{
           paddingBottom: Platform.OS === "web" ? 100 : insets.bottom + 100,
         }}

@@ -61,7 +61,13 @@ export interface Order {
   customerId?: string;
   workingOn?: number; // 1 = currently working on, 0 = not
   items?: OrderItem[];
+  onlineId?: string;
+  syncStatus?: 'PENDING' | 'SYNCING' | 'SYNCED' | 'FAILED';
+  lastSyncedAt?: string;
+  syncError?: string;
 }
+
+export * from './sync';
 
 export interface Product {
   id: string;

@@ -28,13 +28,22 @@ import {
 } from "@/utils/notifications";
 import { useUpdateContext } from "@/app/_layout";
 
-
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { orders, products, expenses, clearDeliveredImages, importBackup } =
-    useDatabase();
+  const {
+    orders,
+    products,
+    expenses,
+    clearDeliveredImages,
+    importBackup,
+    syncAllPendingOrders,
+    syncProgress,
+    syncedCount,
+    totalOrdersCount,
+    syncPercentage,
+  } = useDatabase();
   const {
     updateInfo,
     isChecking,
@@ -117,6 +126,12 @@ export default function ProfileScreen() {
     );
   }
 
+  async function handleManualSync() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await syncAllPendingOrders();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
   async function handleExportCSV() {
     await exportCSV(orders);
   }
@@ -194,7 +209,8 @@ export default function ProfileScreen() {
     } catch (e: any) {
       Alert.alert(
         "Download Interrupted",
-        e?.message ?? "Could not complete update download. You can retry or download via browser.",
+        e?.message ??
+          "Could not complete update download. You can retry or download via browser.",
         [
           { text: "Cancel", style: "cancel" },
           { text: "Download via Browser", onPress: downloadInBrowser },
@@ -377,8 +393,135 @@ export default function ProfileScreen() {
         ]}
       >
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-          DATA
+          DATA & SYNC
         </Text>
+
+        <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              <Feather
+                name={syncPercentage === 100 ? "check-circle" : "cloud"}
+                size={18}
+                color={syncPercentage === 100 ? "#10b981" : colors.primary}
+              />
+              <Text
+                style={{
+                  fontSize: 15,
+                  fontWeight: "600",
+                  color: colors.foreground,
+                }}
+              >
+                {syncPercentage === 100
+                  ? "All Orders Synced"
+                  : "Online Database Sync"}
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: syncPercentage === 100 ? "#10b981" : colors.primary,
+              }}
+            >
+              {syncedCount} / {totalOrdersCount} ({syncPercentage}%)
+            </Text>
+          </View>
+
+          {/* Progress Bar Track */}
+          <View
+            style={{
+              height: 6,
+              backgroundColor: colors.border,
+              borderRadius: 3,
+              overflow: "hidden",
+              marginBottom: 12,
+            }}
+          >
+            <View
+              style={{
+                height: "100%",
+                width: `${syncPercentage}%`,
+                backgroundColor:
+                  syncPercentage === 100 ? "#10b981" : colors.primary,
+                borderRadius: 3,
+              }}
+            />
+          </View>
+
+          {/* Sync details & button */}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                color: colors.mutedForeground,
+                flex: 1,
+                marginRight: 10,
+              }}
+            >
+              {syncProgress.isSyncing
+                ? `Syncing 1 at a time (${syncProgress.completedBatch}/${syncProgress.totalBatch})`
+                : totalOrdersCount - syncedCount > 0
+                  ? `${totalOrdersCount - syncedCount} pending to sync`
+                  : "Up to date with MongoDB"}
+            </Text>
+
+            <Pressable
+              onPress={handleManualSync}
+              disabled={syncProgress.isSyncing}
+              style={({ pressed }) => [
+                {
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  backgroundColor: syncProgress.isSyncing
+                    ? colors.muted
+                    : colors.primary,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              {syncProgress.isSyncing ? (
+                <>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text
+                    style={{ fontSize: 12, fontWeight: "600", color: "#fff" }}
+                  >
+                    Syncing...
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Feather name="refresh-cw" size={13} color="#fff" />
+                  <Text
+                    style={{ fontSize: 12, fontWeight: "600", color: "#fff" }}
+                  >
+                    Sync Now
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         <MenuRow
           icon="download"
@@ -424,14 +567,16 @@ export default function ProfileScreen() {
         />
       </View>
       {/* UPDATE — Android only */}
-      {Platform.OS === 'android' && (
+      {Platform.OS === "android" && (
         <View
           style={[
             styles.section,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+          <Text
+            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+          >
             APP UPDATE
           </Text>
 
@@ -443,12 +588,16 @@ export default function ProfileScreen() {
                 Current Version
               </Text>
               <Text style={[styles.menuSub, { color: colors.mutedForeground }]}>
-                v{require('@/app.json').expo.version}
+                v{require("@/app.json").expo.version}
               </Text>
             </View>
             {updateInfo?.hasUpdate && (
-              <View style={[styles.updateBadge, { backgroundColor: '#C06070' }]}>
-                <Text style={styles.updateBadgeText}>v{updateInfo.latestVersion}</Text>
+              <View
+                style={[styles.updateBadge, { backgroundColor: "#C06070" }]}
+              >
+                <Text style={styles.updateBadgeText}>
+                  v{updateInfo.latestVersion}
+                </Text>
               </View>
             )}
           </View>
@@ -458,7 +607,12 @@ export default function ProfileScreen() {
           {/* Download progress bar (visible while downloading) */}
           {downloadProgress !== null && !isReadyToInstall && (
             <View style={styles.progressContainer}>
-              <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
+              <View
+                style={[
+                  styles.progressTrack,
+                  { backgroundColor: colors.muted },
+                ]}
+              >
                 <View
                   style={[
                     styles.progressFill,
@@ -483,13 +637,24 @@ export default function ProfileScreen() {
                     { color: colors.mutedForeground, marginTop: 0 },
                   ]}
                 >
-                  Downloading update… {Math.round((downloadProgress || 0) * 100)}%
+                  Downloading update…{" "}
+                  {Math.round((downloadProgress || 0) * 100)}%
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
                   <Pressable
                     onPress={handleCancelDownload}
                     hitSlop={8}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
                   >
                     <Feather name="x-circle" size={13} color="#D9534F" />
                     <Text
@@ -505,7 +670,11 @@ export default function ProfileScreen() {
                   <Pressable
                     onPress={downloadInBrowser}
                     hitSlop={8}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
                   >
                     <Feather name="external-link" size={12} color="#C06070" />
                     <Text
@@ -544,9 +713,13 @@ export default function ProfileScreen() {
                   <Feather name="check-circle" size={18} color="#4E9F3D" />
                 ) : (
                   <Feather
-                    name={updateInfo?.hasUpdate ? "download-cloud" : "refresh-cw"}
+                    name={
+                      updateInfo?.hasUpdate ? "download-cloud" : "refresh-cw"
+                    }
                     size={18}
-                    color={updateInfo?.hasUpdate ? "#C06070" : colors.mutedForeground}
+                    color={
+                      updateInfo?.hasUpdate ? "#C06070" : colors.mutedForeground
+                    }
                   />
                 )}
                 <View style={{ flex: 1 }}>
@@ -557,27 +730,29 @@ export default function ProfileScreen() {
                         color: isReadyToInstall
                           ? "#4E9F3D"
                           : updateInfo?.hasUpdate
-                          ? "#C06070"
-                          : colors.foreground,
+                            ? "#C06070"
+                            : colors.foreground,
                       },
                     ]}
                   >
                     {isChecking
                       ? "Checking…"
                       : isReadyToInstall
-                      ? `Install Update v${updateInfo?.latestVersion || downloadedVersion || ""}`
-                      : updateInfo?.hasUpdate
-                      ? `Update to v${updateInfo.latestVersion}`
-                      : "Check for Updates"}
+                        ? `Install Update v${updateInfo?.latestVersion || downloadedVersion || ""}`
+                        : updateInfo?.hasUpdate
+                          ? `Update to v${updateInfo.latestVersion}`
+                          : "Check for Updates"}
                   </Text>
-                  <Text style={[styles.menuSub, { color: colors.mutedForeground }]}>
+                  <Text
+                    style={[styles.menuSub, { color: colors.mutedForeground }]}
+                  >
                     {isReadyToInstall
                       ? "Download complete! Tap to install APK now"
                       : updateInfo?.hasUpdate
-                      ? "Tap to download in background"
-                      : updateInfo && !updateInfo.hasUpdate
-                      ? `Up to date (v${updateInfo.currentVersion}) • Tap to re-check`
-                      : formatLastChecked(lastChecked)}
+                        ? "Tap to download in background"
+                        : updateInfo && !updateInfo.hasUpdate
+                          ? `Up to date (v${updateInfo.currentVersion}) • Tap to re-check`
+                          : formatLastChecked(lastChecked)}
                   </Text>
                 </View>
                 <Feather
@@ -599,9 +774,17 @@ export default function ProfileScreen() {
                   <Pressable
                     onPress={handleCancelDownload}
                     hitSlop={8}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
                   >
-                    <Feather name="trash-2" size={12} color={colors.mutedForeground} />
+                    <Feather
+                      name="trash-2"
+                      size={12}
+                      color={colors.mutedForeground}
+                    />
                     <Text
                       style={{
                         fontSize: 11,
@@ -631,11 +814,17 @@ function formatLastChecked(timestamp: number | null): string {
     date.getMonth() === now.getMonth() &&
     date.getFullYear() === now.getFullYear();
 
-  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const timeStr = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
   if (isToday) {
     return `Last checked: Today at ${timeStr}`;
   }
-  const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+  const dateStr = date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
   return `Last checked: ${dateStr} at ${timeStr}`;
 }
 
@@ -755,13 +944,25 @@ const styles = StyleSheet.create({
   menuLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   menuSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 1 },
   emptyTitle: { fontSize: 20, fontFamily: "Inter_600SemiBold" },
-  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
   updateBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  updateBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  updateBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
   progressContainer: { paddingHorizontal: 16, paddingVertical: 10, gap: 6 },
-  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 3 },
-  progressText: { fontSize: 12, fontFamily: 'Inter_400Regular', textAlign: 'right' },
+  progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 3 },
+  progressText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    textAlign: "right",
+  },
   section: {
     marginHorizontal: 16,
     marginBottom: 14,

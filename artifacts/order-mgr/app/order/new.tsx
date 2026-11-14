@@ -85,11 +85,26 @@ export default function NewOrderScreen() {
   const [customerName, setCustomerName] = useState(
     existing?.customerName || "",
   );
-  // contactInfo is stored as "ig\nphone\nemail" — split on load
+  // Safely parse contact info so Instagram, Phone, and Email never collide
   const existingContact = (existing?.contactInfo || "").split("\n");
-  const [igHandle, setIgHandle] = useState(existingContact[0] || "");
-  const [phone, setPhone] = useState(existingContact[1] || "");
-  const [email, setEmail] = useState(existingContact[2] || "");
+  const [igHandle, setIgHandle] = useState(() => {
+    if (existingContact.length > 1) return existingContact[0] || "";
+    const single = (existingContact[0] || "").trim();
+    if (single.startsWith("@") || /^[a-zA-Z._]+$/.test(single)) return single;
+    return "";
+  });
+  const [phone, setPhone] = useState(() => {
+    if (existingContact.length > 1) return existingContact[1] || "";
+    const single = (existingContact[0] || "").trim();
+    if (/^\+?[0-9\s\-()]{7,}$/.test(single) && !/[a-zA-Z]/.test(single)) return single;
+    return "";
+  });
+  const [email, setEmail] = useState(() => {
+    if (existingContact.length > 2) return existingContact[2] || "";
+    const single = (existingContact[0] || "").trim();
+    if (single.includes("@") && single.includes(".")) return single;
+    return "";
+  });
   const [address, setAddress] = useState(existing?.address || "");
   const [customerNotes, setCustomerNotes] = useState("");
   const [orderDate, setOrderDate] = useState(existing?.orderDate || today());
@@ -278,6 +293,9 @@ export default function NewOrderScreen() {
       const c = customers.find((x) => x.id === existing.customerId);
       if (c) {
         setLinkedCustomer(c);
+        if (c.igHandle) setIgHandle(c.igHandle);
+        if (c.phone) setPhone(c.phone);
+        if (c.email) setEmail(c.email);
         if (c.notes) setCustomerNotes(c.notes);
         if (c.size && !customerSize) setCustomerSize(c.size);
         if (
@@ -295,6 +313,9 @@ export default function NewOrderScreen() {
       );
       if (c) {
         setLinkedCustomer(c);
+        if (c.igHandle) setIgHandle(c.igHandle);
+        if (c.phone) setPhone(c.phone);
+        if (c.email) setEmail(c.email);
         if (c.notes) setCustomerNotes(c.notes);
         if (c.size && !customerSize) setCustomerSize(c.size);
         if (

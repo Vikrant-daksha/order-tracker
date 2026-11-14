@@ -27118,7 +27118,7 @@ var require_bson = __commonJS({
       hexCharCodeToNibble[c] = c - 55;
     for (let c = 97; c <= 102; c++)
       hexCharCodeToNibble[c] = c - 87;
-    var ObjectId = class _ObjectId extends BSONValue {
+    var ObjectId2 = class _ObjectId extends BSONValue {
       get _bsontype() {
         return "ObjectId";
       }
@@ -27860,7 +27860,7 @@ var require_bson = __commonJS({
           value = ByteUtils.toUTF8(buffer2, index, index + stringSize - 1, shouldValidateKey);
           index = index + stringSize;
         } else if (elementType === BSON_DATA_OID) {
-          value = new ObjectId(buffer2, index);
+          value = new ObjectId2(buffer2, index);
           index = index + 12;
         } else if (elementType === BSON_DATA_INT && promoteValues === false) {
           value = new Int32(NumberUtils.getInt32LE(buffer2, index));
@@ -28115,7 +28115,7 @@ var require_bson = __commonJS({
           const oidBuffer = ByteUtils.allocateUnsafe(12);
           for (let i2 = 0; i2 < 12; i2++)
             oidBuffer[i2] = buffer2[index + i2];
-          const oid = new ObjectId(oidBuffer);
+          const oid = new ObjectId2(oidBuffer);
           index = index + 12;
           value = new DBRef(namespace, oid);
         } else {
@@ -28608,7 +28608,7 @@ var require_bson = __commonJS({
       return value != null && typeof value === "object" && "_bsontype" in value && typeof value._bsontype === "string";
     }
     var keysToCodecs = {
-      $oid: ObjectId,
+      $oid: ObjectId2,
       $binary: Binary,
       $uuid: Binary,
       $symbol: BSONSymbol,
@@ -28794,7 +28794,7 @@ var require_bson = __commonJS({
       Long: (o) => Long.fromBits(o.low != null ? o.low : o.low_, o.low != null ? o.high : o.high_, o.low != null ? o.unsigned : o.unsigned_),
       MaxKey: () => new MaxKey(),
       MinKey: () => new MinKey(),
-      ObjectId: (o) => new ObjectId(o),
+      ObjectId: (o) => new ObjectId2(o),
       BSONRegExp: (o) => new BSONRegExp(o.pattern, o.options),
       BSONSymbol: (o) => new BSONSymbol(o.value),
       Timestamp: (o) => Timestamp.fromBits(o.low, o.high)
@@ -29065,7 +29065,7 @@ var require_bson = __commonJS({
       MaxKey,
       MinKey,
       NumberUtils,
-      ObjectId,
+      ObjectId: ObjectId2,
       Timestamp,
       UUID,
       bsonType,
@@ -29098,7 +29098,7 @@ var require_bson = __commonJS({
     exports.MaxKey = MaxKey;
     exports.MinKey = MinKey;
     exports.NumberUtils = NumberUtils;
-    exports.ObjectId = ObjectId;
+    exports.ObjectId = ObjectId2;
     exports.Timestamp = Timestamp;
     exports.UUID = UUID;
     exports.bsonType = bsonType;
@@ -88037,7 +88037,7 @@ async function getDb() {
     const client = new import_mongodb.MongoClient(uri);
     if (!db) {
       await client.connect();
-      db = client.db(process.env.MONGODB_DB_NAME || "cherrybrush_db");
+      db = client.db(process.env.MONGODB_DB_NAME || "orderflow");
       console.log("Connected to MongoDB successfully!");
     }
     return db;
@@ -88061,14 +88061,72 @@ async function getProductsCollection() {
 
 // src/lib/customers.ts
 var import_express2 = __toESM(require_express2(), 1);
+var import_mongodb2 = __toESM(require_lib6(), 1);
 var customerRouter = (0, import_express2.Router)();
+function sanitizeCustomerData(data) {
+  const result = { ...data };
+  const rawContact = result.contactInfo;
+  if (rawContact && typeof rawContact === "string") {
+    const lines = rawContact.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (const part of lines) {
+      if (part.includes("@") && part.includes(".")) {
+        if (!result.email) result.email = part;
+      } else if (/^\+?[0-9\s\-()]{7,}$/.test(part)) {
+        if (!result.phone) result.phone = part;
+      } else if (part.startsWith("@") || /^[a-zA-Z0-9._]+$/.test(part)) {
+        if (!result.instagram) result.instagram = part.replace(/^@/, "");
+      }
+    }
+    delete result.contactInfo;
+  }
+  if (result.phone) {
+    const trimmedPhone = String(result.phone).trim();
+    if (trimmedPhone.startsWith("@") || /^[a-zA-Z._]+$/.test(trimmedPhone)) {
+      if (!result.instagram) {
+        result.instagram = trimmedPhone.replace(/^@/, "");
+      }
+      delete result.phone;
+    } else {
+      result.phone = trimmedPhone;
+    }
+  }
+  if (result.instagram) {
+    const trimmedIg = String(result.instagram).trim();
+    if (/^\+?[0-9\s\-()]{7,}$/.test(trimmedIg) && !/[a-zA-Z]/.test(trimmedIg)) {
+      if (!result.phone) {
+        result.phone = trimmedIg;
+      }
+      delete result.instagram;
+    } else {
+      result.instagram = trimmedIg.replace(/^@/, "");
+    }
+  }
+  if (result.phone && result.instagram && result.phone.trim().toLowerCase() === result.instagram.trim().toLowerCase()) {
+    const val = result.phone.trim();
+    if (/^\+?[0-9\s\-()]{7,}$/.test(val) && !/[a-zA-Z]/.test(val)) {
+      delete result.instagram;
+    } else {
+      result.instagram = val.replace(/^@/, "");
+      delete result.phone;
+    }
+  }
+  delete result.customerImages;
+  return result;
+}
 var collection = await getCustomersCollection();
+function buildIdFilter(id) {
+  if (import_mongodb2.ObjectId.isValid(id) && id.length === 24) {
+    return { $or: [{ _id: id }, { _id: new import_mongodb2.ObjectId(id) }] };
+  }
+  return { _id: id };
+}
 var getCustomerById = async (id) => {
-  return collection.findOne({ _id: id });
+  return collection.findOne(buildIdFilter(id));
 };
 var createCustomer = async (customer) => {
+  const sanitized = sanitizeCustomerData(customer);
   const create = await collection.insertOne({
-    ...customer,
+    ...sanitized,
     createdAt: (/* @__PURE__ */ new Date()).toISOString()
   });
   return create.insertedId;
@@ -88076,12 +88134,10 @@ var createCustomer = async (customer) => {
 var updateCustomer = async (id, customer) => {
   const isCustomer = await getCustomerById(id);
   if (!isCustomer) return { success: false, error: "Customer not Found!" };
-  const update = await collection.updateOne(
-    {
-      _id: id
-    },
-    { $set: { ...customer, updatedAt: (/* @__PURE__ */ new Date()).toISOString() } }
-  );
+  const sanitized = sanitizeCustomerData(customer);
+  const update = await collection.updateOne(buildIdFilter(id), {
+    $set: { ...sanitized, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }
+  });
   return { success: true, message: update.matchedCount };
 };
 customerRouter.put(
@@ -88151,7 +88207,7 @@ var uploadBufferToCloudinary = (fileBuffer, folder) => {
 };
 var uploadCustomerImages = async (customerId, files) => {
   const cleanId = (customerId || "general").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
-  const targetFolder = `cherrybrush/customers/${cleanId}`;
+  const targetFolder = `orderflow/customers/${cleanId}`;
   const uploadPromises = files.map(
     (file) => uploadBufferToCloudinary(file.buffer, targetFolder)
   );
@@ -88159,7 +88215,7 @@ var uploadCustomerImages = async (customerId, files) => {
 };
 var uploadProductImages = async (productName, files) => {
   const cleanName = (productName || "unnamed_product").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
-  const targetFolder = `cherrybrush/products/${cleanName}`;
+  const targetFolder = `orderflow/products/${cleanName}`;
   const uploadPromises = files.map(
     (file) => uploadBufferToCloudinary(file.buffer, targetFolder)
   );
@@ -88208,7 +88264,6 @@ var createProduct = async (productData) => {
     size: productData.size,
     category: productData.category || "General",
     imagePaths: Array.isArray(images) ? images : [images],
-    thumbnailPath: productData.thumbnailPath || (images[0] ?? ""),
     createdAt,
     deleted: false
   };
@@ -88349,7 +88404,7 @@ var products_default = productRouter;
 
 // src/routes/orders.ts
 function genId() {
-  return `CHERRYBRUSH` + Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+  return `CB` + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
 var ordersRouter = (0, import_express4.Router)();
 var collection3 = await getOrdersCollection();
@@ -88429,8 +88484,9 @@ ordersRouter.post("/create-orders", async (req, res) => {
     if (!orderData) {
       return res.status(400).json({ error: "No order data received" });
     }
-    if (orderData.items && Array.isArray(orderData.items)) {
-      for (const item of orderData.items) {
+    const { contactInfo: _discardedContact, ...sanitizedOrderData } = orderData;
+    if (sanitizedOrderData.items && Array.isArray(sanitizedOrderData.items)) {
+      for (const item of sanitizedOrderData.items) {
         if (!item.isCustom && item.productName) {
           const productResult = await createProduct({
             name: item.productName,
@@ -88443,27 +88499,28 @@ ordersRouter.post("/create-orders", async (req, res) => {
           }
         }
       }
-    } else if (orderData.isCustom === 0) {
-      const name = orderData.productName || orderData.customName;
+    } else if (sanitizedOrderData.isCustom === 0) {
+      const name = sanitizedOrderData.productName || sanitizedOrderData.customName;
       if (name) {
         const productResult = await createProduct({
           name,
-          price: orderData.price,
-          size: orderData.size,
-          imagePaths: orderData.sizeImagePaths || []
+          price: sanitizedOrderData.price,
+          size: sanitizedOrderData.size,
+          imagePaths: sanitizedOrderData.sizeImagePaths || []
         });
         if (productResult.success && productResult.product?.id) {
-          orderData.productId = productResult.product.id;
+          sanitizedOrderData.productId = productResult.product.id;
         }
       }
     }
     const newOrder = {
       _id: id,
-      ...orderData,
+      ...sanitizedOrderData,
       id,
       customerId: customerId.toString(),
       createdAt,
-      deleted: false
+      deleted: false,
+      userEmailId: "cherrybrush.in@gmail.com"
     };
     await collection3.insertOne(newOrder);
     return res.status(201).json({ success: true, id });
@@ -88497,8 +88554,9 @@ ordersRouter.put("/update-order/:id", async (req, res) => {
       }
     }
     if (orderData) {
-      if (orderData.items && Array.isArray(orderData.items)) {
-        for (const item of orderData.items) {
+      const { contactInfo: _discardedContact, ...sanitizedOrderData } = orderData;
+      if (sanitizedOrderData.items && Array.isArray(sanitizedOrderData.items)) {
+        for (const item of sanitizedOrderData.items) {
           if (!item.isCustom && item.productName) {
             const productResult = await createProduct({
               name: item.productName,
@@ -88514,7 +88572,7 @@ ordersRouter.put("/update-order/:id", async (req, res) => {
       }
       const update = await collection3.updateOne(
         { _id: id },
-        { $set: { ...orderData, updatedAt } }
+        { $set: { ...sanitizedOrderData, updatedAt } }
       );
       if (update.matchedCount === 0) {
         return res.status(404).json({ error: "Order not found" });
@@ -88555,7 +88613,7 @@ ordersRouter.put("/order-status/:id", async (req, res) => {
     const next = order.workingOn ? 0 : 1;
     await collection3.findOneAndUpdate(
       { _id: id },
-      { $set: { workingOn: next }, updatedAt }
+      { $set: { workingOn: next, updatedAt } }
     );
     return res.status(200).json({ success: true, message: `Order ${id} status updated!` });
   } catch (error) {
@@ -88591,7 +88649,7 @@ app.use((req, _res, next) => {
   next();
 });
 app.get("/", (_req, res) => {
-  res.json({ status: "ok", message: "Cherrybrush API server is running" });
+  res.json({ status: "ok", message: "OrderFlow API server is running" });
 });
 app.use("/api", routes_default);
 app.use(routes_default);

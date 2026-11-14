@@ -16,7 +16,7 @@ export const upload = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit per file
-    files: 10,                  // Max 10 files at a time
+    files: 10, // Max 10 files at a time
   },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith("image/")) {
@@ -30,7 +30,7 @@ export const upload = multer({
 // 3. Helper: Upload a single Buffer to Cloudinary
 export const uploadBufferToCloudinary = (
   fileBuffer: Buffer,
-  folder: string
+  folder: string,
 ): Promise<UploadApiResponse> => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -43,7 +43,7 @@ export const uploadBufferToCloudinary = (
           return reject(error);
         }
         resolve(result);
-      }
+      },
     );
     uploadStream.end(fileBuffer);
   });
@@ -52,13 +52,15 @@ export const uploadBufferToCloudinary = (
 // 4. Helper: Upload customer images into cherrybrush/customers/<customerId>
 export const uploadCustomerImages = async (
   customerId: string,
-  files: Express.Multer.File[]
+  files: Express.Multer.File[],
 ): Promise<UploadApiResponse[]> => {
-  const cleanId = (customerId || "general").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
-  const targetFolder = `cherrybrush/customers/${cleanId}`;
+  const cleanId = (customerId || "general")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
+  const targetFolder = `orderflow/customers/${cleanId}`;
 
   const uploadPromises = files.map((file) =>
-    uploadBufferToCloudinary(file.buffer, targetFolder)
+    uploadBufferToCloudinary(file.buffer, targetFolder),
   );
   return Promise.all(uploadPromises);
 };
@@ -66,15 +68,15 @@ export const uploadCustomerImages = async (
 // 5. Helper: Upload order/product images into cherrybrush/products/<productName>
 export const uploadProductImages = async (
   productName: string,
-  files: Express.Multer.File[]
+  files: Express.Multer.File[],
 ): Promise<UploadApiResponse[]> => {
   const cleanName = (productName || "unnamed_product")
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, "_");
-  const targetFolder = `cherrybrush/products/${cleanName}`;
+  const targetFolder = `orderflow/products/${cleanName}`;
 
   const uploadPromises = files.map((file) =>
-    uploadBufferToCloudinary(file.buffer, targetFolder)
+    uploadBufferToCloudinary(file.buffer, targetFolder),
   );
   return Promise.all(uploadPromises);
 };

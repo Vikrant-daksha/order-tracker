@@ -14,7 +14,6 @@ export interface Product {
   defaultPrice?: number; // Backwards-compatible alias
   category?: string;
   imagePaths: string[];
-  thumbnailPath?: string;
   createdAt?: string;
   updatedAt?: string;
   deleted?: boolean;
@@ -84,7 +83,6 @@ export const createProduct = async (productData: Partial<Product>) => {
     size: productData.size,
     category: productData.category || "General",
     imagePaths: Array.isArray(images) ? images : [images],
-    thumbnailPath: productData.thumbnailPath || (images[0] ?? ""),
     createdAt,
     deleted: false,
   };

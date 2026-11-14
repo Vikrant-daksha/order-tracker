@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useState,
+  useRef,
 } from "react";
 import * as SQLite from "expo-sqlite";
 import { Platform } from "react-native";
@@ -20,6 +21,12 @@ import {
   GoalStatus,
 } from "@/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  syncSingleOrder,
+  SyncResult,
+  serialSyncQueue,
+  SyncProgressUpdate,
+} from "@/services/syncService";
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
@@ -82,6 +89,12 @@ interface DatabaseContextType {
     title?: string,
   ) => Promise<MonthlyGoal>;
   snapshotExpiredGoals: () => Promise<void>;
+  syncOrderNow: (id: string) => Promise<SyncResult>;
+  syncAllPendingOrders: () => Promise<void>;
+  syncProgress: SyncProgressUpdate;
+  syncedCount: number;
+  totalOrdersCount: number;
+  syncPercentage: number;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | null>(null);
@@ -126,7 +139,21 @@ function initDb() {
       sizeThumbnailPaths TEXT DEFAULT '[]',
       customerId TEXT DEFAULT '',
       workingOn INTEGER DEFAULT 0,
-      items TEXT DEFAULT '[]'
+      items TEXT DEFAULT '[]',
+      onlineId TEXT DEFAULT '',
+      syncStatus TEXT DEFAULT 'PENDING',
+      lastSyncedAt TEXT DEFAULT '',
+      syncError TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      id TEXT PRIMARY KEY,
+      localOrderId TEXT NOT NULL,
+      action TEXT NOT NULL,
+      status TEXT DEFAULT 'PENDING',
+      retryCount INTEGER DEFAULT 0,
+      lastAttempt TEXT DEFAULT '',
+      error TEXT DEFAULT '',
+      createdAt TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
@@ -285,6 +312,22 @@ function initDb() {
   } catch {}
   try {
     db.execSync(`ALTER TABLE customers ADD COLUMN address TEXT DEFAULT ''`);
+  } catch {}
+
+  // Sync columns migration
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN onlineId TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE orders ADD COLUMN syncStatus TEXT DEFAULT 'PENDING'`,
+    );
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN lastSyncedAt TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN syncError TEXT DEFAULT ''`);
   } catch {}
 
   // Backfill: Migrate size and size images from most recent order to customer if customer has none
@@ -552,6 +595,27 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [goals, setGoals] = useState<MonthlyGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncProgress, setSyncProgress] = useState<SyncProgressUpdate>({
+    isSyncing: false,
+    totalBatch: 0,
+    completedBatch: 0,
+  });
+
+  const ordersRef = useRef<Order[]>(orders);
+  ordersRef.current = orders;
+  const customersRef = useRef<Customer[]>(customers);
+  customersRef.current = customers;
+
+  useEffect(() => {
+    serialSyncQueue.setProgressListener(setSyncProgress);
+  }, []);
+
+  const syncedCount = orders.filter((o) => o.syncStatus === "SYNCED").length;
+  const totalOrdersCount = orders.length;
+  const syncPercentage =
+    totalOrdersCount > 0
+      ? Math.round((syncedCount / totalOrdersCount) * 100)
+      : 100;
 
   useEffect(() => {
     async function init() {
@@ -790,18 +854,39 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     "customerId",
     "workingOn",
     "items",
+    "onlineId",
+    "syncStatus",
+    "lastSyncedAt",
+    "syncError",
   ]);
+
+  const SYNC_METADATA_KEYS = new Set([
+    "onlineId",
+    "syncStatus",
+    "lastSyncedAt",
+    "syncError",
+  ]);
+
+  const triggerBackgroundSyncRef = React.useRef<(id: string) => void>(() => {});
 
   const addOrder = useCallback(
     async (order: Omit<Order, "id" | "createdAt">): Promise<string> => {
       const id = genId();
       const createdAt = new Date().toISOString();
-      const full: Order = { ...order, id, createdAt } as Order;
+      const full: Order = {
+        ...order,
+        id,
+        createdAt,
+        onlineId: order.onlineId || "",
+        syncStatus: order.syncStatus || "PENDING",
+        lastSyncedAt: order.lastSyncedAt || "",
+        syncError: order.syncError || "",
+      } as Order;
 
       if (!IS_WEB && db) {
         db.runSync(
-          `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items,onlineId,syncStatus,lastSyncedAt,syncError)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [
             id,
             full.source,
@@ -836,6 +921,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             full.customerId ?? "",
             full.workingOn ? 1 : 0,
             JSON.stringify(full.items || []),
+            full.onlineId ?? "",
+            full.syncStatus ?? "PENDING",
+            full.lastSyncedAt ?? "",
+            full.syncError ?? "",
           ],
         );
         const loaded = loadOrdersFromDb();
@@ -847,6 +936,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           return next;
         });
       }
+      triggerBackgroundSyncRef.current(id);
       return id;
     },
     [],
@@ -906,9 +996,134 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           return next;
         });
       }
+
+      const hasBusinessChanges = Object.keys(updates).some(
+        (k) => !SYNC_METADATA_KEYS.has(k),
+      );
+      if (hasBusinessChanges) {
+        triggerBackgroundSyncRef.current(id);
+      }
     },
     [],
   );
+
+  const syncOrderNow = useCallback(
+    async (id: string): Promise<SyncResult> => {
+      let target: Order | undefined;
+      if (!IS_WEB && db) {
+        const all = loadOrdersFromDb();
+        target = all.find((o) => o.id === id);
+      } else {
+        target = ordersRef.current.find((o) => o.id === id);
+      }
+
+      if (!target) {
+        return { success: false, error: `Order ${id} not found` };
+      }
+
+      // If already synced, skip network request entirely
+      if (target.syncStatus === "SYNCED") {
+        return { success: true, onlineId: target.onlineId };
+      }
+
+      const linkedCustomer = customersRef.current.find(
+        (c) =>
+          c.id === target?.customerId ||
+          (target?.customerName &&
+            c.name.toLowerCase() === target.customerName.toLowerCase()),
+      );
+
+      return await syncSingleOrder(target, linkedCustomer, updateOrder);
+    },
+    [updateOrder],
+  );
+
+  const getOrderName = useCallback((orderId: string) => {
+    const ord = ordersRef.current.find((o) => o.id === orderId);
+    return ord?.customerName;
+  }, []);
+
+  const triggerBackgroundSync = useCallback(
+    (id?: string) => {
+      let pendingIds: string[] = [];
+      if (!IS_WEB && db) {
+        try {
+          const rows = db.getAllSync<{ id: string }>(
+            "SELECT id FROM orders WHERE syncStatus = 'PENDING' OR (syncStatus != 'SYNCED' AND syncStatus != 'SYNCING') ORDER BY createdAt ASC",
+          );
+          pendingIds = rows.map((r) => r.id);
+        } catch {
+          pendingIds = ordersRef.current
+            .filter(
+              (o) =>
+                o.syncStatus === "PENDING" ||
+                (!o.onlineId && o.syncStatus !== "SYNCED"),
+            )
+            .map((o) => o.id);
+        }
+      } else {
+        pendingIds = ordersRef.current
+          .filter(
+            (o) =>
+              o.syncStatus === "PENDING" ||
+              (!o.onlineId && o.syncStatus !== "SYNCED"),
+          )
+          .map((o) => o.id);
+      }
+
+      // If a specific order is triggered, put it first, then append any previous pending orders
+      const orderList = id
+        ? Array.from(new Set([id, ...pendingIds]))
+        : pendingIds;
+
+      if (orderList.length > 0) {
+        serialSyncQueue.enqueue(
+          orderList,
+          (orderId) => syncOrderNow(orderId),
+          getOrderName,
+        );
+      }
+    },
+    [syncOrderNow, getOrderName],
+  );
+
+  triggerBackgroundSyncRef.current = triggerBackgroundSync;
+
+  const syncAllPendingOrders = useCallback(async () => {
+    let pendingIds: string[] = [];
+    if (!IS_WEB && db) {
+      try {
+        const rows = db.getAllSync<{ id: string }>(
+          "SELECT id FROM orders WHERE syncStatus = 'PENDING' OR (syncStatus != 'SYNCED' AND syncStatus != 'SYNCING') ORDER BY createdAt ASC",
+        );
+        pendingIds = rows.map((r) => r.id);
+      } catch {
+        pendingIds = ordersRef.current
+          .filter(
+            (o) =>
+              o.syncStatus === "PENDING" ||
+              (!o.onlineId && o.syncStatus !== "SYNCED"),
+          )
+          .map((o) => o.id);
+      }
+    } else {
+      pendingIds = ordersRef.current
+        .filter(
+          (o) =>
+            o.syncStatus === "PENDING" ||
+            (!o.onlineId && o.syncStatus !== "SYNCED"),
+        )
+        .map((o) => o.id);
+    }
+
+    if (pendingIds.length > 0) {
+      serialSyncQueue.enqueue(
+        pendingIds,
+        (orderId) => syncOrderNow(orderId),
+        getOrderName,
+      );
+    }
+  }, [syncOrderNow, getOrderName]);
 
   const deleteOrder = useCallback(async (id: string) => {
     if (!IS_WEB && db) {
@@ -1228,7 +1443,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         db.execSync("DELETE FROM orders; DELETE FROM products;");
         for (const o of data.orders) {
           db.runSync(
-            `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items,onlineId,syncStatus,lastSyncedAt,syncError) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [
               o.id,
               o.source,
@@ -1262,6 +1477,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
               o.customerId ?? "",
               o.workingOn ? 1 : 0,
               JSON.stringify(o.items || []),
+              o.onlineId ?? "",
+              o.syncStatus ?? (o.onlineId ? "SYNCED" : "PENDING"),
+              o.lastSyncedAt ?? "",
+              o.syncError ?? "",
             ],
           );
         }
@@ -1645,6 +1864,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         getMonthlyGoal,
         setMonthlyGoal,
         snapshotExpiredGoals,
+        syncOrderNow,
+        syncAllPendingOrders,
+        syncProgress,
+        syncedCount,
+        totalOrdersCount,
+        syncPercentage,
       }}
     >
       {children}
