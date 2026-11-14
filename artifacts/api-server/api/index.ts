@@ -1,11 +1,14 @@
 /**
  * Vercel Serverless Entry Point
  *
- * Vercel looks for a handler exported from /api/index.ts (or /api/*.ts).
- * We just re-export our Express app — Vercel wraps it automatically via
- * the Node.js runtime adapter.
+ * Vercel's @vercel/node runtime expects a standard Node.js http handler.
+ * Exporting the Express app directly works because Express implements
+ * the (req, res) => void signature that Vercel wraps.
  */
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import app from "../src/app";
 
-export default app;
-
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  // Delegate every request to the Express app
+  return app(req as any, res as any);
+}
