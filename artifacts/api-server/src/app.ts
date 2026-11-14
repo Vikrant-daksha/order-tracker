@@ -25,7 +25,17 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// Allow ALL origins, methods, and headers
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["*"],
+    credentials: false, // must be false when origin is "*"
+  }),
+);
+// Pre-flight for every route
+app.options("*", cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

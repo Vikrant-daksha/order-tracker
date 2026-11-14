@@ -1,6 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import * as SQLite from 'expo-sqlite';
-import { Platform } from 'react-native';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import * as SQLite from "expo-sqlite";
+import { Platform } from "react-native";
 import {
   Order,
   OrderSource,
@@ -12,14 +18,14 @@ import {
   ExpenseCategory,
   MonthlyGoal,
   GoalStatus,
-} from '@/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+} from "@/types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
 }
 
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => new Date().toISOString().split("T")[0];
 
 interface DatabaseContextType {
   orders: Order[];
@@ -28,47 +34,70 @@ interface DatabaseContextType {
   expenses: Expense[];
   goals: MonthlyGoal[];
   loading: boolean;
-  addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => Promise<string>;
+  addOrder: (order: Omit<Order, "id" | "createdAt">) => Promise<string>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   getOrder: (id: string) => Order | undefined;
   toggleWorkingOn: (id: string) => Promise<void>;
-  addProduct: (product: Omit<Product, 'id'>) => Promise<string>;
+  addProduct: (product: Omit<Product, "id">) => Promise<string>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   findProductByName: (name: string) => Product | undefined;
-  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => Promise<string>;
+  addCustomer: (
+    customer: Omit<Customer, "id" | "createdAt">,
+  ) => Promise<string>;
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<void>;
   findCustomerByIg: (ig: string) => Customer | undefined;
   findCustomerByPhone: (phone: string) => Customer | undefined;
   clearDeliveredImages: () => Promise<number>;
-  importBackup: (data: { orders: Order[]; products: Product[]; customers?: Customer[]; expenses?: Expense[]; goals?: MonthlyGoal[] }) => Promise<void>;
-  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<string>;
+  importBackup: (data: {
+    orders: Order[];
+    products: Product[];
+    customers?: Customer[];
+    expenses?: Expense[];
+    goals?: MonthlyGoal[];
+  }) => Promise<void>;
+  addExpense: (expense: Omit<Expense, "id" | "createdAt">) => Promise<string>;
   updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
-  addMonthlyGoal: (goal: { title?: string; month: string; targetAmount: number; startDate?: string; endDate?: string }) => Promise<string>;
-  updateMonthlyGoal: (id: string, updates: Partial<MonthlyGoal>) => Promise<void>;
+  addMonthlyGoal: (goal: {
+    title?: string;
+    month: string;
+    targetAmount: number;
+    startDate?: string;
+    endDate?: string;
+  }) => Promise<string>;
+  updateMonthlyGoal: (
+    id: string,
+    updates: Partial<MonthlyGoal>,
+  ) => Promise<void>;
   deleteMonthlyGoal: (id: string) => Promise<void>;
   getGoalsByMonth: (month: string) => MonthlyGoal[];
   getMonthlyGoal: (month: string) => MonthlyGoal | undefined;
-  setMonthlyGoal: (month: string, targetAmount: number, startDate?: string, endDate?: string, title?: string) => Promise<MonthlyGoal>;
+  setMonthlyGoal: (
+    month: string,
+    targetAmount: number,
+    startDate?: string,
+    endDate?: string,
+    title?: string,
+  ) => Promise<MonthlyGoal>;
   snapshotExpiredGoals: () => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | null>(null);
 
-const IS_WEB = Platform.OS === 'web';
-const ORDERS_KEY = '@orderflow_orders';
-const PRODUCTS_KEY = '@orderflow_products';
-const CUSTOMERS_KEY = '@orderflow_customers';
-const EXPENSES_KEY = '@orderflow_expenses';
-const GOALS_KEY = '@orderflow_monthly_goals';
+const IS_WEB = Platform.OS === "web";
+const ORDERS_KEY = "@orderflow_orders";
+const PRODUCTS_KEY = "@orderflow_products";
+const CUSTOMERS_KEY = "@orderflow_customers";
+const EXPENSES_KEY = "@orderflow_expenses";
+const GOALS_KEY = "@orderflow_monthly_goals";
 
 let db: SQLite.SQLiteDatabase | null = null;
 
 function initDb() {
   if (IS_WEB || db) return;
-  db = SQLite.openDatabaseSync('orderflow.db');
+  db = SQLite.openDatabaseSync("orderflow.db");
   db.execSync(`
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
@@ -144,42 +173,126 @@ function initDb() {
     );
   `);
   // Migration: add missing columns if they don't exist yet across all historical schemas
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN size TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeImagePath TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeThumbnailPath TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeImagePaths TEXT DEFAULT '[]'`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN sizeThumbnailPaths TEXT DEFAULT '[]'`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN customerId TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`); } catch {}
-  try { db.execSync(`ALTER TABLE orders ADD COLUMN isCustom INTEGER DEFAULT 0`); } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN address TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN size TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN sizeImagePath TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE orders ADD COLUMN sizeThumbnailPath TEXT DEFAULT ''`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE orders ADD COLUMN sizeImagePaths TEXT DEFAULT '[]'`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE orders ADD COLUMN sizeThumbnailPaths TEXT DEFAULT '[]'`,
+    );
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN customerId TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN workingOn INTEGER DEFAULT 0`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN items TEXT DEFAULT '[]'`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE orders ADD COLUMN isCustom INTEGER DEFAULT 0`);
+  } catch {}
 
-  try { db.execSync(`ALTER TABLE products ADD COLUMN thumbnailPath TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE products ADD COLUMN category TEXT DEFAULT ''`); } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE products ADD COLUMN thumbnailPath TEXT DEFAULT ''`,
+    );
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE products ADD COLUMN category TEXT DEFAULT ''`);
+  } catch {}
 
-  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN title TEXT DEFAULT 'Monthly Goal'`); } catch {}
-  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN earnedAmount REAL DEFAULT 0`); } catch {}
-  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN startDate TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN endDate TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN status TEXT DEFAULT 'in_progress'`); } catch {}
-  try { db.execSync(`ALTER TABLE monthly_goals ADD COLUMN updatedAt TEXT DEFAULT ''`); } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE monthly_goals ADD COLUMN title TEXT DEFAULT 'Monthly Goal'`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE monthly_goals ADD COLUMN earnedAmount REAL DEFAULT 0`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE monthly_goals ADD COLUMN startDate TEXT DEFAULT ''`,
+    );
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE monthly_goals ADD COLUMN endDate TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE monthly_goals ADD COLUMN status TEXT DEFAULT 'in_progress'`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE monthly_goals ADD COLUMN updatedAt TEXT DEFAULT ''`,
+    );
+  } catch {}
 
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN notes TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN size TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeImagePath TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeThumbnailPath TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeImagePaths TEXT DEFAULT '[]'`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN sizeThumbnailPaths TEXT DEFAULT '[]'`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN igHandle TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN phone TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN email TEXT DEFAULT ''`); } catch {}
-  try { db.execSync(`ALTER TABLE customers ADD COLUMN address TEXT DEFAULT ''`); } catch {}
+  try {
+    db.execSync(`ALTER TABLE customers ADD COLUMN notes TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE customers ADD COLUMN size TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE customers ADD COLUMN sizeImagePath TEXT DEFAULT ''`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE customers ADD COLUMN sizeThumbnailPath TEXT DEFAULT ''`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE customers ADD COLUMN sizeImagePaths TEXT DEFAULT '[]'`,
+    );
+  } catch {}
+  try {
+    db.execSync(
+      `ALTER TABLE customers ADD COLUMN sizeThumbnailPaths TEXT DEFAULT '[]'`,
+    );
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE customers ADD COLUMN igHandle TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE customers ADD COLUMN phone TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE customers ADD COLUMN email TEXT DEFAULT ''`);
+  } catch {}
+  try {
+    db.execSync(`ALTER TABLE customers ADD COLUMN address TEXT DEFAULT ''`);
+  } catch {}
 
   // Backfill: Migrate size and size images from most recent order to customer if customer has none
   // Gated by PRAGMA user_version so it only runs once per device instead of every app launch
   try {
-    const userVersion = db.getFirstSync<{ user_version: number }>('PRAGMA user_version')?.user_version ?? 0;
+    const userVersion =
+      db.getFirstSync<{ user_version: number }>("PRAGMA user_version")
+        ?.user_version ?? 0;
     if (userVersion < 1) {
       db.execSync(`
         UPDATE customers 
@@ -228,10 +341,14 @@ function initDb() {
   }
 }
 
-function calculateEarnedForRange(ordersList: Order[], startDate: string, endDate: string): number {
+function calculateEarnedForRange(
+  ordersList: Order[],
+  startDate: string,
+  endDate: string,
+): number {
   return ordersList
-    .filter(o => {
-      const d = (o.orderDate || o.createdAt || '').slice(0, 10);
+    .filter((o) => {
+      const d = (o.orderDate || o.createdAt || "").slice(0, 10);
       return d >= startDate && d <= endDate;
     })
     .reduce((sum, o) => sum + (o.amountPaid || 0), 0);
@@ -240,7 +357,9 @@ function calculateEarnedForRange(ordersList: Order[], startDate: string, endDate
 function loadGoalsFromDb(): MonthlyGoal[] {
   if (IS_WEB || !db) return [];
   try {
-    return db.getAllSync<MonthlyGoal>('SELECT * FROM monthly_goals ORDER BY month DESC, createdAt DESC');
+    return db.getAllSync<MonthlyGoal>(
+      "SELECT * FROM monthly_goals ORDER BY month DESC, createdAt DESC",
+    );
   } catch {
     return [];
   }
@@ -249,8 +368,10 @@ function loadGoalsFromDb(): MonthlyGoal[] {
 function loadOrdersFromDb(): Order[] {
   if (IS_WEB || !db) return [];
   try {
-    const rows = db.getAllSync<any>('SELECT * FROM orders ORDER BY createdAt DESC');
-    return rows.map(r => {
+    const rows = db.getAllSync<any>(
+      "SELECT * FROM orders ORDER BY createdAt DESC",
+    );
+    return rows.map((r) => {
       let parsedItems: any[] = [];
       try {
         parsedItems = r.items ? JSON.parse(r.items) : [];
@@ -261,9 +382,13 @@ function loadOrdersFromDb(): Order[] {
       let parsedSizeImagePaths: string[] = [];
       try {
         if (r.sizeImagePaths) {
-          parsedSizeImagePaths = typeof r.sizeImagePaths === 'string' && r.sizeImagePaths.startsWith('[')
-            ? JSON.parse(r.sizeImagePaths)
-            : (Array.isArray(r.sizeImagePaths) ? r.sizeImagePaths : []);
+          parsedSizeImagePaths =
+            typeof r.sizeImagePaths === "string" &&
+            r.sizeImagePaths.startsWith("[")
+              ? JSON.parse(r.sizeImagePaths)
+              : Array.isArray(r.sizeImagePaths)
+                ? r.sizeImagePaths
+                : [];
         } else if (r.sizeImagePath) {
           parsedSizeImagePaths = [r.sizeImagePath];
         }
@@ -274,52 +399,66 @@ function loadOrdersFromDb(): Order[] {
       let parsedSizeThumbnailPaths: string[] = [];
       try {
         if (r.sizeThumbnailPaths) {
-          parsedSizeThumbnailPaths = typeof r.sizeThumbnailPaths === 'string' && r.sizeThumbnailPaths.startsWith('[')
-            ? JSON.parse(r.sizeThumbnailPaths)
-            : (Array.isArray(r.sizeThumbnailPaths) ? r.sizeThumbnailPaths : []);
+          parsedSizeThumbnailPaths =
+            typeof r.sizeThumbnailPaths === "string" &&
+            r.sizeThumbnailPaths.startsWith("[")
+              ? JSON.parse(r.sizeThumbnailPaths)
+              : Array.isArray(r.sizeThumbnailPaths)
+                ? r.sizeThumbnailPaths
+                : [];
         } else if (r.sizeThumbnailPath) {
           parsedSizeThumbnailPaths = [r.sizeThumbnailPath];
         }
       } catch {
-        parsedSizeThumbnailPaths = r.sizeThumbnailPath ? [r.sizeThumbnailPath] : [];
-      }
-      
-      // If there are no items but there are legacy product details, synthesize a single legacy item
-      if (parsedItems.length === 0 && (r.customName || r.productId)) {
-        parsedItems = [{
-          id: 'legacy-' + r.id,
-          productId: r.productId || '',
-          productName: r.customName || '',
-          size: r.size || '',
-          price: r.price || 0,
-          quantity: 1,
-          imagePath: r.referenceImagePath || '',
-          thumbnailPath: r.thumbnailPath || '',
-          sizeImagePath: r.sizeImagePath || '',
-          sizeThumbnailPath: r.sizeThumbnailPath || '',
-          sizeImagePaths: parsedSizeImagePaths,
-          sizeThumbnailPaths: parsedSizeThumbnailPaths,
-          isCustom: r.isCustom === 1,
-        }];
+        parsedSizeThumbnailPaths = r.sizeThumbnailPath
+          ? [r.sizeThumbnailPath]
+          : [];
       }
 
-      parsedItems = parsedItems.map(item => ({
+      // If there are no items but there are legacy product details, synthesize a single legacy item
+      if (parsedItems.length === 0 && (r.customName || r.productId)) {
+        parsedItems = [
+          {
+            id: "legacy-" + r.id,
+            productId: r.productId || "",
+            productName: r.customName || "",
+            size: r.size || "",
+            price: r.price || 0,
+            quantity: 1,
+            imagePath: r.referenceImagePath || "",
+            thumbnailPath: r.thumbnailPath || "",
+            sizeImagePath: r.sizeImagePath || "",
+            sizeThumbnailPath: r.sizeThumbnailPath || "",
+            sizeImagePaths: parsedSizeImagePaths,
+            sizeThumbnailPaths: parsedSizeThumbnailPaths,
+            isCustom: r.isCustom === 1,
+          },
+        ];
+      }
+
+      parsedItems = parsedItems.map((item) => ({
         ...item,
         imagePaths: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
-        thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : []),
-        sizeImagePaths: item.sizeImagePaths || (item.sizeImagePath ? [item.sizeImagePath] : []),
-        sizeThumbnailPaths: item.sizeThumbnailPaths || (item.sizeThumbnailPath ? [item.sizeThumbnailPath] : []),
+        thumbnailPaths:
+          item.thumbnailPaths ||
+          (item.thumbnailPath ? [item.thumbnailPath] : []),
+        sizeImagePaths:
+          item.sizeImagePaths ||
+          (item.sizeImagePath ? [item.sizeImagePath] : []),
+        sizeThumbnailPaths:
+          item.sizeThumbnailPaths ||
+          (item.sizeThumbnailPath ? [item.sizeThumbnailPath] : []),
       }));
 
       return {
         ...r,
         isCustom: r.isCustom === 1 ? 1 : 0,
         workingOn: r.workingOn === 1 ? 1 : 0,
-        sizeImagePath: r.sizeImagePath || '',
-        sizeThumbnailPath: r.sizeThumbnailPath || '',
+        sizeImagePath: r.sizeImagePath || "",
+        sizeThumbnailPath: r.sizeThumbnailPath || "",
         sizeImagePaths: parsedSizeImagePaths,
         sizeThumbnailPaths: parsedSizeThumbnailPaths,
-        items: parsedItems
+        items: parsedItems,
       };
     });
   } catch (err) {
@@ -331,7 +470,7 @@ function loadOrdersFromDb(): Order[] {
 function loadProductsFromDb(): Product[] {
   if (IS_WEB || !db) return [];
   try {
-    return db.getAllSync<Product>('SELECT * FROM products ORDER BY name ASC');
+    return db.getAllSync<Product>("SELECT * FROM products ORDER BY name ASC");
   } catch {
     return [];
   }
@@ -340,14 +479,20 @@ function loadProductsFromDb(): Product[] {
 function loadCustomersFromDb(): Customer[] {
   if (IS_WEB || !db) return [];
   try {
-    const rows = db.getAllSync<any>('SELECT * FROM customers ORDER BY createdAt DESC');
-    return rows.map(r => {
+    const rows = db.getAllSync<any>(
+      "SELECT * FROM customers ORDER BY createdAt DESC",
+    );
+    return rows.map((r) => {
       let parsedSizeImagePaths: string[] = [];
       try {
         if (r.sizeImagePaths) {
-          parsedSizeImagePaths = typeof r.sizeImagePaths === 'string' && r.sizeImagePaths.startsWith('[')
-            ? JSON.parse(r.sizeImagePaths)
-            : (Array.isArray(r.sizeImagePaths) ? r.sizeImagePaths : []);
+          parsedSizeImagePaths =
+            typeof r.sizeImagePaths === "string" &&
+            r.sizeImagePaths.startsWith("[")
+              ? JSON.parse(r.sizeImagePaths)
+              : Array.isArray(r.sizeImagePaths)
+                ? r.sizeImagePaths
+                : [];
         } else if (r.sizeImagePath) {
           parsedSizeImagePaths = [r.sizeImagePath];
         }
@@ -358,21 +503,27 @@ function loadCustomersFromDb(): Customer[] {
       let parsedSizeThumbnailPaths: string[] = [];
       try {
         if (r.sizeThumbnailPaths) {
-          parsedSizeThumbnailPaths = typeof r.sizeThumbnailPaths === 'string' && r.sizeThumbnailPaths.startsWith('[')
-            ? JSON.parse(r.sizeThumbnailPaths)
-            : (Array.isArray(r.sizeThumbnailPaths) ? r.sizeThumbnailPaths : []);
+          parsedSizeThumbnailPaths =
+            typeof r.sizeThumbnailPaths === "string" &&
+            r.sizeThumbnailPaths.startsWith("[")
+              ? JSON.parse(r.sizeThumbnailPaths)
+              : Array.isArray(r.sizeThumbnailPaths)
+                ? r.sizeThumbnailPaths
+                : [];
         } else if (r.sizeThumbnailPath) {
           parsedSizeThumbnailPaths = [r.sizeThumbnailPath];
         }
       } catch {
-        parsedSizeThumbnailPaths = r.sizeThumbnailPath ? [r.sizeThumbnailPath] : [];
+        parsedSizeThumbnailPaths = r.sizeThumbnailPath
+          ? [r.sizeThumbnailPath]
+          : [];
       }
 
       return {
         ...r,
-        size: r.size || '',
-        sizeImagePath: r.sizeImagePath || '',
-        sizeThumbnailPath: r.sizeThumbnailPath || '',
+        size: r.size || "",
+        sizeImagePath: r.sizeImagePath || "",
+        sizeThumbnailPath: r.sizeThumbnailPath || "",
         sizeImagePaths: parsedSizeImagePaths,
         sizeThumbnailPaths: parsedSizeThumbnailPaths,
       };
@@ -386,7 +537,9 @@ function loadCustomersFromDb(): Customer[] {
 function loadExpensesFromDb(): Expense[] {
   if (IS_WEB || !db) return [];
   try {
-    return db.getAllSync<Expense>('SELECT * FROM expenses ORDER BY date DESC, createdAt DESC');
+    return db.getAllSync<Expense>(
+      "SELECT * FROM expenses ORDER BY date DESC, createdAt DESC",
+    );
   } catch {
     return [];
   }
@@ -411,34 +564,43 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
             AsyncStorage.getItem(EXPENSES_KEY),
             AsyncStorage.getItem(GOALS_KEY),
           ]);
-            const parsedOrders = os ? JSON.parse(os) : [];
-            const sanitizedOrders = parsedOrders.map((o: any) => {
-              let parsedItems = o.items || [];
-              if (parsedItems.length === 0 && (o.customName || o.productId)) {
-                parsedItems = [{
-                  id: 'legacy-' + o.id,
-                  productId: o.productId || '',
-                  productName: o.customName || '',
-                  size: o.size || '',
+          const parsedOrders = os ? JSON.parse(os) : [];
+          const sanitizedOrders = parsedOrders.map((o: any) => {
+            let parsedItems = o.items || [];
+            if (parsedItems.length === 0 && (o.customName || o.productId)) {
+              parsedItems = [
+                {
+                  id: "legacy-" + o.id,
+                  productId: o.productId || "",
+                  productName: o.customName || "",
+                  size: o.size || "",
                   price: o.price || 0,
                   quantity: 1,
-                  imagePath: o.referenceImagePath || '',
-                  thumbnailPath: o.thumbnailPath || '',
-                  isCustom: !!o.isCustom
-                }];
-              }
-              parsedItems = parsedItems.map((item: any) => ({
-                ...item,
-                imagePaths: item.imagePaths || (item.imagePath ? [item.imagePath] : []),
-                thumbnailPaths: item.thumbnailPaths || (item.thumbnailPath ? [item.thumbnailPath] : []),
-                sizeImagePaths: item.sizeImagePaths || (item.sizeImagePath ? [item.sizeImagePath] : []),
-                sizeThumbnailPaths: item.sizeThumbnailPaths || (item.sizeThumbnailPath ? [item.sizeThumbnailPath] : []),
-              }));
-              return {
-                ...o,
-                items: parsedItems
-              };
-            });
+                  imagePath: o.referenceImagePath || "",
+                  thumbnailPath: o.thumbnailPath || "",
+                  isCustom: !!o.isCustom,
+                },
+              ];
+            }
+            parsedItems = parsedItems.map((item: any) => ({
+              ...item,
+              imagePaths:
+                item.imagePaths || (item.imagePath ? [item.imagePath] : []),
+              thumbnailPaths:
+                item.thumbnailPaths ||
+                (item.thumbnailPath ? [item.thumbnailPath] : []),
+              sizeImagePaths:
+                item.sizeImagePaths ||
+                (item.sizeImagePath ? [item.sizeImagePath] : []),
+              sizeThumbnailPaths:
+                item.sizeThumbnailPaths ||
+                (item.sizeThumbnailPath ? [item.sizeThumbnailPath] : []),
+            }));
+            return {
+              ...o,
+              items: parsedItems,
+            };
+          });
           setOrders(sanitizedOrders);
           setProducts(ps ? JSON.parse(ps) : []);
           setExpenses(es ? JSON.parse(es) : []);
@@ -447,23 +609,34 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           let customerUpdated = false;
           const sanitizedCustomers = parsedCustomers.map((c: any) => {
             let updated = { ...c };
-            if (updated.igHandle && updated.igHandle.includes('@')) {
+            if (updated.igHandle && updated.igHandle.includes("@")) {
               customerUpdated = true;
-              updated.igHandle = updated.igHandle.replace(/@/g, '').trim();
+              updated.igHandle = updated.igHandle.replace(/@/g, "").trim();
             }
             if (!updated.size) {
-              const prevOrder = sanitizedOrders.find((o: any) =>
-                (o.customerId === c.id || (o.customerName && c.name && o.customerName.toLowerCase() === c.name.toLowerCase())) &&
-                (o.size || (o.items && o.items[0]?.size))
+              const prevOrder = sanitizedOrders.find(
+                (o: any) =>
+                  (o.customerId === c.id ||
+                    (o.customerName &&
+                      c.name &&
+                      o.customerName.toLowerCase() === c.name.toLowerCase())) &&
+                  (o.size || (o.items && o.items[0]?.size)),
               );
               if (prevOrder) {
                 customerUpdated = true;
-                updated.size = prevOrder.size || (prevOrder.items && prevOrder.items[0]?.size) || '';
-                if (!updated.sizeImagePaths || updated.sizeImagePaths.length === 0) {
-                  updated.sizeImagePath = prevOrder.sizeImagePath || '';
-                  updated.sizeThumbnailPath = prevOrder.sizeThumbnailPath || '';
+                updated.size =
+                  prevOrder.size ||
+                  (prevOrder.items && prevOrder.items[0]?.size) ||
+                  "";
+                if (
+                  !updated.sizeImagePaths ||
+                  updated.sizeImagePaths.length === 0
+                ) {
+                  updated.sizeImagePath = prevOrder.sizeImagePath || "";
+                  updated.sizeThumbnailPath = prevOrder.sizeThumbnailPath || "";
                   updated.sizeImagePaths = prevOrder.sizeImagePaths || [];
-                  updated.sizeThumbnailPaths = prevOrder.sizeThumbnailPaths || [];
+                  updated.sizeThumbnailPaths =
+                    prevOrder.sizeThumbnailPaths || [];
                 }
               }
             }
@@ -480,13 +653,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           let loadedCustomers = loadCustomersFromDb();
 
           let customerUpdated = false;
-          loadedCustomers = loadedCustomers.map(c => {
+          loadedCustomers = loadedCustomers.map((c) => {
             let updated = { ...c };
-            if (updated.igHandle && updated.igHandle.includes('@')) {
+            if (updated.igHandle && updated.igHandle.includes("@")) {
               customerUpdated = true;
-              const cleaned = updated.igHandle.replace(/@/g, '').trim();
+              const cleaned = updated.igHandle.replace(/@/g, "").trim();
               if (!IS_WEB && db) {
-                db.runSync('UPDATE customers SET igHandle=? WHERE id=?', [cleaned, c.id]);
+                db.runSync("UPDATE customers SET igHandle=? WHERE id=?", [
+                  cleaned,
+                  c.id,
+                ]);
               }
               updated.igHandle = cleaned;
             }
@@ -495,11 +671,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           if (customerUpdated) {
             persistCustomers(loadedCustomers);
           }
-          
+
           if (loadedCustomers.length === 0 && loadedOrders.length > 0 && db) {
             const map: Record<string, any> = {};
             for (const o of loadedOrders) {
-              const key = o.customerName?.trim() || 'Unknown';
+              const key = o.customerName?.trim() || "Unknown";
               if (!map[key]) {
                 const igMatch = o.contactInfo?.match(/@[\w.]+/);
                 const pMatch = o.contactInfo?.match(/\+?[0-9\s-]{10,}/);
@@ -507,25 +683,28 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
                 map[key] = {
                   id: genId(),
                   name: key,
-                  igHandle: igMatch ? igMatch[0].replace('@', '') : '',
-                  phone: pMatch ? pMatch[0].replace(/[^0-9+]/g, '') : '',
-                  email: eMatch ? eMatch[0] : '',
-                  address: o.address || '',
-                  size: o.size || (o.items && o.items[0]?.size) || '',
-                  sizeImagePath: o.sizeImagePath || '',
-                  sizeThumbnailPath: o.sizeThumbnailPath || '',
+                  igHandle: igMatch ? igMatch[0].replace("@", "") : "",
+                  phone: pMatch ? pMatch[0].replace(/[^0-9+]/g, "") : "",
+                  email: eMatch ? eMatch[0] : "",
+                  address: o.address || "",
+                  size: o.size || (o.items && o.items[0]?.size) || "",
+                  sizeImagePath: o.sizeImagePath || "",
+                  sizeThumbnailPath: o.sizeThumbnailPath || "",
                   sizeImagePaths: o.sizeImagePaths || [],
                   sizeThumbnailPaths: o.sizeThumbnailPaths || [],
-                  createdAt: o.createdAt || new Date().toISOString()
+                  createdAt: o.createdAt || new Date().toISOString(),
                 };
               }
               o.customerId = map[key].id;
-              db.runSync('UPDATE orders SET customerId=? WHERE id=?', [o.customerId || null, o.id]);
+              db.runSync("UPDATE orders SET customerId=? WHERE id=?", [
+                o.customerId || null,
+                o.id,
+              ]);
             }
             const newCustomers = Object.values(map);
             for (const c of newCustomers as any[]) {
               db.runSync(
-                'INSERT INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                "INSERT INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [
                   c.id,
                   c.name,
@@ -533,14 +712,14 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
                   c.phone,
                   c.email,
                   c.address,
-                  c.notes || '',
-                  c.size || '',
-                  c.sizeImagePath || '',
-                  c.sizeThumbnailPath || '',
+                  c.notes || "",
+                  c.size || "",
+                  c.sizeImagePath || "",
+                  c.sizeThumbnailPath || "",
                   JSON.stringify(c.sizeImagePaths || []),
                   JSON.stringify(c.sizeThumbnailPaths || []),
-                  c.createdAt
-                ]
+                  c.createdAt,
+                ],
               );
             }
             loadedCustomers = newCustomers;
@@ -586,446 +765,615 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   }
 
   const ORDER_DB_COLUMNS = new Set([
-    'source', 'customerName', 'contactInfo', 'address', 'orderDate', 'dueDate',
-    'productId', 'customName', 'referenceImagePath', 'thumbnailPath', 'price',
-    'paymentStatus', 'amountPaid', 'status', 'trackingLink', 'notes',
-    'isCustom', 'size', 'sizeImagePath', 'sizeThumbnailPath', 'sizeImagePaths',
-    'sizeThumbnailPaths', 'customerId', 'workingOn', 'items'
+    "source",
+    "customerName",
+    "contactInfo",
+    "address",
+    "orderDate",
+    "dueDate",
+    "productId",
+    "customName",
+    "referenceImagePath",
+    "thumbnailPath",
+    "price",
+    "paymentStatus",
+    "amountPaid",
+    "status",
+    "trackingLink",
+    "notes",
+    "isCustom",
+    "size",
+    "sizeImagePath",
+    "sizeThumbnailPath",
+    "sizeImagePaths",
+    "sizeThumbnailPaths",
+    "customerId",
+    "workingOn",
+    "items",
   ]);
 
-  const addOrder = useCallback(async (order: Omit<Order, 'id' | 'createdAt'>): Promise<string> => {
-    const id = genId();
-    const createdAt = new Date().toISOString();
-    const full: Order = { ...order, id, createdAt } as Order;
+  const addOrder = useCallback(
+    async (order: Omit<Order, "id" | "createdAt">): Promise<string> => {
+      const id = genId();
+      const createdAt = new Date().toISOString();
+      const full: Order = { ...order, id, createdAt } as Order;
 
-    if (!IS_WEB && db) {
-      db.runSync(
-        `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items)
+      if (!IS_WEB && db) {
+        db.runSync(
+          `INSERT INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [
-          id,
-          full.source,
-          full.customerName,
-          full.contactInfo,
-          full.address ?? '',
-          full.orderDate,
-          full.dueDate,
-          full.productId,
-          full.customName,
-          full.referenceImagePath,
-          full.thumbnailPath,
-          full.price,
-          full.paymentStatus,
-          full.amountPaid,
-          full.status,
-          full.trackingLink,
-          full.notes,
-          createdAt,
-          full.isCustom ? 1 : 0,
-          full.size ?? '',
-          full.sizeImagePath ?? '',
-          full.sizeThumbnailPath ?? '',
-          JSON.stringify(full.sizeImagePaths || (full.sizeImagePath ? [full.sizeImagePath] : [])),
-          JSON.stringify(full.sizeThumbnailPaths || (full.sizeThumbnailPath ? [full.sizeThumbnailPath] : [])),
-          full.customerId ?? '',
-          full.workingOn ? 1 : 0,
-          JSON.stringify(full.items || []),
-        ]
-      );
-      const loaded = loadOrdersFromDb();
-      setOrders(loaded);
-    } else {
-      setOrders(prev => {
-        const next = [full, ...prev];
-        AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
-        return next;
-      });
-    }
-    return id;
-  }, []);
-
-  const updateOrder = useCallback(async (id: string, updates: Partial<Order>) => {
-    const isClosing =
-      updates.status === 'Completed' ||
-      updates.status === 'Shipped' ||
-      updates.status === 'Delivered';
-
-    if (!IS_WEB && db) {
-      const u: any = { ...updates };
-      if (isClosing && updates.workingOn === undefined) {
-        u.workingOn = 0;
-      }
-      if (u.items !== undefined) {
-        u.items = JSON.stringify(u.items);
-      }
-      if (u.sizeImagePaths !== undefined) {
-        u.sizeImagePaths = Array.isArray(u.sizeImagePaths) ? JSON.stringify(u.sizeImagePaths) : u.sizeImagePaths;
-      }
-      if (u.sizeThumbnailPaths !== undefined) {
-        u.sizeThumbnailPaths = Array.isArray(u.sizeThumbnailPaths) ? JSON.stringify(u.sizeThumbnailPaths) : u.sizeThumbnailPaths;
-      }
-      if (u.isCustom !== undefined) {
-        u.isCustom = u.isCustom ? 1 : 0;
-      }
-      if (u.workingOn !== undefined) {
-        u.workingOn = u.workingOn ? 1 : 0;
-      }
-
-      const fields = Object.keys(u).filter(k => ORDER_DB_COLUMNS.has(k));
-      if (fields.length > 0) {
-        const set = fields.map(f => `${f}=?`).join(',');
-        const vals = fields.map(f => u[f] ?? '');
-        db.runSync(`UPDATE orders SET ${set} WHERE id=?`, [...vals, id]);
-      }
-      const loaded = loadOrdersFromDb();
-      setOrders(loaded);
-    } else {
-      setOrders(prev => {
-        const next = prev.map(o => {
-          if (o.id !== id) return o;
-          const merged = { ...o, ...updates };
-          if (isClosing && updates.workingOn === undefined) {
-            merged.workingOn = 0;
-          }
-          return merged;
+          [
+            id,
+            full.source,
+            full.customerName,
+            full.contactInfo,
+            full.address ?? "",
+            full.orderDate,
+            full.dueDate,
+            full.productId,
+            full.customName,
+            full.referenceImagePath,
+            full.thumbnailPath,
+            full.price,
+            full.paymentStatus,
+            full.amountPaid,
+            full.status,
+            full.trackingLink,
+            full.notes,
+            createdAt,
+            full.isCustom ? 1 : 0,
+            full.size ?? "",
+            full.sizeImagePath ?? "",
+            full.sizeThumbnailPath ?? "",
+            JSON.stringify(
+              full.sizeImagePaths ||
+                (full.sizeImagePath ? [full.sizeImagePath] : []),
+            ),
+            JSON.stringify(
+              full.sizeThumbnailPaths ||
+                (full.sizeThumbnailPath ? [full.sizeThumbnailPath] : []),
+            ),
+            full.customerId ?? "",
+            full.workingOn ? 1 : 0,
+            JSON.stringify(full.items || []),
+          ],
+        );
+        const loaded = loadOrdersFromDb();
+        setOrders(loaded);
+      } else {
+        setOrders((prev) => {
+          const next = [full, ...prev];
+          AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
+          return next;
         });
-        AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
-        return next;
-      });
-    }
-  }, []);
+      }
+      return id;
+    },
+    [],
+  );
+
+  const updateOrder = useCallback(
+    async (id: string, updates: Partial<Order>) => {
+      const isClosing =
+        updates.status === "Completed" ||
+        updates.status === "Shipped" ||
+        updates.status === "Delivered";
+
+      if (!IS_WEB && db) {
+        const u: any = { ...updates };
+        if (isClosing && updates.workingOn === undefined) {
+          u.workingOn = 0;
+        }
+        if (u.items !== undefined) {
+          u.items = JSON.stringify(u.items);
+        }
+        if (u.sizeImagePaths !== undefined) {
+          u.sizeImagePaths = Array.isArray(u.sizeImagePaths)
+            ? JSON.stringify(u.sizeImagePaths)
+            : u.sizeImagePaths;
+        }
+        if (u.sizeThumbnailPaths !== undefined) {
+          u.sizeThumbnailPaths = Array.isArray(u.sizeThumbnailPaths)
+            ? JSON.stringify(u.sizeThumbnailPaths)
+            : u.sizeThumbnailPaths;
+        }
+        if (u.isCustom !== undefined) {
+          u.isCustom = u.isCustom ? 1 : 0;
+        }
+        if (u.workingOn !== undefined) {
+          u.workingOn = u.workingOn ? 1 : 0;
+        }
+
+        const fields = Object.keys(u).filter((k) => ORDER_DB_COLUMNS.has(k));
+        if (fields.length > 0) {
+          const set = fields.map((f) => `${f}=?`).join(",");
+          const vals = fields.map((f) => u[f] ?? "");
+          db.runSync(`UPDATE orders SET ${set} WHERE id=?`, [...vals, id]);
+        }
+        const loaded = loadOrdersFromDb();
+        setOrders(loaded);
+      } else {
+        setOrders((prev) => {
+          const next = prev.map((o) => {
+            if (o.id !== id) return o;
+            const merged = { ...o, ...updates };
+            if (isClosing && updates.workingOn === undefined) {
+              merged.workingOn = 0;
+            }
+            return merged;
+          });
+          AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
+          return next;
+        });
+      }
+    },
+    [],
+  );
 
   const deleteOrder = useCallback(async (id: string) => {
     if (!IS_WEB && db) {
-      db.runSync('DELETE FROM orders WHERE id=?', [id]);
+      db.runSync("DELETE FROM orders WHERE id=?", [id]);
       const loaded = loadOrdersFromDb();
       setOrders(loaded);
     } else {
-      setOrders(prev => {
-        const next = prev.filter(o => o.id !== id);
+      setOrders((prev) => {
+        const next = prev.filter((o) => o.id !== id);
         AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(next));
         return next;
       });
     }
   }, []);
 
-  const getOrder = useCallback((id: string) => orders.find(o => o.id === id), [orders]);
+  const getOrder = useCallback(
+    (id: string) => orders.find((o) => o.id === id),
+    [orders],
+  );
 
-  const toggleWorkingOn = useCallback(async (id: string) => {
-    const order = orders.find(o => o.id === id);
-    if (!order) return;
-    const isClosed =
-      order.status === 'Completed' ||
-      order.status === 'Shipped' ||
-      order.status === 'Delivered';
-    // Prevent toggling WIP on if the order is already closed
-    if (isClosed && !order.workingOn) return;
-    const next = order.workingOn ? 0 : 1;
-    await updateOrder(id, { workingOn: next });
-  }, [orders, updateOrder]);
+  const toggleWorkingOn = useCallback(
+    async (id: string) => {
+      const order = orders.find((o) => o.id === id);
+      if (!order) return;
+      const isClosed =
+        order.status === "Completed" ||
+        order.status === "Shipped" ||
+        order.status === "Delivered";
+      // Prevent toggling WIP on if the order is already closed
+      if (isClosed && !order.workingOn) return;
+      const next = order.workingOn ? 0 : 1;
+      await updateOrder(id, { workingOn: next });
+    },
+    [orders, updateOrder],
+  );
 
-  const addProduct = useCallback(async (product: Omit<Product, 'id'>): Promise<string> => {
-    const id = genId();
-    const full: Product = { ...product, id } as Product;
-    if (!IS_WEB && db) {
-      db.runSync(
-        'INSERT INTO products (id,name,imagePath,thumbnailPath,defaultPrice,category) VALUES (?,?,?,?,?,?)',
-        [id, full.name, full.imagePath, full.thumbnailPath, full.defaultPrice, full.category]
+  const addProduct = useCallback(
+    async (product: Omit<Product, "id">): Promise<string> => {
+      const id = genId();
+      const full: Product = { ...product, id } as Product;
+      if (!IS_WEB && db) {
+        db.runSync(
+          "INSERT INTO products (id,name,imagePath,thumbnailPath,defaultPrice,category) VALUES (?,?,?,?,?,?)",
+          [
+            id,
+            full.name,
+            full.imagePath,
+            full.thumbnailPath,
+            full.defaultPrice,
+            full.category,
+          ],
+        );
+      }
+      await persistProducts(
+        [...products, full].sort((a, b) => a.name.localeCompare(b.name)),
       );
-    }
-    await persistProducts([...products, full].sort((a, b) => a.name.localeCompare(b.name)));
-    return id;
-  }, [products]);
+      return id;
+    },
+    [products],
+  );
 
-  const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
-    const next = products.map(p => p.id === id ? { ...p, ...updates } : p);
-    if (!IS_WEB && db) {
-      const fields = Object.keys(updates).filter(k => k !== 'id');
-      if (fields.length > 0) {
-        const set = fields.map(f => `${f}=?`).join(',');
-        const vals = fields.map(f => (updates as any)[f]);
-        db.runSync(`UPDATE products SET ${set} WHERE id=?`, [...vals, id]);
-      }
-    }
-    await persistProducts(next);
-  }, [products]);
-
-  const deleteProduct = useCallback(async (id: string) => {
-    const next = products.filter(p => p.id !== id);
-    if (!IS_WEB && db) db.runSync('DELETE FROM products WHERE id=?', [id]);
-    await persistProducts(next);
-  }, [products]);
-
-
-  const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt'>): Promise<string> => {
-    const id = genId();
-    const createdAt = new Date().toISOString();
-    const cleanIg = customer.igHandle ? customer.igHandle.replace(/@/g, '').trim() : '';
-    const full: Customer = {
-      ...customer,
-      igHandle: cleanIg,
-      notes: customer.notes || '',
-      size: customer.size || '',
-      sizeImagePath: customer.sizeImagePath || '',
-      sizeThumbnailPath: customer.sizeThumbnailPath || '',
-      sizeImagePaths: customer.sizeImagePaths || (customer.sizeImagePath ? [customer.sizeImagePath] : []),
-      sizeThumbnailPaths: customer.sizeThumbnailPaths || (customer.sizeThumbnailPath ? [customer.sizeThumbnailPath] : []),
-      id,
-      createdAt,
-    } as Customer;
-    if (!IS_WEB && db) {
-      db.runSync(
-        'INSERT INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        [
-          id,
-          full.name,
-          full.igHandle,
-          full.phone,
-          full.email,
-          full.address,
-          full.notes || '',
-          full.size || '',
-          full.sizeImagePath || '',
-          full.sizeThumbnailPath || '',
-          JSON.stringify(full.sizeImagePaths || []),
-          JSON.stringify(full.sizeThumbnailPaths || []),
-          createdAt,
-        ]
+  const updateProduct = useCallback(
+    async (id: string, updates: Partial<Product>) => {
+      const next = products.map((p) =>
+        p.id === id ? { ...p, ...updates } : p,
       );
-    }
-    await persistCustomers([...customers, full].sort((a,b) => a.name.localeCompare(b.name)));
-    return id;
-  }, [customers]);
-
-  const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>) => {
-    const cleanUpdates = { ...updates };
-    if (cleanUpdates.igHandle !== undefined) {
-      cleanUpdates.igHandle = cleanUpdates.igHandle ? cleanUpdates.igHandle.replace(/@/g, '').trim() : '';
-    }
-    const next = customers.map(c => c.id === id ? { ...c, ...cleanUpdates } : c);
-    if (!IS_WEB && db) {
-      const u: any = { ...cleanUpdates };
-      if (u.sizeImagePaths !== undefined) {
-        u.sizeImagePaths = Array.isArray(u.sizeImagePaths) ? JSON.stringify(u.sizeImagePaths) : u.sizeImagePaths;
+      if (!IS_WEB && db) {
+        const fields = Object.keys(updates).filter((k) => k !== "id");
+        if (fields.length > 0) {
+          const set = fields.map((f) => `${f}=?`).join(",");
+          const vals = fields.map((f) => (updates as any)[f]);
+          db.runSync(`UPDATE products SET ${set} WHERE id=?`, [...vals, id]);
+        }
       }
-      if (u.sizeThumbnailPaths !== undefined) {
-        u.sizeThumbnailPaths = Array.isArray(u.sizeThumbnailPaths) ? JSON.stringify(u.sizeThumbnailPaths) : u.sizeThumbnailPaths;
+      await persistProducts(next);
+    },
+    [products],
+  );
+
+  const deleteProduct = useCallback(
+    async (id: string) => {
+      const next = products.filter((p) => p.id !== id);
+      if (!IS_WEB && db) db.runSync("DELETE FROM products WHERE id=?", [id]);
+      await persistProducts(next);
+    },
+    [products],
+  );
+
+  const addCustomer = useCallback(
+    async (customer: Omit<Customer, "id" | "createdAt">): Promise<string> => {
+      const id = genId();
+      const createdAt = new Date().toISOString();
+      const cleanIg = customer.igHandle
+        ? customer.igHandle.replace(/@/g, "").trim()
+        : "";
+      const full: Customer = {
+        ...customer,
+        igHandle: cleanIg,
+        notes: customer.notes || "",
+        size: customer.size || "",
+        sizeImagePath: customer.sizeImagePath || "",
+        sizeThumbnailPath: customer.sizeThumbnailPath || "",
+        sizeImagePaths:
+          customer.sizeImagePaths ||
+          (customer.sizeImagePath ? [customer.sizeImagePath] : []),
+        sizeThumbnailPaths:
+          customer.sizeThumbnailPaths ||
+          (customer.sizeThumbnailPath ? [customer.sizeThumbnailPath] : []),
+        id,
+        createdAt,
+      } as Customer;
+      if (!IS_WEB && db) {
+        db.runSync(
+          "INSERT INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+          [
+            id,
+            full.name,
+            full.igHandle,
+            full.phone,
+            full.email,
+            full.address,
+            full.notes || "",
+            full.size || "",
+            full.sizeImagePath || "",
+            full.sizeThumbnailPath || "",
+            JSON.stringify(full.sizeImagePaths || []),
+            JSON.stringify(full.sizeThumbnailPaths || []),
+            createdAt,
+          ],
+        );
       }
-      const fields = Object.keys(u).filter(k => k !== 'id' && k !== 'createdAt');
-      if (fields.length > 0) {
-        const set = fields.map(f => `${f}=?`).join(',');
-        const vals = fields.map(f => u[f]);
-        db.runSync(`UPDATE customers SET ${set} WHERE id=?`, [...vals, id]);
-      }
-    }
-    await persistCustomers(next);
-  }, [customers]);
-
-  const findCustomerByIg = useCallback((ig: string) => {
-    if (!ig) return undefined;
-    const search = ig.replace('@', '').toLowerCase().trim();
-    return customers.find(c => c.igHandle?.toLowerCase() === search);
-  }, [customers]);
-
-  const findCustomerByPhone = useCallback((phone: string) => {
-    if (!phone) return undefined;
-    const search = phone.replace(/[^0-9+]/g, '');
-    return customers.find(c => c.phone && search.includes(c.phone.replace(/[^0-9]/g, '')) || c.phone?.replace(/[^0-9]/g, '').includes(search.replace(/[^0-9]/g, '')));
-  }, [customers]);
-
-  const findProductByName = useCallback((name: string) => {
-    const lower = name.toLowerCase();
-    return products.find(p => p.name.toLowerCase().includes(lower));
-  }, [products]);
-
-  const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'createdAt'>): Promise<string> => {
-    const id = genId();
-    const createdAt = new Date().toISOString();
-    const full: Expense = { ...expense, id, createdAt };
-    if (!IS_WEB && db) {
-      db.runSync(
-        'INSERT INTO expenses (id,amount,category,note,date,createdAt) VALUES (?,?,?,?,?,?)',
-        [id, full.amount, full.category, full.note, full.date, createdAt]
+      await persistCustomers(
+        [...customers, full].sort((a, b) => a.name.localeCompare(b.name)),
       );
-      setExpenses(loadExpensesFromDb());
-    } else {
-      await persistExpenses([full, ...expenses].sort((a, b) => b.date.localeCompare(a.date)));
-    }
-    return id;
-  }, [expenses]);
+      return id;
+    },
+    [customers],
+  );
 
-  const updateExpense = useCallback(async (id: string, updates: Partial<Expense>) => {
-    if (!IS_WEB && db) {
-      const fields = Object.keys(updates).filter(k => k !== 'id' && k !== 'createdAt');
-      if (fields.length > 0) {
-        const set = fields.map(f => `${f}=?`).join(',');
-        const vals = fields.map(f => (updates as any)[f]);
-        db.runSync(`UPDATE expenses SET ${set} WHERE id=?`, [...vals, id]);
+  const updateCustomer = useCallback(
+    async (id: string, updates: Partial<Customer>) => {
+      const cleanUpdates = { ...updates };
+      if (cleanUpdates.igHandle !== undefined) {
+        cleanUpdates.igHandle = cleanUpdates.igHandle
+          ? cleanUpdates.igHandle.replace(/@/g, "").trim()
+          : "";
       }
-      setExpenses(loadExpensesFromDb());
-    } else {
-      await persistExpenses(expenses.map(e => e.id === id ? { ...e, ...updates } : e));
-    }
-  }, [expenses]);
+      const next = customers.map((c) =>
+        c.id === id ? { ...c, ...cleanUpdates } : c,
+      );
+      if (!IS_WEB && db) {
+        const u: any = { ...cleanUpdates };
+        if (u.sizeImagePaths !== undefined) {
+          u.sizeImagePaths = Array.isArray(u.sizeImagePaths)
+            ? JSON.stringify(u.sizeImagePaths)
+            : u.sizeImagePaths;
+        }
+        if (u.sizeThumbnailPaths !== undefined) {
+          u.sizeThumbnailPaths = Array.isArray(u.sizeThumbnailPaths)
+            ? JSON.stringify(u.sizeThumbnailPaths)
+            : u.sizeThumbnailPaths;
+        }
+        const fields = Object.keys(u).filter(
+          (k) => k !== "id" && k !== "createdAt",
+        );
+        if (fields.length > 0) {
+          const set = fields.map((f) => `${f}=?`).join(",");
+          const vals = fields.map((f) => u[f]);
+          db.runSync(`UPDATE customers SET ${set} WHERE id=?`, [...vals, id]);
+        }
+      }
+      await persistCustomers(next);
+    },
+    [customers],
+  );
 
-  const deleteExpense = useCallback(async (id: string) => {
-    if (!IS_WEB && db) {
-      db.runSync('DELETE FROM expenses WHERE id=?', [id]);
-      setExpenses(loadExpensesFromDb());
-    } else {
-      await persistExpenses(expenses.filter(e => e.id !== id));
-    }
-  }, [expenses]);
+  const findCustomerByIg = useCallback(
+    (ig: string) => {
+      if (!ig) return undefined;
+      const search = ig.replace("@", "").toLowerCase().trim();
+      return customers.find((c) => c.igHandle?.toLowerCase() === search);
+    },
+    [customers],
+  );
+
+  const findCustomerByPhone = useCallback(
+    (phone: string) => {
+      if (!phone) return undefined;
+      const search = phone.replace(/[^0-9+]/g, "");
+      return customers.find(
+        (c) =>
+          (c.phone && search.includes(c.phone.replace(/[^0-9]/g, ""))) ||
+          c.phone
+            ?.replace(/[^0-9]/g, "")
+            .includes(search.replace(/[^0-9]/g, "")),
+      );
+    },
+    [customers],
+  );
+
+  const findProductByName = useCallback(
+    (name: string) => {
+      const lower = name.toLowerCase();
+      return products.find((p) => p.name.toLowerCase().includes(lower));
+    },
+    [products],
+  );
+
+  const addExpense = useCallback(
+    async (expense: Omit<Expense, "id" | "createdAt">): Promise<string> => {
+      const id = genId();
+      const createdAt = new Date().toISOString();
+      const full: Expense = { ...expense, id, createdAt };
+      if (!IS_WEB && db) {
+        db.runSync(
+          "INSERT INTO expenses (id,amount,category,note,date,createdAt) VALUES (?,?,?,?,?,?)",
+          [id, full.amount, full.category, full.note, full.date, createdAt],
+        );
+        setExpenses(loadExpensesFromDb());
+      } else {
+        await persistExpenses(
+          [full, ...expenses].sort((a, b) => b.date.localeCompare(a.date)),
+        );
+      }
+      return id;
+    },
+    [expenses],
+  );
+
+  const updateExpense = useCallback(
+    async (id: string, updates: Partial<Expense>) => {
+      if (!IS_WEB && db) {
+        const fields = Object.keys(updates).filter(
+          (k) => k !== "id" && k !== "createdAt",
+        );
+        if (fields.length > 0) {
+          const set = fields.map((f) => `${f}=?`).join(",");
+          const vals = fields.map((f) => (updates as any)[f]);
+          db.runSync(`UPDATE expenses SET ${set} WHERE id=?`, [...vals, id]);
+        }
+        setExpenses(loadExpensesFromDb());
+      } else {
+        await persistExpenses(
+          expenses.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+        );
+      }
+    },
+    [expenses],
+  );
+
+  const deleteExpense = useCallback(
+    async (id: string) => {
+      if (!IS_WEB && db) {
+        db.runSync("DELETE FROM expenses WHERE id=?", [id]);
+        setExpenses(loadExpensesFromDb());
+      } else {
+        await persistExpenses(expenses.filter((e) => e.id !== id));
+      }
+    },
+    [expenses],
+  );
 
   const clearDeliveredImages = useCallback(async (): Promise<number> => {
-    const delivered = orders.filter(o => o.status === 'Delivered' && (
-      o.referenceImagePath || o.thumbnailPath || o.sizeImagePath || o.sizeThumbnailPath ||
-      (o.sizeImagePaths && o.sizeImagePaths.length > 0) ||
-      (o.items && o.items.some(i => i.imagePath || i.thumbnailPath || i.sizeImagePath || (i.sizeImagePaths && i.sizeImagePaths.length > 0)))
-    ));
+    const delivered = orders.filter(
+      (o) =>
+        o.status === "Delivered" &&
+        (o.referenceImagePath ||
+          o.thumbnailPath ||
+          o.sizeImagePath ||
+          o.sizeThumbnailPath ||
+          (o.sizeImagePaths && o.sizeImagePaths.length > 0) ||
+          (o.items &&
+            o.items.some(
+              (i) =>
+                i.imagePath ||
+                i.thumbnailPath ||
+                i.sizeImagePath ||
+                (i.sizeImagePaths && i.sizeImagePaths.length > 0),
+            ))),
+    );
     let count = 0;
     for (const o of delivered) {
-      const updatedItems = (o.items || []).map(item => ({
+      const updatedItems = (o.items || []).map((item) => ({
         ...item,
-        imagePath: '',
-        thumbnailPath: '',
+        imagePath: "",
+        thumbnailPath: "",
         imagePaths: [],
         thumbnailPaths: [],
-        sizeImagePath: '',
-        sizeThumbnailPath: '',
-        sizeImagePaths: [],
-        sizeThumbnailPaths: []
-      }));
-      await updateOrder(o.id, {
-        referenceImagePath: '',
-        thumbnailPath: '',
-        sizeImagePath: '',
-        sizeThumbnailPath: '',
+        sizeImagePath: "",
+        sizeThumbnailPath: "",
         sizeImagePaths: [],
         sizeThumbnailPaths: [],
-        items: updatedItems
+      }));
+      await updateOrder(o.id, {
+        referenceImagePath: "",
+        thumbnailPath: "",
+        sizeImagePath: "",
+        sizeThumbnailPath: "",
+        sizeImagePaths: [],
+        sizeThumbnailPaths: [],
+        items: updatedItems,
       });
       count++;
     }
     return count;
   }, [orders, updateOrder]);
 
-  const importBackup = useCallback(async (data: { orders: Order[]; products: Product[]; customers?: Customer[]; expenses?: Expense[]; goals?: MonthlyGoal[] }) => {
-    if (!IS_WEB && db) {
-      db.execSync('DELETE FROM orders; DELETE FROM products;');
-      for (const o of data.orders) {
-        db.runSync(
-          `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-          [
-            o.id,
-            o.source,
-            o.customerName,
-            o.contactInfo,
-            o.address ?? '',
-            o.orderDate,
-            o.dueDate,
-            o.productId,
-            o.customName,
-            o.referenceImagePath,
-            o.thumbnailPath,
-            o.price,
-            o.paymentStatus,
-            o.amountPaid,
-            o.status,
-            o.trackingLink,
-            o.notes,
-            o.createdAt,
-            o.isCustom ? 1 : 0,
-            o.size ?? '',
-            o.sizeImagePath ?? '',
-            o.sizeThumbnailPath ?? '',
-            JSON.stringify(o.sizeImagePaths || (o.sizeImagePath ? [o.sizeImagePath] : [])),
-            JSON.stringify(o.sizeThumbnailPaths || (o.sizeThumbnailPath ? [o.sizeThumbnailPath] : [])),
-            o.customerId ?? '',
-            o.workingOn ? 1 : 0,
-            JSON.stringify(o.items || [])
-          ]
-        );
-      }
-      for (const p of data.products) {
-        db.runSync(
-          'INSERT OR REPLACE INTO products (id,name,imagePath,thumbnailPath,defaultPrice,category) VALUES (?,?,?,?,?,?)',
-          [p.id, p.name, p.imagePath, p.thumbnailPath, p.defaultPrice, p.category]
-        );
-      }
-      if (data.customers) {
-        db.execSync('DELETE FROM customers;');
-        for (const c of data.customers) {
+  const importBackup = useCallback(
+    async (data: {
+      orders: Order[];
+      products: Product[];
+      customers?: Customer[];
+      expenses?: Expense[];
+      goals?: MonthlyGoal[];
+    }) => {
+      if (!IS_WEB && db) {
+        db.execSync("DELETE FROM orders; DELETE FROM products;");
+        for (const o of data.orders) {
           db.runSync(
-            'INSERT OR REPLACE INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            `INSERT OR REPLACE INTO orders (id,source,customerName,contactInfo,address,orderDate,dueDate,productId,customName,referenceImagePath,thumbnailPath,price,paymentStatus,amountPaid,status,trackingLink,notes,createdAt,isCustom,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,customerId,workingOn,items) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [
-              c.id,
-              c.name,
-              c.igHandle ?? '',
-              c.phone ?? '',
-              c.email ?? '',
-              c.address ?? '',
-              c.notes ?? '',
-              c.size ?? '',
-              c.sizeImagePath ?? '',
-              c.sizeThumbnailPath ?? '',
-              JSON.stringify(c.sizeImagePaths || (c.sizeImagePath ? [c.sizeImagePath] : [])),
-              JSON.stringify(c.sizeThumbnailPaths || (c.sizeThumbnailPath ? [c.sizeThumbnailPath] : [])),
-              c.createdAt ?? '',
-            ]
+              o.id,
+              o.source,
+              o.customerName,
+              o.contactInfo,
+              o.address ?? "",
+              o.orderDate,
+              o.dueDate,
+              o.productId,
+              o.customName,
+              o.referenceImagePath,
+              o.thumbnailPath,
+              o.price,
+              o.paymentStatus,
+              o.amountPaid,
+              o.status,
+              o.trackingLink,
+              o.notes,
+              o.createdAt,
+              o.isCustom ? 1 : 0,
+              o.size ?? "",
+              o.sizeImagePath ?? "",
+              o.sizeThumbnailPath ?? "",
+              JSON.stringify(
+                o.sizeImagePaths || (o.sizeImagePath ? [o.sizeImagePath] : []),
+              ),
+              JSON.stringify(
+                o.sizeThumbnailPaths ||
+                  (o.sizeThumbnailPath ? [o.sizeThumbnailPath] : []),
+              ),
+              o.customerId ?? "",
+              o.workingOn ? 1 : 0,
+              JSON.stringify(o.items || []),
+            ],
           );
         }
+        for (const p of data.products) {
+          db.runSync(
+            "INSERT OR REPLACE INTO products (id,name,imagePath,thumbnailPath,defaultPrice,category) VALUES (?,?,?,?,?,?)",
+            [
+              p.id,
+              p.name,
+              p.imagePath,
+              p.thumbnailPath,
+              p.defaultPrice,
+              p.category,
+            ],
+          );
+        }
+        if (data.customers) {
+          db.execSync("DELETE FROM customers;");
+          for (const c of data.customers) {
+            db.runSync(
+              "INSERT OR REPLACE INTO customers (id,name,igHandle,phone,email,address,notes,size,sizeImagePath,sizeThumbnailPath,sizeImagePaths,sizeThumbnailPaths,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+              [
+                c.id,
+                c.name,
+                c.igHandle ?? "",
+                c.phone ?? "",
+                c.email ?? "",
+                c.address ?? "",
+                c.notes ?? "",
+                c.size ?? "",
+                c.sizeImagePath ?? "",
+                c.sizeThumbnailPath ?? "",
+                JSON.stringify(
+                  c.sizeImagePaths ||
+                    (c.sizeImagePath ? [c.sizeImagePath] : []),
+                ),
+                JSON.stringify(
+                  c.sizeThumbnailPaths ||
+                    (c.sizeThumbnailPath ? [c.sizeThumbnailPath] : []),
+                ),
+                c.createdAt ?? "",
+              ],
+            );
+          }
+        }
+        if (data.expenses) {
+          db.execSync("DELETE FROM expenses;");
+          for (const e of data.expenses) {
+            db.runSync(
+              "INSERT OR REPLACE INTO expenses (id,amount,category,note,date,createdAt) VALUES (?,?,?,?,?,?)",
+              [e.id, e.amount, e.category, e.note ?? "", e.date, e.createdAt],
+            );
+          }
+        }
+        if (data.goals) {
+          db.execSync("DELETE FROM monthly_goals;");
+          for (const g of data.goals) {
+            db.runSync(
+              "INSERT OR REPLACE INTO monthly_goals (id,title,month,targetAmount,earnedAmount,startDate,endDate,status,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)",
+              [
+                g.id,
+                g.title || "Monthly Goal",
+                g.month,
+                g.targetAmount,
+                g.earnedAmount,
+                g.startDate,
+                g.endDate,
+                g.status,
+                g.createdAt,
+                g.updatedAt,
+              ],
+            );
+          }
+        }
+      }
+      await persistOrders(data.orders);
+      await persistProducts(data.products);
+      if (data.customers) {
+        await persistCustomers(data.customers);
       }
       if (data.expenses) {
-        db.execSync('DELETE FROM expenses;');
-        for (const e of data.expenses) {
-          db.runSync(
-            'INSERT OR REPLACE INTO expenses (id,amount,category,note,date,createdAt) VALUES (?,?,?,?,?,?)',
-            [e.id, e.amount, e.category, e.note ?? '', e.date, e.createdAt]
-          );
-        }
+        await persistExpenses(data.expenses);
       }
       if (data.goals) {
-        db.execSync('DELETE FROM monthly_goals;');
-        for (const g of data.goals) {
-          db.runSync(
-            'INSERT OR REPLACE INTO monthly_goals (id,title,month,targetAmount,earnedAmount,startDate,endDate,status,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)',
-            [g.id, g.title || 'Monthly Goal', g.month, g.targetAmount, g.earnedAmount, g.startDate, g.endDate, g.status, g.createdAt, g.updatedAt]
-          );
-        }
+        await persistGoals(data.goals);
       }
-    }
-    await persistOrders(data.orders);
-    await persistProducts(data.products);
-    if (data.customers) {
-      await persistCustomers(data.customers);
-    }
-    if (data.expenses) {
-      await persistExpenses(data.expenses);
-    }
-    if (data.goals) {
-      await persistGoals(data.goals);
-    }
-  }, []);
+    },
+    [],
+  );
 
   const snapshotExpiredGoals = useCallback(async () => {
     const todayStr = today();
     let changed = false;
 
-    const updatedGoals = goals.map(g => {
-      const currentEarned = calculateEarnedForRange(orders, g.startDate, g.endDate);
+    const updatedGoals = goals.map((g) => {
+      const currentEarned = calculateEarnedForRange(
+        orders,
+        g.startDate,
+        g.endDate,
+      );
       const isPastEndDate = Boolean(g.endDate && todayStr > g.endDate);
       let newStatus: GoalStatus = g.status;
 
       if (currentEarned >= g.targetAmount) {
         // Target reached or exceeded -> immediately mark as achieved!
-        newStatus = 'achieved';
+        newStatus = "achieved";
       } else if (isPastEndDate) {
         // Past end date and target not reached -> missed
-        newStatus = 'missed';
+        newStatus = "missed";
       } else {
         // Within active window and still working towards target -> in progress
-        newStatus = 'in_progress';
+        newStatus = "in_progress";
       }
 
       if (newStatus !== g.status || currentEarned !== g.earnedAmount) {
@@ -1033,8 +1381,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         const now = new Date().toISOString();
         if (!IS_WEB && db) {
           db.runSync(
-            'UPDATE monthly_goals SET earnedAmount=?, status=?, updatedAt=? WHERE id=?',
-            [currentEarned, newStatus, now, g.id]
+            "UPDATE monthly_goals SET earnedAmount=?, status=?, updatedAt=? WHERE id=?",
+            [currentEarned, newStatus, now, g.id],
           );
         }
         return {
@@ -1059,174 +1407,246 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [loading, orders, snapshotExpiredGoals]);
 
-  const addMonthlyGoal = useCallback(async (goal: {
-    title?: string;
-    month: string;
-    targetAmount: number;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<string> => {
-    const id = genId();
-    const [yStr, mStr] = goal.month.split('-');
-    const y = parseInt(yStr, 10);
-    const m = parseInt(mStr, 10);
-    const lastDay = new Date(y, m, 0).getDate();
+  const addMonthlyGoal = useCallback(
+    async (goal: {
+      title?: string;
+      month: string;
+      targetAmount: number;
+      startDate?: string;
+      endDate?: string;
+    }): Promise<string> => {
+      const id = genId();
+      const [yStr, mStr] = goal.month.split("-");
+      const y = parseInt(yStr, 10);
+      const m = parseInt(mStr, 10);
+      const lastDay = new Date(y, m, 0).getDate();
 
-    const start = goal.startDate || `${goal.month}-01`;
-    const end = goal.endDate || `${goal.month}-${String(lastDay).padStart(2, '0')}`;
-    const todayStr = today();
-    const earned = calculateEarnedForRange(orders, start, end);
-    const isExpired = todayStr > end;
-    
-    // Immediate completion if target reached, otherwise missed if expired, or in_progress
-    let status: GoalStatus = 'in_progress';
-    if (earned >= goal.targetAmount) {
-      status = 'achieved';
-    } else if (isExpired) {
-      status = 'missed';
-    }
+      const start = goal.startDate || `${goal.month}-01`;
+      const end =
+        goal.endDate || `${goal.month}-${String(lastDay).padStart(2, "0")}`;
+      const todayStr = today();
+      const earned = calculateEarnedForRange(orders, start, end);
+      const isExpired = todayStr > end;
 
-    const now = new Date().toISOString();
-    const title = goal.title?.trim() || 'Monthly Goal';
+      // Immediate completion if target reached, otherwise missed if expired, or in_progress
+      let status: GoalStatus = "in_progress";
+      if (earned >= goal.targetAmount) {
+        status = "achieved";
+      } else if (isExpired) {
+        status = "missed";
+      }
 
-    const newGoal: MonthlyGoal = {
-      id,
-      title,
-      month: goal.month,
-      targetAmount: goal.targetAmount,
-      earnedAmount: earned,
-      startDate: start,
-      endDate: end,
-      status,
-      createdAt: now,
-      updatedAt: now,
-    };
+      const now = new Date().toISOString();
+      const title = goal.title?.trim() || "Monthly Goal";
 
-    if (!IS_WEB && db) {
-      db.runSync(
-        'INSERT INTO monthly_goals (id,title,month,targetAmount,earnedAmount,startDate,endDate,status,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)',
-        [id, title, goal.month, goal.targetAmount, earned, start, end, status, now, now]
-      );
-    }
-
-    const nextGoals = [newGoal, ...goals].sort((a, b) => b.month.localeCompare(a.month) || b.createdAt.localeCompare(a.createdAt));
-    await persistGoals(nextGoals);
-    return id;
-  }, [goals, orders]);
-
-  const updateMonthlyGoal = useCallback(async (id: string, updates: Partial<MonthlyGoal>) => {
-    const existing = goals.find(g => g.id === id);
-    if (!existing) return;
-
-    const start = updates.startDate || existing.startDate;
-    const end = updates.endDate || existing.endDate;
-    const target = updates.targetAmount !== undefined ? updates.targetAmount : existing.targetAmount;
-    const todayStr = today();
-    const earned = calculateEarnedForRange(orders, start, end);
-    const isExpired = todayStr > end;
-
-    let computedStatus: GoalStatus = 'in_progress';
-    if (earned >= target) {
-      computedStatus = 'achieved';
-    } else if (isExpired) {
-      computedStatus = 'missed';
-    }
-
-    const status = updates.status || computedStatus;
-    const now = new Date().toISOString();
-
-    const updated: MonthlyGoal = {
-      ...existing,
-      ...updates,
-      earnedAmount: earned,
-      startDate: start,
-      endDate: end,
-      status,
-      updatedAt: now,
-    };
-
-    if (!IS_WEB && db) {
-      db.runSync(
-        'UPDATE monthly_goals SET title=?, month=?, targetAmount=?, earnedAmount=?, startDate=?, endDate=?, status=?, updatedAt=? WHERE id=?',
-        [updated.title || 'Monthly Goal', updated.month, updated.targetAmount, updated.earnedAmount, updated.startDate, updated.endDate, updated.status, updated.updatedAt, id]
-      );
-    }
-
-    const nextGoals = goals.map(g => g.id === id ? updated : g);
-    await persistGoals(nextGoals);
-  }, [goals, orders]);
-
-  const getGoalsByMonth = useCallback((month: string) => {
-    return goals.filter(g => g.month === month);
-  }, [goals]);
-
-  const getMonthlyGoal = useCallback((month: string) => {
-    return goals.find(g => g.month === month);
-  }, [goals]);
-
-  const setMonthlyGoal = useCallback(async (
-    month: string,
-    targetAmount: number,
-    startDate?: string,
-    endDate?: string,
-    title?: string
-  ): Promise<MonthlyGoal> => {
-    const existing = goals.find(g => g.month === month);
-    if (existing) {
-      await updateMonthlyGoal(existing.id, {
-        targetAmount,
-        startDate,
-        endDate,
-        title: title || existing.title,
-      });
-      return {
-        ...existing,
-        targetAmount,
-        startDate: startDate || existing.startDate,
-        endDate: endDate || existing.endDate,
-        title: title || existing.title,
-      };
-    } else {
-      const newId = await addMonthlyGoal({
-        month,
-        targetAmount,
-        startDate,
-        endDate,
+      const newGoal: MonthlyGoal = {
+        id,
         title,
-      });
-      return {
-        id: newId,
-        title: title || 'Monthly Goal',
-        month,
-        targetAmount,
-        earnedAmount: 0,
-        startDate: startDate || `${month}-01`,
-        endDate: endDate || `${month}-30`,
-        status: 'in_progress',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        month: goal.month,
+        targetAmount: goal.targetAmount,
+        earnedAmount: earned,
+        startDate: start,
+        endDate: end,
+        status,
+        createdAt: now,
+        updatedAt: now,
       };
-    }
-  }, [goals, addMonthlyGoal, updateMonthlyGoal]);
 
-  const deleteMonthlyGoal = useCallback(async (id: string) => {
-    if (!IS_WEB && db) {
-      db.runSync('DELETE FROM monthly_goals WHERE id=?', [id]);
-    }
-    await persistGoals(goals.filter(g => g.id !== id));
-  }, [goals]);
+      if (!IS_WEB && db) {
+        db.runSync(
+          "INSERT INTO monthly_goals (id,title,month,targetAmount,earnedAmount,startDate,endDate,status,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?)",
+          [
+            id,
+            title,
+            goal.month,
+            goal.targetAmount,
+            earned,
+            start,
+            end,
+            status,
+            now,
+            now,
+          ],
+        );
+      }
+
+      const nextGoals = [newGoal, ...goals].sort(
+        (a, b) =>
+          b.month.localeCompare(a.month) ||
+          b.createdAt.localeCompare(a.createdAt),
+      );
+      await persistGoals(nextGoals);
+      return id;
+    },
+    [goals, orders],
+  );
+
+  const updateMonthlyGoal = useCallback(
+    async (id: string, updates: Partial<MonthlyGoal>) => {
+      const existing = goals.find((g) => g.id === id);
+      if (!existing) return;
+
+      const start = updates.startDate || existing.startDate;
+      const end = updates.endDate || existing.endDate;
+      const target =
+        updates.targetAmount !== undefined
+          ? updates.targetAmount
+          : existing.targetAmount;
+      const todayStr = today();
+      const earned = calculateEarnedForRange(orders, start, end);
+      const isExpired = todayStr > end;
+
+      let computedStatus: GoalStatus = "in_progress";
+      if (earned >= target) {
+        computedStatus = "achieved";
+      } else if (isExpired) {
+        computedStatus = "missed";
+      }
+
+      const status = updates.status || computedStatus;
+      const now = new Date().toISOString();
+
+      const updated: MonthlyGoal = {
+        ...existing,
+        ...updates,
+        earnedAmount: earned,
+        startDate: start,
+        endDate: end,
+        status,
+        updatedAt: now,
+      };
+
+      if (!IS_WEB && db) {
+        db.runSync(
+          "UPDATE monthly_goals SET title=?, month=?, targetAmount=?, earnedAmount=?, startDate=?, endDate=?, status=?, updatedAt=? WHERE id=?",
+          [
+            updated.title || "Monthly Goal",
+            updated.month,
+            updated.targetAmount,
+            updated.earnedAmount,
+            updated.startDate,
+            updated.endDate,
+            updated.status,
+            updated.updatedAt,
+            id,
+          ],
+        );
+      }
+
+      const nextGoals = goals.map((g) => (g.id === id ? updated : g));
+      await persistGoals(nextGoals);
+    },
+    [goals, orders],
+  );
+
+  const getGoalsByMonth = useCallback(
+    (month: string) => {
+      return goals.filter((g) => g.month === month);
+    },
+    [goals],
+  );
+
+  const getMonthlyGoal = useCallback(
+    (month: string) => {
+      return goals.find((g) => g.month === month);
+    },
+    [goals],
+  );
+
+  const setMonthlyGoal = useCallback(
+    async (
+      month: string,
+      targetAmount: number,
+      startDate?: string,
+      endDate?: string,
+      title?: string,
+    ): Promise<MonthlyGoal> => {
+      const existing = goals.find((g) => g.month === month);
+      if (existing) {
+        await updateMonthlyGoal(existing.id, {
+          targetAmount,
+          startDate,
+          endDate,
+          title: title || existing.title,
+        });
+        return {
+          ...existing,
+          targetAmount,
+          startDate: startDate || existing.startDate,
+          endDate: endDate || existing.endDate,
+          title: title || existing.title,
+        };
+      } else {
+        const newId = await addMonthlyGoal({
+          month,
+          targetAmount,
+          startDate,
+          endDate,
+          title,
+        });
+        return {
+          id: newId,
+          title: title || "Monthly Goal",
+          month,
+          targetAmount,
+          earnedAmount: 0,
+          startDate: startDate || `${month}-01`,
+          endDate: endDate || `${month}-30`,
+          status: "in_progress",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+    },
+    [goals, addMonthlyGoal, updateMonthlyGoal],
+  );
+
+  const deleteMonthlyGoal = useCallback(
+    async (id: string) => {
+      if (!IS_WEB && db) {
+        db.runSync("DELETE FROM monthly_goals WHERE id=?", [id]);
+      }
+      await persistGoals(goals.filter((g) => g.id !== id));
+    },
+    [goals],
+  );
 
   return (
-    <DatabaseContext.Provider value={{
-      orders, products, customers, expenses, goals, loading,
-      addOrder, updateOrder, deleteOrder, getOrder, toggleWorkingOn,
-      addProduct, updateProduct, deleteProduct,
-      addCustomer, updateCustomer, findCustomerByIg, findCustomerByPhone,
-      findProductByName, clearDeliveredImages, importBackup,
-      addExpense, updateExpense, deleteExpense,
-      addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal,
-      getGoalsByMonth, getMonthlyGoal, setMonthlyGoal, snapshotExpiredGoals,
-    }}>
+    <DatabaseContext.Provider
+      value={{
+        orders,
+        products,
+        customers,
+        expenses,
+        goals,
+        loading,
+        addOrder,
+        updateOrder,
+        deleteOrder,
+        getOrder,
+        toggleWorkingOn,
+        addProduct,
+        updateProduct,
+        deleteProduct,
+        addCustomer,
+        updateCustomer,
+        findCustomerByIg,
+        findCustomerByPhone,
+        findProductByName,
+        clearDeliveredImages,
+        importBackup,
+        addExpense,
+        updateExpense,
+        deleteExpense,
+        addMonthlyGoal,
+        updateMonthlyGoal,
+        deleteMonthlyGoal,
+        getGoalsByMonth,
+        getMonthlyGoal,
+        setMonthlyGoal,
+        snapshotExpiredGoals,
+      }}
+    >
       {children}
     </DatabaseContext.Provider>
   );
@@ -1234,6 +1654,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
 export function useDatabase() {
   const ctx = useContext(DatabaseContext);
-  if (!ctx) throw new Error('useDatabase must be used within DatabaseProvider');
+  if (!ctx) throw new Error("useDatabase must be used within DatabaseProvider");
   return ctx;
 }

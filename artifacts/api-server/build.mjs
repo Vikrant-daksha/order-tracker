@@ -10,10 +10,41 @@ globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
+// --worker flag switches the entry to the Cloudflare Worker build
+const isWorkerBuild = process.argv.includes("--worker");
+
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
+  if (isWorkerBuild) {
+    // ── Cloudflare Workers build ──────────────────────────────────────────────
+    // platform: "browser" tells esbuild to target the V8/WinterCG runtime (no Node built-ins).
+    // We set "nodejs_compat" in wrangler.toml so basic Node APIs still work.
+    await esbuild({
+      entryPoints: [path.resolve(artifactDir, "src/worker.ts")],
+      platform: "browser",
+      bundle: true,
+      format: "esm",
+      outdir: distDir,
+      outExtension: { ".js": ".mjs" },
+      logLevel: "info",
+      external: [
+        // Node built-ins that Workers provides via nodejs_compat
+        "node:*",
+        // native addons — not supported on Workers
+        "*.node",
+        "sharp", "better-sqlite3", "sqlite3", "canvas", "bcrypt", "argon2",
+        "fsevents", "re2", "farmhash", "bufferutil", "utf-8-validate",
+        "mongodb-client-encryption",
+      ],
+      sourcemap: "linked",
+    });
+    console.log("Worker build complete → dist/worker.mjs");
+    return;
+  }
+
+  // ── Default Node.js / Vercel build ─────────────────────────────────────────
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",

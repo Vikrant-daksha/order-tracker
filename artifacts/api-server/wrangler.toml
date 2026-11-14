@@ -1,0 +1,16 @@
+# Cloudflare Workers deployment config
+# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "cherrybrush-api"
+main = "dist/worker.mjs"           # built output of src/worker.ts
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]  # enables Node.js built-ins in Workers
+
+[build]
+command = "pnpm run build:worker"
+
+# Bind env vars from Cloudflare Dashboard → Workers → Settings → Variables
+# [vars]
+# MONGODB_URI = ""
+# CLOUDINARY_URL = ""
+
