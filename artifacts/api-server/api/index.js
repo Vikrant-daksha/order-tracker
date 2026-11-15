@@ -21,6 +21,10 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
 var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -160,7 +164,7 @@ var require_common = __commonJS({
     function setup(env) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
-      createDebug.coerce = coerce;
+      createDebug.coerce = coerce2;
       createDebug.disable = disable;
       createDebug.enable = enable;
       createDebug.enabled = enabled;
@@ -315,7 +319,7 @@ var require_common = __commonJS({
         }
         return false;
       }
-      function coerce(val) {
+      function coerce2(val) {
         if (val instanceof Error) {
           return val.stack || val.message;
         }
@@ -30463,11 +30467,11 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router6;
+    module.exports = Router8;
     module.exports.Route = Route;
-    function Router6(options) {
-      if (!(this instanceof Router6)) {
-        return new Router6(options);
+    function Router8(options) {
+      if (!(this instanceof Router8)) {
+        return new Router8(options);
       }
       const opts = options || {};
       function router3(req, res, next) {
@@ -30481,9 +30485,9 @@ var require_router = __commonJS({
       router3.stack = [];
       return router3;
     }
-    Router6.prototype = function() {
+    Router8.prototype = function() {
     };
-    Router6.prototype.param = function param(name, fn) {
+    Router8.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -30503,7 +30507,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router6.prototype.handle = function handle(req, res, callback) {
+    Router8.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -30630,7 +30634,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router6.prototype.use = function use(handler) {
+    Router8.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -30663,7 +30667,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router6.prototype.route = function route(path) {
+    Router8.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -30678,7 +30682,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router6.prototype[method] = function(path) {
+      Router8.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -30861,7 +30865,7 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router6 = require_router();
+    var Router8 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
@@ -30877,7 +30881,7 @@ var require_application = __commonJS({
         enumerable: true,
         get: function getrouter() {
           if (router3 === null) {
-            router3 = new Router6({
+            router3 = new Router8({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
@@ -52560,7 +52564,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router6 = require_router();
+    var Router8 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -52582,8 +52586,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router6.Route;
-    exports.Router = Router6;
+    exports.Route = Router8.Route;
+    exports.Router = Router8;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -53918,14 +53922,14 @@ var require_bson = __commonJS({
       oid;
       db;
       fields;
-      constructor(collection4, oid, db2, fields) {
+      constructor(collection6, oid, db2, fields) {
         super();
-        const parts = collection4.split(".");
+        const parts = collection6.split(".");
         if (parts.length === 2) {
           db2 = parts.shift();
-          collection4 = parts.shift();
+          collection6 = parts.shift();
         }
-        this.collection = collection4;
+        this.collection = collection6;
         this.oid = oid;
         this.db = db2;
         this.fields = fields || {};
@@ -59957,30 +59961,30 @@ var require_utils4 = __commonJS({
        * @param db - database name
        * @param collection - collection name
        */
-      constructor(db2, collection4) {
+      constructor(db2, collection6) {
         this.db = db2;
-        this.collection = collection4 === "" ? void 0 : collection4;
+        this.collection = collection6 === "" ? void 0 : collection6;
       }
       toString() {
         return this.collection ? `${this.db}.${this.collection}` : this.db;
       }
-      withCollection(collection4) {
-        return new MongoDBCollectionNamespace(this.db, collection4);
+      withCollection(collection6) {
+        return new MongoDBCollectionNamespace(this.db, collection6);
       }
       static fromString(namespace) {
         if (typeof namespace !== "string" || namespace === "") {
           throw new error_1.MongoRuntimeError(`Cannot parse namespace from "${namespace}"`);
         }
         const [db2, ...collectionParts] = namespace.split(".");
-        const collection4 = collectionParts.join(".");
-        return new _MongoDBNamespace(db2, collection4 === "" ? void 0 : collection4);
+        const collection6 = collectionParts.join(".");
+        return new _MongoDBNamespace(db2, collection6 === "" ? void 0 : collection6);
       }
     };
     exports.MongoDBNamespace = MongoDBNamespace;
     var MongoDBCollectionNamespace = class extends MongoDBNamespace {
-      constructor(db2, collection4) {
-        super(db2, collection4);
-        this.collection = collection4;
+      constructor(db2, collection6) {
+        super(db2, collection6);
+        this.collection = collection6;
       }
       static fromString(namespace) {
         return super.fromString(namespace);
@@ -60599,13 +60603,13 @@ var require_utils4 = __commonJS({
         abortListener?.[exports.kDispose]();
       }
     }
-    function maybeAddIdToDocuments(collection4, document2, options) {
-      const forceServerObjectId = options.forceServerObjectId ?? collection4.db.options?.forceServerObjectId ?? false;
+    function maybeAddIdToDocuments(collection6, document2, options) {
+      const forceServerObjectId = options.forceServerObjectId ?? collection6.db.options?.forceServerObjectId ?? false;
       if (forceServerObjectId) {
         return document2;
       }
       if (document2._id == null) {
-        document2._id = collection4.s.pkFactory.createPk();
+        document2._id = collection6.s.pkFactory.createPk();
       }
       return document2;
     }
@@ -62647,8 +62651,8 @@ var require_insert = __commonJS({
     };
     exports.InsertOperation = InsertOperation;
     var InsertOneOperation = class extends InsertOperation {
-      constructor(collection4, doc, options) {
-        super(collection4.s.namespace, [(0, utils_1.maybeAddIdToDocuments)(collection4, doc, options)], options);
+      constructor(collection6, doc, options) {
+        super(collection6.s.namespace, [(0, utils_1.maybeAddIdToDocuments)(collection6, doc, options)], options);
       }
       handleOk(response) {
         const res = super.handleOk(response);
@@ -63407,13 +63411,13 @@ var require_common3 = __commonJS({
        * Create a new OrderedBulkOperation or UnorderedBulkOperation instance
        * @internal
        */
-      constructor(collection4, options, isOrdered) {
-        this.collection = collection4;
-        this.retryWrites = collection4.db.options?.retryWrites;
+      constructor(collection6, options, isOrdered) {
+        this.collection = collection6;
+        this.retryWrites = collection6.db.options?.retryWrites;
         this.isOrdered = isOrdered;
-        const topology = (0, utils_1.getTopology)(collection4);
+        const topology = (0, utils_1.getTopology)(collection6);
         options = options == null ? {} : options;
-        const namespace = collection4.s.namespace;
+        const namespace = collection6.s.namespace;
         const executed = false;
         const currentOp = void 0;
         const hello = topology.lastHello();
@@ -63468,7 +63472,7 @@ var require_common3 = __commonJS({
           // Executed
           executed,
           // Collection
-          collection: collection4,
+          collection: collection6,
           // Fundamental error
           err: void 0,
           // check keys
@@ -63724,8 +63728,8 @@ var require_ordered = __commonJS({
     var common_1 = require_common3();
     var OrderedBulkOperation = class extends common_1.BulkOperationBase {
       /** @internal */
-      constructor(collection4, options) {
-        super(collection4, options, true);
+      constructor(collection6, options) {
+        super(collection6, options, true);
       }
       addToOperationsList(batchType, document2) {
         let buffer;
@@ -63796,8 +63800,8 @@ var require_unordered = __commonJS({
     var common_1 = require_common3();
     var UnorderedBulkOperation = class extends common_1.BulkOperationBase {
       /** @internal */
-      constructor(collection4, options) {
-        super(collection4, options, false);
+      constructor(collection6, options) {
+        super(collection6, options, false);
       }
       handleWriteError(writeResult) {
         if (this.s.batches.length) {
@@ -64518,13 +64522,13 @@ var require_get_more = __commonJS({
         if (this.cursorId == null || this.cursorId.isZero()) {
           throw new error_1.MongoRuntimeError("Unable to iterate cursor with no id");
         }
-        const collection4 = this.ns.collection;
-        if (collection4 == null) {
+        const collection6 = this.ns.collection;
+        if (collection6 == null) {
           throw new error_1.MongoRuntimeError("A collection name must be determined before getMore");
         }
         const getMoreCmd = {
           getMore: this.cursorId,
-          collection: collection4
+          collection: collection6
         };
         if (typeof this.options.batchSize === "number") {
           getMoreCmd.batchSize = Math.abs(this.options.batchSize);
@@ -67181,13 +67185,13 @@ var require_indexes = __commonJS({
     };
     exports.CreateIndexesOperation = CreateIndexesOperation;
     var DropIndexOperation = class extends command_1.CommandOperation {
-      constructor(collection4, indexName, options) {
-        super(collection4, options);
+      constructor(collection6, indexName, options) {
+        super(collection6, options);
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
         this.options = options ?? {};
-        this.collection = collection4;
+        this.collection = collection6;
         this.indexName = indexName;
-        this.ns = collection4.fullNamespace;
+        this.ns = collection6.fullNamespace;
       }
       get commandName() {
         return "dropIndexes";
@@ -67198,12 +67202,12 @@ var require_indexes = __commonJS({
     };
     exports.DropIndexOperation = DropIndexOperation;
     var ListIndexesOperation = class extends command_1.CommandOperation {
-      constructor(collection4, options) {
-        super(collection4, options);
+      constructor(collection6, options) {
+        super(collection6, options);
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.CursorResponse;
         this.options = { ...options };
         delete this.options.writeConcern;
-        this.collectionNamespace = collection4.s.namespace;
+        this.collectionNamespace = collection6.s.namespace;
       }
       get commandName() {
         return "listIndexes";
@@ -67242,9 +67246,9 @@ var require_list_indexes_cursor = __commonJS({
     var indexes_1 = require_indexes();
     var abstract_cursor_1 = require_abstract_cursor();
     var ListIndexesCursor = class _ListIndexesCursor extends abstract_cursor_1.AbstractCursor {
-      constructor(collection4, options) {
-        super(collection4.client, collection4.s.namespace, { ...options });
-        this.parent = collection4;
+      constructor(collection6, options) {
+        super(collection6.client, collection6.s.namespace, { ...options });
+        this.parent = collection6;
         this.options = options;
       }
       clone() {
@@ -67304,11 +67308,11 @@ var require_distinct = __commonJS({
        * @param query - The query for filtering the set of documents to which we apply the distinct filter.
        * @param options - Optional settings. See Collection.prototype.distinct for a list of options.
        */
-      constructor(collection4, key, query, options) {
-        super(collection4, options);
+      constructor(collection6, key, query, options) {
+        super(collection6, options);
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
         this.options = options ?? {};
-        this.collection = collection4;
+        this.collection = collection6;
         this.key = key;
         this.query = query;
       }
@@ -67356,11 +67360,11 @@ var require_estimated_document_count = __commonJS({
     var command_1 = require_command();
     var operation_1 = require_operation();
     var EstimatedDocumentCountOperation = class extends command_1.CommandOperation {
-      constructor(collection4, options = {}) {
-        super(collection4, options);
+      constructor(collection6, options = {}) {
+        super(collection6, options);
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
         this.options = options;
-        this.collectionName = collection4.collectionName;
+        this.collectionName = collection6.collectionName;
       }
       get commandName() {
         return "count";
@@ -67415,12 +67419,12 @@ var require_find_and_modify = __commonJS({
       return cmdBase;
     }
     var FindAndModifyOperation = class extends command_1.CommandOperation {
-      constructor(collection4, query, options) {
-        super(collection4, options);
+      constructor(collection6, query, options) {
+        super(collection6, options);
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
         this.options = options;
         this.readPreference = read_preference_1.ReadPreference.primary;
-        this.collection = collection4;
+        this.collection = collection6;
         this.query = query;
       }
       get commandName() {
@@ -67468,11 +67472,11 @@ var require_find_and_modify = __commonJS({
     };
     exports.FindAndModifyOperation = FindAndModifyOperation;
     var FindOneAndDeleteOperation = class extends FindAndModifyOperation {
-      constructor(collection4, filter, options) {
+      constructor(collection6, filter, options) {
         if (filter == null || typeof filter !== "object") {
           throw new error_1.MongoInvalidArgumentError('Argument "filter" must be an object');
         }
-        super(collection4, filter, options);
+        super(collection6, filter, options);
       }
       buildCommandDocument(connection, session) {
         const document2 = super.buildCommandDocument(connection, session);
@@ -67482,7 +67486,7 @@ var require_find_and_modify = __commonJS({
     };
     exports.FindOneAndDeleteOperation = FindOneAndDeleteOperation;
     var FindOneAndReplaceOperation = class extends FindAndModifyOperation {
-      constructor(collection4, filter, replacement, options) {
+      constructor(collection6, filter, replacement, options) {
         if (filter == null || typeof filter !== "object") {
           throw new error_1.MongoInvalidArgumentError('Argument "filter" must be an object');
         }
@@ -67492,7 +67496,7 @@ var require_find_and_modify = __commonJS({
         if ((0, utils_1.hasAtomicOperators)(replacement)) {
           throw new error_1.MongoInvalidArgumentError("Replacement document must not contain atomic operators");
         }
-        super(collection4, filter, options);
+        super(collection6, filter, options);
         this.replacement = replacement;
       }
       buildCommandDocument(connection, session) {
@@ -67504,7 +67508,7 @@ var require_find_and_modify = __commonJS({
     };
     exports.FindOneAndReplaceOperation = FindOneAndReplaceOperation;
     var FindOneAndUpdateOperation = class extends FindAndModifyOperation {
-      constructor(collection4, filter, update, options) {
+      constructor(collection6, filter, update, options) {
         if (filter == null || typeof filter !== "object") {
           throw new error_1.MongoInvalidArgumentError('Argument "filter" must be an object');
         }
@@ -67514,7 +67518,7 @@ var require_find_and_modify = __commonJS({
         if (!(0, utils_1.hasAtomicOperators)(update, options)) {
           throw new error_1.MongoInvalidArgumentError("Update document requires atomic operators");
         }
-        super(collection4, filter, options);
+        super(collection6, filter, options);
         this.update = update;
         this.options = options;
       }
@@ -67550,10 +67554,10 @@ var require_rename = __commonJS({
     var command_1 = require_command();
     var operation_1 = require_operation();
     var RenameOperation = class extends command_1.CommandOperation {
-      constructor(collection4, newName, options) {
-        super(collection4, options);
+      constructor(collection6, newName, options) {
+        super(collection6, options);
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
-        this.collection = collection4;
+        this.collection = collection6;
         this.newName = newName;
         this.options = options;
         this.ns = new utils_1.MongoDBNamespace("admin", "$cmd");
@@ -67589,12 +67593,12 @@ var require_create = __commonJS({
     var responses_1 = require_responses();
     var operation_1 = require_operation();
     var CreateSearchIndexesOperation = class extends operation_1.AbstractOperation {
-      constructor(collection4, descriptions) {
+      constructor(collection6, descriptions) {
         super();
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
-        this.collection = collection4;
+        this.collection = collection6;
         this.descriptions = descriptions;
-        this.ns = collection4.fullNamespace;
+        this.ns = collection6.fullNamespace;
       }
       get commandName() {
         return "createSearchIndexes";
@@ -67627,12 +67631,12 @@ var require_drop = __commonJS({
     var error_1 = require_error();
     var operation_1 = require_operation();
     var DropSearchIndexOperation = class extends operation_1.AbstractOperation {
-      constructor(collection4, name) {
+      constructor(collection6, name) {
         super();
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
-        this.collection = collection4;
+        this.collection = collection6;
         this.name = name;
-        this.ns = collection4.fullNamespace;
+        this.ns = collection6.fullNamespace;
       }
       get commandName() {
         return "dropSearchIndex";
@@ -67671,13 +67675,13 @@ var require_update2 = __commonJS({
     var responses_1 = require_responses();
     var operation_1 = require_operation();
     var UpdateSearchIndexOperation = class extends operation_1.AbstractOperation {
-      constructor(collection4, name, definition) {
+      constructor(collection6, name, definition) {
         super();
         this.SERVER_COMMAND_RESPONSE_TYPE = responses_1.MongoDBResponse;
-        this.collection = collection4;
+        this.collection = collection6;
         this.name = name;
         this.definition = definition;
-        this.ns = collection4.fullNamespace;
+        this.ns = collection6.fullNamespace;
       }
       get commandName() {
         return "updateSearchIndex";
@@ -67991,11 +67995,11 @@ var require_collection = __commonJS({
        */
       async options(options) {
         options = (0, utils_1.resolveOptions)(this, options);
-        const [collection4] = await this.db.listCollections({ name: this.collectionName }, { ...options, nameOnly: false }).toArray();
-        if (collection4 == null || collection4.options == null) {
+        const [collection6] = await this.db.listCollections({ name: this.collectionName }, { ...options, nameOnly: false }).toArray();
+        if (collection6 == null || collection6.options == null) {
           throw new error_1.MongoAPIError(`collection ${this.namespace} not found`);
         }
-        return collection4.options;
+        return collection6.options;
       }
       /**
        * Returns if the collection is a capped collection
@@ -75161,12 +75165,12 @@ var require_client_encryption = __commonJS({
           }
         }
         try {
-          const collection4 = await db2.createCollection(name, {
+          const collection6 = await db2.createCollection(name, {
             ...createCollectionOptions,
             encryptedFields,
             timeoutMS: timeoutContext?.csotEnabled() ? timeoutContext?.getRemainingTimeMSOrThrow() : void 0
           });
-          return { collection: collection4, encryptedFields };
+          return { collection: collection6, encryptedFields };
         } catch (cause) {
           throw new errors_1.MongoCryptCreateEncryptedCollectionError(encryptedFields, { cause });
         }
@@ -85782,10 +85786,10 @@ var require_lodash = __commonJS({
       function asciiWords(string) {
         return string.match(reAsciiWord) || [];
       }
-      function baseFindKey(collection4, predicate, eachFunc) {
+      function baseFindKey(collection6, predicate, eachFunc) {
         var result;
-        eachFunc(collection4, function(value, key, collection5) {
-          if (predicate(value, key, collection5)) {
+        eachFunc(collection6, function(value, key, collection7) {
+          if (predicate(value, key, collection7)) {
             result = key;
             return false;
           }
@@ -85830,9 +85834,9 @@ var require_lodash = __commonJS({
           return object == null ? undefined2 : object[key];
         };
       }
-      function baseReduce(collection4, iteratee, accumulator, initAccum, eachFunc) {
-        eachFunc(collection4, function(value, index, collection5) {
-          accumulator = initAccum ? (initAccum = false, value) : iteratee(accumulator, value, index, collection5);
+      function baseReduce(collection6, iteratee, accumulator, initAccum, eachFunc) {
+        eachFunc(collection6, function(value, index, collection7) {
+          accumulator = initAccum ? (initAccum = false, value) : iteratee(accumulator, value, index, collection7);
         });
         return accumulator;
       }
@@ -86406,9 +86410,9 @@ var require_lodash = __commonJS({
           }
           return -1;
         }
-        function baseAggregator(collection4, setter, iteratee2, accumulator) {
-          baseEach(collection4, function(value, key, collection5) {
-            setter(accumulator, value, iteratee2(value), collection5);
+        function baseAggregator(collection6, setter, iteratee2, accumulator) {
+          baseEach(collection6, function(value, key, collection7) {
+            setter(accumulator, value, iteratee2(value), collection7);
           });
           return accumulator;
         }
@@ -86572,10 +86576,10 @@ var require_lodash = __commonJS({
         }
         var baseEach = createBaseEach(baseForOwn);
         var baseEachRight = createBaseEach(baseForOwnRight, true);
-        function baseEvery(collection4, predicate) {
+        function baseEvery(collection6, predicate) {
           var result2 = true;
-          baseEach(collection4, function(value, index, collection5) {
-            result2 = !!predicate(value, index, collection5);
+          baseEach(collection6, function(value, index, collection7) {
+            result2 = !!predicate(value, index, collection7);
             return result2;
           });
           return result2;
@@ -86606,10 +86610,10 @@ var require_lodash = __commonJS({
           }
           return array;
         }
-        function baseFilter(collection4, predicate) {
+        function baseFilter(collection6, predicate) {
           var result2 = [];
-          baseEach(collection4, function(value, index, collection5) {
-            if (predicate(value, index, collection5)) {
+          baseEach(collection6, function(value, index, collection7) {
+            if (predicate(value, index, collection7)) {
               result2.push(value);
             }
           });
@@ -86857,10 +86861,10 @@ var require_lodash = __commonJS({
         function baseLt(value, other) {
           return value < other;
         }
-        function baseMap(collection4, iteratee2) {
-          var index = -1, result2 = isArrayLike(collection4) ? Array2(collection4.length) : [];
-          baseEach(collection4, function(value, key, collection5) {
-            result2[++index] = iteratee2(value, key, collection5);
+        function baseMap(collection6, iteratee2) {
+          var index = -1, result2 = isArrayLike(collection6) ? Array2(collection6.length) : [];
+          baseEach(collection6, function(value, key, collection7) {
+            result2[++index] = iteratee2(value, key, collection7);
           });
           return result2;
         }
@@ -86950,7 +86954,7 @@ var require_lodash = __commonJS({
           n += n < 0 ? length : 0;
           return isIndex(n, length) ? array[n] : undefined2;
         }
-        function baseOrderBy(collection4, iteratees, orders) {
+        function baseOrderBy(collection6, iteratees, orders) {
           if (iteratees.length) {
             iteratees = arrayMap(iteratees, function(iteratee2) {
               if (isArray(iteratee2)) {
@@ -86965,7 +86969,7 @@ var require_lodash = __commonJS({
           }
           var index = -1;
           iteratees = arrayMap(iteratees, baseUnary(getIteratee()));
-          var result2 = baseMap(collection4, function(value, key, collection5) {
+          var result2 = baseMap(collection6, function(value, key, collection7) {
             var criteria = arrayMap(iteratees, function(iteratee2) {
               return iteratee2(value);
             });
@@ -87059,11 +87063,11 @@ var require_lodash = __commonJS({
         function baseRest(func, start) {
           return setToString(overRest(func, start, identity), func + "");
         }
-        function baseSample(collection4) {
-          return arraySample(values(collection4));
+        function baseSample(collection6) {
+          return arraySample(values(collection6));
         }
-        function baseSampleSize(collection4, n) {
-          var array = values(collection4);
+        function baseSampleSize(collection6, n) {
+          var array = values(collection6);
           return shuffleSelf(array, baseClamp(n, 0, array.length));
         }
         function baseSet(object, path, value, customizer) {
@@ -87101,8 +87105,8 @@ var require_lodash = __commonJS({
             "writable": true
           });
         };
-        function baseShuffle(collection4) {
-          return shuffleSelf(values(collection4));
+        function baseShuffle(collection6) {
+          return shuffleSelf(values(collection6));
         }
         function baseSlice(array, start, end) {
           var index = -1, length = array.length;
@@ -87121,10 +87125,10 @@ var require_lodash = __commonJS({
           }
           return result2;
         }
-        function baseSome(collection4, predicate) {
+        function baseSome(collection6, predicate) {
           var result2;
-          baseEach(collection4, function(value, index, collection5) {
-            result2 = predicate(value, index, collection5);
+          baseEach(collection6, function(value, index, collection7) {
+            result2 = predicate(value, index, collection7);
             return !result2;
           });
           return !!result2;
@@ -87448,9 +87452,9 @@ var require_lodash = __commonJS({
           return copyObject(source, getSymbolsIn(source), object);
         }
         function createAggregator(setter, initializer) {
-          return function(collection4, iteratee2) {
-            var func = isArray(collection4) ? arrayAggregator : baseAggregator, accumulator = initializer ? initializer() : {};
-            return func(collection4, setter, getIteratee(iteratee2, 2), accumulator);
+          return function(collection6, iteratee2) {
+            var func = isArray(collection6) ? arrayAggregator : baseAggregator, accumulator = initializer ? initializer() : {};
+            return func(collection6, setter, getIteratee(iteratee2, 2), accumulator);
           };
         }
         function createAssigner(assigner) {
@@ -87472,20 +87476,20 @@ var require_lodash = __commonJS({
           });
         }
         function createBaseEach(eachFunc, fromRight) {
-          return function(collection4, iteratee2) {
-            if (collection4 == null) {
-              return collection4;
+          return function(collection6, iteratee2) {
+            if (collection6 == null) {
+              return collection6;
             }
-            if (!isArrayLike(collection4)) {
-              return eachFunc(collection4, iteratee2);
+            if (!isArrayLike(collection6)) {
+              return eachFunc(collection6, iteratee2);
             }
-            var length = collection4.length, index = fromRight ? length : -1, iterable = Object2(collection4);
+            var length = collection6.length, index = fromRight ? length : -1, iterable = Object2(collection6);
             while (fromRight ? index-- : ++index < length) {
               if (iteratee2(iterable[index], index, iterable) === false) {
                 break;
               }
             }
-            return collection4;
+            return collection6;
           };
         }
         function createBaseFor(fromRight) {
@@ -87576,17 +87580,17 @@ var require_lodash = __commonJS({
           return wrapper;
         }
         function createFind(findIndexFunc) {
-          return function(collection4, predicate, fromIndex) {
-            var iterable = Object2(collection4);
-            if (!isArrayLike(collection4)) {
+          return function(collection6, predicate, fromIndex) {
+            var iterable = Object2(collection6);
+            if (!isArrayLike(collection6)) {
               var iteratee2 = getIteratee(predicate, 3);
-              collection4 = keys(collection4);
+              collection6 = keys(collection6);
               predicate = function(key) {
                 return iteratee2(iterable[key], key, iterable);
               };
             }
-            var index = findIndexFunc(collection4, predicate, fromIndex);
-            return index > -1 ? iterable[iteratee2 ? collection4[index] : index] : undefined2;
+            var index = findIndexFunc(collection6, predicate, fromIndex);
+            return index > -1 ? iterable[iteratee2 ? collection6[index] : index] : undefined2;
           };
         }
         function createFlow(fromRight) {
@@ -88944,36 +88948,36 @@ var require_lodash = __commonJS({
             baseAssignValue(result2, key, 1);
           }
         });
-        function every(collection4, predicate, guard) {
-          var func = isArray(collection4) ? arrayEvery : baseEvery;
-          if (guard && isIterateeCall(collection4, predicate, guard)) {
+        function every(collection6, predicate, guard) {
+          var func = isArray(collection6) ? arrayEvery : baseEvery;
+          if (guard && isIterateeCall(collection6, predicate, guard)) {
             predicate = undefined2;
           }
-          return func(collection4, getIteratee(predicate, 3));
+          return func(collection6, getIteratee(predicate, 3));
         }
-        function filter(collection4, predicate) {
-          var func = isArray(collection4) ? arrayFilter : baseFilter;
-          return func(collection4, getIteratee(predicate, 3));
+        function filter(collection6, predicate) {
+          var func = isArray(collection6) ? arrayFilter : baseFilter;
+          return func(collection6, getIteratee(predicate, 3));
         }
         var find = createFind(findIndex);
         var findLast = createFind(findLastIndex);
-        function flatMap(collection4, iteratee2) {
-          return baseFlatten(map(collection4, iteratee2), 1);
+        function flatMap(collection6, iteratee2) {
+          return baseFlatten(map(collection6, iteratee2), 1);
         }
-        function flatMapDeep(collection4, iteratee2) {
-          return baseFlatten(map(collection4, iteratee2), INFINITY);
+        function flatMapDeep(collection6, iteratee2) {
+          return baseFlatten(map(collection6, iteratee2), INFINITY);
         }
-        function flatMapDepth(collection4, iteratee2, depth) {
+        function flatMapDepth(collection6, iteratee2, depth) {
           depth = depth === undefined2 ? 1 : toInteger(depth);
-          return baseFlatten(map(collection4, iteratee2), depth);
+          return baseFlatten(map(collection6, iteratee2), depth);
         }
-        function forEach(collection4, iteratee2) {
-          var func = isArray(collection4) ? arrayEach : baseEach;
-          return func(collection4, getIteratee(iteratee2, 3));
+        function forEach(collection6, iteratee2) {
+          var func = isArray(collection6) ? arrayEach : baseEach;
+          return func(collection6, getIteratee(iteratee2, 3));
         }
-        function forEachRight(collection4, iteratee2) {
-          var func = isArray(collection4) ? arrayEachRight : baseEachRight;
-          return func(collection4, getIteratee(iteratee2, 3));
+        function forEachRight(collection6, iteratee2) {
+          var func = isArray(collection6) ? arrayEachRight : baseEachRight;
+          return func(collection6, getIteratee(iteratee2, 3));
         }
         var groupBy = createAggregator(function(result2, value, key) {
           if (hasOwnProperty.call(result2, key)) {
@@ -88982,18 +88986,18 @@ var require_lodash = __commonJS({
             baseAssignValue(result2, key, [value]);
           }
         });
-        function includes(collection4, value, fromIndex, guard) {
-          collection4 = isArrayLike(collection4) ? collection4 : values(collection4);
+        function includes(collection6, value, fromIndex, guard) {
+          collection6 = isArrayLike(collection6) ? collection6 : values(collection6);
           fromIndex = fromIndex && !guard ? toInteger(fromIndex) : 0;
-          var length = collection4.length;
+          var length = collection6.length;
           if (fromIndex < 0) {
             fromIndex = nativeMax(length + fromIndex, 0);
           }
-          return isString(collection4) ? fromIndex <= length && collection4.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection4, value, fromIndex) > -1;
+          return isString(collection6) ? fromIndex <= length && collection6.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection6, value, fromIndex) > -1;
         }
-        var invokeMap = baseRest(function(collection4, path, args) {
-          var index = -1, isFunc = typeof path == "function", result2 = isArrayLike(collection4) ? Array2(collection4.length) : [];
-          baseEach(collection4, function(value) {
+        var invokeMap = baseRest(function(collection6, path, args) {
+          var index = -1, isFunc = typeof path == "function", result2 = isArrayLike(collection6) ? Array2(collection6.length) : [];
+          baseEach(collection6, function(value) {
             result2[++index] = isFunc ? apply(path, value, args) : baseInvoke(value, path, args);
           });
           return result2;
@@ -89001,12 +89005,12 @@ var require_lodash = __commonJS({
         var keyBy = createAggregator(function(result2, value, key) {
           baseAssignValue(result2, key, value);
         });
-        function map(collection4, iteratee2) {
-          var func = isArray(collection4) ? arrayMap : baseMap;
-          return func(collection4, getIteratee(iteratee2, 3));
+        function map(collection6, iteratee2) {
+          var func = isArray(collection6) ? arrayMap : baseMap;
+          return func(collection6, getIteratee(iteratee2, 3));
         }
-        function orderBy(collection4, iteratees, orders, guard) {
-          if (collection4 == null) {
+        function orderBy(collection6, iteratees, orders, guard) {
+          if (collection6 == null) {
             return [];
           }
           if (!isArray(iteratees)) {
@@ -89016,73 +89020,73 @@ var require_lodash = __commonJS({
           if (!isArray(orders)) {
             orders = orders == null ? [] : [orders];
           }
-          return baseOrderBy(collection4, iteratees, orders);
+          return baseOrderBy(collection6, iteratees, orders);
         }
         var partition = createAggregator(function(result2, value, key) {
           result2[key ? 0 : 1].push(value);
         }, function() {
           return [[], []];
         });
-        function reduce(collection4, iteratee2, accumulator) {
-          var func = isArray(collection4) ? arrayReduce : baseReduce, initAccum = arguments.length < 3;
-          return func(collection4, getIteratee(iteratee2, 4), accumulator, initAccum, baseEach);
+        function reduce(collection6, iteratee2, accumulator) {
+          var func = isArray(collection6) ? arrayReduce : baseReduce, initAccum = arguments.length < 3;
+          return func(collection6, getIteratee(iteratee2, 4), accumulator, initAccum, baseEach);
         }
-        function reduceRight(collection4, iteratee2, accumulator) {
-          var func = isArray(collection4) ? arrayReduceRight : baseReduce, initAccum = arguments.length < 3;
-          return func(collection4, getIteratee(iteratee2, 4), accumulator, initAccum, baseEachRight);
+        function reduceRight(collection6, iteratee2, accumulator) {
+          var func = isArray(collection6) ? arrayReduceRight : baseReduce, initAccum = arguments.length < 3;
+          return func(collection6, getIteratee(iteratee2, 4), accumulator, initAccum, baseEachRight);
         }
-        function reject(collection4, predicate) {
-          var func = isArray(collection4) ? arrayFilter : baseFilter;
-          return func(collection4, negate(getIteratee(predicate, 3)));
+        function reject(collection6, predicate) {
+          var func = isArray(collection6) ? arrayFilter : baseFilter;
+          return func(collection6, negate(getIteratee(predicate, 3)));
         }
-        function sample(collection4) {
-          var func = isArray(collection4) ? arraySample : baseSample;
-          return func(collection4);
+        function sample(collection6) {
+          var func = isArray(collection6) ? arraySample : baseSample;
+          return func(collection6);
         }
-        function sampleSize(collection4, n, guard) {
-          if (guard ? isIterateeCall(collection4, n, guard) : n === undefined2) {
+        function sampleSize(collection6, n, guard) {
+          if (guard ? isIterateeCall(collection6, n, guard) : n === undefined2) {
             n = 1;
           } else {
             n = toInteger(n);
           }
-          var func = isArray(collection4) ? arraySampleSize : baseSampleSize;
-          return func(collection4, n);
+          var func = isArray(collection6) ? arraySampleSize : baseSampleSize;
+          return func(collection6, n);
         }
-        function shuffle(collection4) {
-          var func = isArray(collection4) ? arrayShuffle : baseShuffle;
-          return func(collection4);
+        function shuffle(collection6) {
+          var func = isArray(collection6) ? arrayShuffle : baseShuffle;
+          return func(collection6);
         }
-        function size(collection4) {
-          if (collection4 == null) {
+        function size(collection6) {
+          if (collection6 == null) {
             return 0;
           }
-          if (isArrayLike(collection4)) {
-            return isString(collection4) ? stringSize(collection4) : collection4.length;
+          if (isArrayLike(collection6)) {
+            return isString(collection6) ? stringSize(collection6) : collection6.length;
           }
-          var tag = getTag(collection4);
+          var tag = getTag(collection6);
           if (tag == mapTag || tag == setTag) {
-            return collection4.size;
+            return collection6.size;
           }
-          return baseKeys(collection4).length;
+          return baseKeys(collection6).length;
         }
-        function some(collection4, predicate, guard) {
-          var func = isArray(collection4) ? arraySome : baseSome;
-          if (guard && isIterateeCall(collection4, predicate, guard)) {
+        function some(collection6, predicate, guard) {
+          var func = isArray(collection6) ? arraySome : baseSome;
+          if (guard && isIterateeCall(collection6, predicate, guard)) {
             predicate = undefined2;
           }
-          return func(collection4, getIteratee(predicate, 3));
+          return func(collection6, getIteratee(predicate, 3));
         }
-        var sortBy = baseRest(function(collection4, iteratees) {
-          if (collection4 == null) {
+        var sortBy = baseRest(function(collection6, iteratees) {
+          if (collection6 == null) {
             return [];
           }
           var length = iteratees.length;
-          if (length > 1 && isIterateeCall(collection4, iteratees[0], iteratees[1])) {
+          if (length > 1 && isIterateeCall(collection6, iteratees[0], iteratees[1])) {
             iteratees = [];
           } else if (length > 2 && isIterateeCall(iteratees[0], iteratees[1], iteratees[2])) {
             iteratees = [iteratees[0]];
           }
-          return baseOrderBy(collection4, baseFlatten(iteratees, 1), []);
+          return baseOrderBy(collection6, baseFlatten(iteratees, 1), []);
         });
         var now = ctxNow || function() {
           return root.Date.now();
@@ -93414,20 +93418,20 @@ var require_createBaseEach = __commonJS({
   "node_modules/lodash/_createBaseEach.js"(exports, module) {
     var isArrayLike = require_isArrayLike();
     function createBaseEach(eachFunc, fromRight) {
-      return function(collection4, iteratee) {
-        if (collection4 == null) {
-          return collection4;
+      return function(collection6, iteratee) {
+        if (collection6 == null) {
+          return collection6;
         }
-        if (!isArrayLike(collection4)) {
-          return eachFunc(collection4, iteratee);
+        if (!isArrayLike(collection6)) {
+          return eachFunc(collection6, iteratee);
         }
-        var length = collection4.length, index = fromRight ? length : -1, iterable = Object(collection4);
+        var length = collection6.length, index = fromRight ? length : -1, iterable = Object(collection6);
         while (fromRight ? index-- : ++index < length) {
           if (iteratee(iterable[index], index, iterable) === false) {
             break;
           }
         }
-        return collection4;
+        return collection6;
       };
     }
     module.exports = createBaseEach;
@@ -93449,10 +93453,10 @@ var require_baseMap = __commonJS({
   "node_modules/lodash/_baseMap.js"(exports, module) {
     var baseEach = require_baseEach();
     var isArrayLike = require_isArrayLike();
-    function baseMap(collection4, iteratee) {
-      var index = -1, result = isArrayLike(collection4) ? Array(collection4.length) : [];
-      baseEach(collection4, function(value, key, collection5) {
-        result[++index] = iteratee(value, key, collection5);
+    function baseMap(collection6, iteratee) {
+      var index = -1, result = isArrayLike(collection6) ? Array(collection6.length) : [];
+      baseEach(collection6, function(value, key, collection7) {
+        result[++index] = iteratee(value, key, collection7);
       });
       return result;
     }
@@ -93467,9 +93471,9 @@ var require_map = __commonJS({
     var baseIteratee = require_baseIteratee();
     var baseMap = require_baseMap();
     var isArray = require_isArray();
-    function map(collection4, iteratee) {
-      var func = isArray(collection4) ? arrayMap : baseMap;
-      return func(collection4, baseIteratee(iteratee, 3));
+    function map(collection6, iteratee) {
+      var func = isArray(collection6) ? arrayMap : baseMap;
+      return func(collection6, baseIteratee(iteratee, 3));
     }
     module.exports = map;
   }
@@ -94200,10 +94204,10 @@ var require_clone = __commonJS({
 var require_baseFilter = __commonJS({
   "node_modules/lodash/_baseFilter.js"(exports, module) {
     var baseEach = require_baseEach();
-    function baseFilter(collection4, predicate) {
+    function baseFilter(collection6, predicate) {
       var result = [];
-      baseEach(collection4, function(value, index, collection5) {
-        if (predicate(value, index, collection5)) {
+      baseEach(collection6, function(value, index, collection7) {
+        if (predicate(value, index, collection7)) {
           result.push(value);
         }
       });
@@ -94220,9 +94224,9 @@ var require_filter = __commonJS({
     var baseFilter = require_baseFilter();
     var baseIteratee = require_baseIteratee();
     var isArray = require_isArray();
-    function filter(collection4, predicate) {
-      var func = isArray(collection4) ? arrayFilter : baseFilter;
-      return func(collection4, baseIteratee(predicate, 3));
+    function filter(collection6, predicate) {
+      var func = isArray(collection6) ? arrayFilter : baseFilter;
+      return func(collection6, baseIteratee(predicate, 3));
     }
     module.exports = filter;
   }
@@ -94317,14 +94321,14 @@ var require_includes = __commonJS({
     var toInteger = require_toInteger();
     var values = require_values();
     var nativeMax = Math.max;
-    function includes(collection4, value, fromIndex, guard) {
-      collection4 = isArrayLike(collection4) ? collection4 : values(collection4);
+    function includes(collection6, value, fromIndex, guard) {
+      collection6 = isArrayLike(collection6) ? collection6 : values(collection6);
       fromIndex = fromIndex && !guard ? toInteger(fromIndex) : 0;
-      var length = collection4.length;
+      var length = collection6.length;
       if (fromIndex < 0) {
         fromIndex = nativeMax(length + fromIndex, 0);
       }
-      return isString(collection4) ? fromIndex <= length && collection4.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection4, value, fromIndex) > -1;
+      return isString(collection6) ? fromIndex <= length && collection6.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection6, value, fromIndex) > -1;
     }
     module.exports = includes;
   }
@@ -112375,216 +112379,4159 @@ var require_multer = __commonJS({
   }
 });
 
-// node_modules/dotenv/dist/index.cjs
-var require_dist5 = __commonJS({
-  "node_modules/dotenv/dist/index.cjs"(exports, module) {
-    var j = (e, n) => () => {
+// node_modules/safe-buffer/index.js
+var require_safe_buffer = __commonJS({
+  "node_modules/safe-buffer/index.js"(exports, module) {
+    var buffer = __require("buffer");
+    var Buffer2 = buffer.Buffer;
+    function copyProps(src, dst) {
+      for (var key in src) {
+        dst[key] = src[key];
+      }
+    }
+    if (Buffer2.from && Buffer2.alloc && Buffer2.allocUnsafe && Buffer2.allocUnsafeSlow) {
+      module.exports = buffer;
+    } else {
+      copyProps(buffer, exports);
+      exports.Buffer = SafeBuffer;
+    }
+    function SafeBuffer(arg, encodingOrOffset, length) {
+      return Buffer2(arg, encodingOrOffset, length);
+    }
+    SafeBuffer.prototype = Object.create(Buffer2.prototype);
+    copyProps(Buffer2, SafeBuffer);
+    SafeBuffer.from = function(arg, encodingOrOffset, length) {
+      if (typeof arg === "number") {
+        throw new TypeError("Argument must not be a number");
+      }
+      return Buffer2(arg, encodingOrOffset, length);
+    };
+    SafeBuffer.alloc = function(size, fill, encoding) {
+      if (typeof size !== "number") {
+        throw new TypeError("Argument must be a number");
+      }
+      var buf = Buffer2(size);
+      if (fill !== void 0) {
+        if (typeof encoding === "string") {
+          buf.fill(fill, encoding);
+        } else {
+          buf.fill(fill);
+        }
+      } else {
+        buf.fill(0);
+      }
+      return buf;
+    };
+    SafeBuffer.allocUnsafe = function(size) {
+      if (typeof size !== "number") {
+        throw new TypeError("Argument must be a number");
+      }
+      return Buffer2(size);
+    };
+    SafeBuffer.allocUnsafeSlow = function(size) {
+      if (typeof size !== "number") {
+        throw new TypeError("Argument must be a number");
+      }
+      return buffer.SlowBuffer(size);
+    };
+  }
+});
+
+// node_modules/jws/lib/data-stream.js
+var require_data_stream = __commonJS({
+  "node_modules/jws/lib/data-stream.js"(exports, module) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var Stream = __require("stream");
+    var util2 = __require("util");
+    function DataStream(data) {
+      this.buffer = null;
+      this.writable = true;
+      this.readable = true;
+      if (!data) {
+        this.buffer = Buffer2.alloc(0);
+        return this;
+      }
+      if (typeof data.pipe === "function") {
+        this.buffer = Buffer2.alloc(0);
+        data.pipe(this);
+        return this;
+      }
+      if (data.length || typeof data === "object") {
+        this.buffer = data;
+        this.writable = false;
+        process.nextTick(function() {
+          this.emit("end", data);
+          this.readable = false;
+          this.emit("close");
+        }.bind(this));
+        return this;
+      }
+      throw new TypeError("Unexpected data type (" + typeof data + ")");
+    }
+    util2.inherits(DataStream, Stream);
+    DataStream.prototype.write = function write(data) {
+      this.buffer = Buffer2.concat([this.buffer, Buffer2.from(data)]);
+      this.emit("data", data);
+    };
+    DataStream.prototype.end = function end(data) {
+      if (data)
+        this.write(data);
+      this.emit("end", data);
+      this.emit("close");
+      this.writable = false;
+      this.readable = false;
+    };
+    module.exports = DataStream;
+  }
+});
+
+// node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js
+var require_param_bytes_for_alg = __commonJS({
+  "node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js"(exports, module) {
+    "use strict";
+    function getParamSize(keySize) {
+      var result = (keySize / 8 | 0) + (keySize % 8 === 0 ? 0 : 1);
+      return result;
+    }
+    var paramBytesForAlg = {
+      ES256: getParamSize(256),
+      ES384: getParamSize(384),
+      ES512: getParamSize(521)
+    };
+    function getParamBytesForAlg(alg) {
+      var paramBytes = paramBytesForAlg[alg];
+      if (paramBytes) {
+        return paramBytes;
+      }
+      throw new Error('Unknown algorithm "' + alg + '"');
+    }
+    module.exports = getParamBytesForAlg;
+  }
+});
+
+// node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js
+var require_ecdsa_sig_formatter = __commonJS({
+  "node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js"(exports, module) {
+    "use strict";
+    var Buffer2 = require_safe_buffer().Buffer;
+    var getParamBytesForAlg = require_param_bytes_for_alg();
+    var MAX_OCTET = 128;
+    var CLASS_UNIVERSAL = 0;
+    var PRIMITIVE_BIT = 32;
+    var TAG_SEQ = 16;
+    var TAG_INT = 2;
+    var ENCODED_TAG_SEQ = TAG_SEQ | PRIMITIVE_BIT | CLASS_UNIVERSAL << 6;
+    var ENCODED_TAG_INT = TAG_INT | CLASS_UNIVERSAL << 6;
+    function base64Url(base64) {
+      return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    function signatureAsBuffer(signature) {
+      if (Buffer2.isBuffer(signature)) {
+        return signature;
+      } else if ("string" === typeof signature) {
+        return Buffer2.from(signature, "base64");
+      }
+      throw new TypeError("ECDSA signature must be a Base64 string or a Buffer");
+    }
+    function derToJose(signature, alg) {
+      signature = signatureAsBuffer(signature);
+      var paramBytes = getParamBytesForAlg(alg);
+      var maxEncodedParamLength = paramBytes + 1;
+      var inputLength = signature.length;
+      var offset = 0;
+      if (signature[offset++] !== ENCODED_TAG_SEQ) {
+        throw new Error('Could not find expected "seq"');
+      }
+      var seqLength = signature[offset++];
+      if (seqLength === (MAX_OCTET | 1)) {
+        seqLength = signature[offset++];
+      }
+      if (inputLength - offset < seqLength) {
+        throw new Error('"seq" specified length of "' + seqLength + '", only "' + (inputLength - offset) + '" remaining');
+      }
+      if (signature[offset++] !== ENCODED_TAG_INT) {
+        throw new Error('Could not find expected "int" for "r"');
+      }
+      var rLength = signature[offset++];
+      if (inputLength - offset - 2 < rLength) {
+        throw new Error('"r" specified length of "' + rLength + '", only "' + (inputLength - offset - 2) + '" available');
+      }
+      if (maxEncodedParamLength < rLength) {
+        throw new Error('"r" specified length of "' + rLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
+      }
+      var rOffset = offset;
+      offset += rLength;
+      if (signature[offset++] !== ENCODED_TAG_INT) {
+        throw new Error('Could not find expected "int" for "s"');
+      }
+      var sLength = signature[offset++];
+      if (inputLength - offset !== sLength) {
+        throw new Error('"s" specified length of "' + sLength + '", expected "' + (inputLength - offset) + '"');
+      }
+      if (maxEncodedParamLength < sLength) {
+        throw new Error('"s" specified length of "' + sLength + '", max of "' + maxEncodedParamLength + '" is acceptable');
+      }
+      var sOffset = offset;
+      offset += sLength;
+      if (offset !== inputLength) {
+        throw new Error('Expected to consume entire buffer, but "' + (inputLength - offset) + '" bytes remain');
+      }
+      var rPadding = paramBytes - rLength, sPadding = paramBytes - sLength;
+      var dst = Buffer2.allocUnsafe(rPadding + rLength + sPadding + sLength);
+      for (offset = 0; offset < rPadding; ++offset) {
+        dst[offset] = 0;
+      }
+      signature.copy(dst, offset, rOffset + Math.max(-rPadding, 0), rOffset + rLength);
+      offset = paramBytes;
+      for (var o = offset; offset < o + sPadding; ++offset) {
+        dst[offset] = 0;
+      }
+      signature.copy(dst, offset, sOffset + Math.max(-sPadding, 0), sOffset + sLength);
+      dst = dst.toString("base64");
+      dst = base64Url(dst);
+      return dst;
+    }
+    function countPadding(buf, start, stop) {
+      var padding = 0;
+      while (start + padding < stop && buf[start + padding] === 0) {
+        ++padding;
+      }
+      var needsSign = buf[start + padding] >= MAX_OCTET;
+      if (needsSign) {
+        --padding;
+      }
+      return padding;
+    }
+    function joseToDer(signature, alg) {
+      signature = signatureAsBuffer(signature);
+      var paramBytes = getParamBytesForAlg(alg);
+      var signatureBytes = signature.length;
+      if (signatureBytes !== paramBytes * 2) {
+        throw new TypeError('"' + alg + '" signatures must be "' + paramBytes * 2 + '" bytes, saw "' + signatureBytes + '"');
+      }
+      var rPadding = countPadding(signature, 0, paramBytes);
+      var sPadding = countPadding(signature, paramBytes, signature.length);
+      var rLength = paramBytes - rPadding;
+      var sLength = paramBytes - sPadding;
+      var rsBytes = 1 + 1 + rLength + 1 + 1 + sLength;
+      var shortLength = rsBytes < MAX_OCTET;
+      var dst = Buffer2.allocUnsafe((shortLength ? 2 : 3) + rsBytes);
+      var offset = 0;
+      dst[offset++] = ENCODED_TAG_SEQ;
+      if (shortLength) {
+        dst[offset++] = rsBytes;
+      } else {
+        dst[offset++] = MAX_OCTET | 1;
+        dst[offset++] = rsBytes & 255;
+      }
+      dst[offset++] = ENCODED_TAG_INT;
+      dst[offset++] = rLength;
+      if (rPadding < 0) {
+        dst[offset++] = 0;
+        offset += signature.copy(dst, offset, 0, paramBytes);
+      } else {
+        offset += signature.copy(dst, offset, rPadding, paramBytes);
+      }
+      dst[offset++] = ENCODED_TAG_INT;
+      dst[offset++] = sLength;
+      if (sPadding < 0) {
+        dst[offset++] = 0;
+        signature.copy(dst, offset, paramBytes);
+      } else {
+        signature.copy(dst, offset, paramBytes + sPadding);
+      }
+      return dst;
+    }
+    module.exports = {
+      derToJose,
+      joseToDer
+    };
+  }
+});
+
+// node_modules/buffer-equal-constant-time/index.js
+var require_buffer_equal_constant_time = __commonJS({
+  "node_modules/buffer-equal-constant-time/index.js"(exports, module) {
+    "use strict";
+    var Buffer2 = __require("buffer").Buffer;
+    var SlowBuffer = __require("buffer").SlowBuffer;
+    module.exports = bufferEq;
+    function bufferEq(a, b) {
+      if (!Buffer2.isBuffer(a) || !Buffer2.isBuffer(b)) {
+        return false;
+      }
+      if (a.length !== b.length) {
+        return false;
+      }
+      var c = 0;
+      for (var i = 0; i < a.length; i++) {
+        c |= a[i] ^ b[i];
+      }
+      return c === 0;
+    }
+    bufferEq.install = function() {
+      Buffer2.prototype.equal = SlowBuffer.prototype.equal = function equal(that) {
+        return bufferEq(this, that);
+      };
+    };
+    var origBufEqual = Buffer2.prototype.equal;
+    var origSlowBufEqual = SlowBuffer.prototype.equal;
+    bufferEq.restore = function() {
+      Buffer2.prototype.equal = origBufEqual;
+      SlowBuffer.prototype.equal = origSlowBufEqual;
+    };
+  }
+});
+
+// node_modules/jwa/index.js
+var require_jwa = __commonJS({
+  "node_modules/jwa/index.js"(exports, module) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var crypto2 = __require("crypto");
+    var formatEcdsa = require_ecdsa_sig_formatter();
+    var util2 = __require("util");
+    var MSG_INVALID_ALGORITHM = '"%s" is not a valid algorithm.\n  Supported algorithms are:\n  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".';
+    var MSG_INVALID_SECRET = "secret must be a string or buffer";
+    var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
+    var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
+    var supportsKeyObjects = typeof crypto2.createPublicKey === "function";
+    if (supportsKeyObjects) {
+      MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
+      MSG_INVALID_SECRET += "or a KeyObject";
+    }
+    function checkIsPublicKey(key) {
+      if (Buffer2.isBuffer(key)) {
+        return;
+      }
+      if (typeof key === "string") {
+        return;
+      }
+      if (!supportsKeyObjects) {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key !== "object") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key.type !== "string") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key.asymmetricKeyType !== "string") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+      if (typeof key.export !== "function") {
+        throw typeError(MSG_INVALID_VERIFIER_KEY);
+      }
+    }
+    function checkIsPrivateKey(key) {
+      if (Buffer2.isBuffer(key)) {
+        return;
+      }
+      if (typeof key === "string") {
+        return;
+      }
+      if (typeof key === "object") {
+        return;
+      }
+      throw typeError(MSG_INVALID_SIGNER_KEY);
+    }
+    function checkIsSecretKey(key) {
+      if (Buffer2.isBuffer(key)) {
+        return;
+      }
+      if (typeof key === "string") {
+        return key;
+      }
+      if (!supportsKeyObjects) {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+      if (typeof key !== "object") {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+      if (key.type !== "secret") {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+      if (typeof key.export !== "function") {
+        throw typeError(MSG_INVALID_SECRET);
+      }
+    }
+    function fromBase64(base64) {
+      return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    function toBase64(base64url) {
+      base64url = base64url.toString();
+      var padding = 4 - base64url.length % 4;
+      if (padding !== 4) {
+        for (var i = 0; i < padding; ++i) {
+          base64url += "=";
+        }
+      }
+      return base64url.replace(/\-/g, "+").replace(/_/g, "/");
+    }
+    function typeError(template) {
+      var args = [].slice.call(arguments, 1);
+      var errMsg = util2.format.bind(util2, template).apply(null, args);
+      return new TypeError(errMsg);
+    }
+    function bufferOrString(obj) {
+      return Buffer2.isBuffer(obj) || typeof obj === "string";
+    }
+    function normalizeInput(thing) {
+      if (!bufferOrString(thing))
+        thing = JSON.stringify(thing);
+      return thing;
+    }
+    function createHmacSigner(bits) {
+      return function sign(thing, secret) {
+        checkIsSecretKey(secret);
+        thing = normalizeInput(thing);
+        var hmac = crypto2.createHmac("sha" + bits, secret);
+        var sig = (hmac.update(thing), hmac.digest("base64"));
+        return fromBase64(sig);
+      };
+    }
+    var bufferEqual;
+    var timingSafeEqual = "timingSafeEqual" in crypto2 ? function timingSafeEqual2(a, b) {
+      if (a.byteLength !== b.byteLength) {
+        return false;
+      }
+      return crypto2.timingSafeEqual(a, b);
+    } : function timingSafeEqual2(a, b) {
+      if (!bufferEqual) {
+        bufferEqual = require_buffer_equal_constant_time();
+      }
+      return bufferEqual(a, b);
+    };
+    function createHmacVerifier(bits) {
+      return function verify(thing, signature, secret) {
+        var computedSig = createHmacSigner(bits)(thing, secret);
+        return timingSafeEqual(Buffer2.from(signature), Buffer2.from(computedSig));
+      };
+    }
+    function createKeySigner(bits) {
+      return function sign(thing, privateKey) {
+        checkIsPrivateKey(privateKey);
+        thing = normalizeInput(thing);
+        var signer = crypto2.createSign("RSA-SHA" + bits);
+        var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
+        return fromBase64(sig);
+      };
+    }
+    function createKeyVerifier(bits) {
+      return function verify(thing, signature, publicKey) {
+        checkIsPublicKey(publicKey);
+        thing = normalizeInput(thing);
+        signature = toBase64(signature);
+        var verifier = crypto2.createVerify("RSA-SHA" + bits);
+        verifier.update(thing);
+        return verifier.verify(publicKey, signature, "base64");
+      };
+    }
+    function createPSSKeySigner(bits) {
+      return function sign(thing, privateKey) {
+        checkIsPrivateKey(privateKey);
+        thing = normalizeInput(thing);
+        var signer = crypto2.createSign("RSA-SHA" + bits);
+        var sig = (signer.update(thing), signer.sign({
+          key: privateKey,
+          padding: crypto2.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto2.constants.RSA_PSS_SALTLEN_DIGEST
+        }, "base64"));
+        return fromBase64(sig);
+      };
+    }
+    function createPSSKeyVerifier(bits) {
+      return function verify(thing, signature, publicKey) {
+        checkIsPublicKey(publicKey);
+        thing = normalizeInput(thing);
+        signature = toBase64(signature);
+        var verifier = crypto2.createVerify("RSA-SHA" + bits);
+        verifier.update(thing);
+        return verifier.verify({
+          key: publicKey,
+          padding: crypto2.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto2.constants.RSA_PSS_SALTLEN_DIGEST
+        }, signature, "base64");
+      };
+    }
+    function createECDSASigner(bits) {
+      var inner = createKeySigner(bits);
+      return function sign() {
+        var signature = inner.apply(null, arguments);
+        signature = formatEcdsa.derToJose(signature, "ES" + bits);
+        return signature;
+      };
+    }
+    function createECDSAVerifer(bits) {
+      var inner = createKeyVerifier(bits);
+      return function verify(thing, signature, publicKey) {
+        signature = formatEcdsa.joseToDer(signature, "ES" + bits).toString("base64");
+        var result = inner(thing, signature, publicKey);
+        return result;
+      };
+    }
+    function createNoneSigner() {
+      return function sign() {
+        return "";
+      };
+    }
+    function createNoneVerifier() {
+      return function verify(thing, signature) {
+        return signature === "";
+      };
+    }
+    module.exports = function jwa(algorithm) {
+      var signerFactories = {
+        hs: createHmacSigner,
+        rs: createKeySigner,
+        ps: createPSSKeySigner,
+        es: createECDSASigner,
+        none: createNoneSigner
+      };
+      var verifierFactories = {
+        hs: createHmacVerifier,
+        rs: createKeyVerifier,
+        ps: createPSSKeyVerifier,
+        es: createECDSAVerifer,
+        none: createNoneVerifier
+      };
+      var match = algorithm.match(/^(RS|PS|ES|HS)(256|384|512)$|^(none)$/);
+      if (!match)
+        throw typeError(MSG_INVALID_ALGORITHM, algorithm);
+      var algo = (match[1] || match[3]).toLowerCase();
+      var bits = match[2];
+      return {
+        sign: signerFactories[algo](bits),
+        verify: verifierFactories[algo](bits)
+      };
+    };
+  }
+});
+
+// node_modules/jws/lib/tostring.js
+var require_tostring = __commonJS({
+  "node_modules/jws/lib/tostring.js"(exports, module) {
+    var Buffer2 = __require("buffer").Buffer;
+    module.exports = function toString(obj) {
+      if (typeof obj === "string")
+        return obj;
+      if (typeof obj === "number" || Buffer2.isBuffer(obj))
+        return obj.toString();
+      return JSON.stringify(obj);
+    };
+  }
+});
+
+// node_modules/jws/lib/sign-stream.js
+var require_sign_stream = __commonJS({
+  "node_modules/jws/lib/sign-stream.js"(exports, module) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var DataStream = require_data_stream();
+    var jwa = require_jwa();
+    var Stream = __require("stream");
+    var toString = require_tostring();
+    var util2 = __require("util");
+    function base64url(string, encoding) {
+      return Buffer2.from(string, encoding).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    function jwsSecuredInput(header, payload, encoding) {
+      encoding = encoding || "utf8";
+      var encodedHeader = base64url(toString(header), "binary");
+      var encodedPayload = base64url(toString(payload), encoding);
+      return util2.format("%s.%s", encodedHeader, encodedPayload);
+    }
+    function jwsSign(opts) {
+      var header = opts.header;
+      var payload = opts.payload;
+      var secretOrKey = opts.secret || opts.privateKey;
+      var encoding = opts.encoding;
+      var algo = jwa(header.alg);
+      var securedInput = jwsSecuredInput(header, payload, encoding);
+      var signature = algo.sign(securedInput, secretOrKey);
+      return util2.format("%s.%s", securedInput, signature);
+    }
+    function SignStream(opts) {
+      var secret = opts.secret;
+      secret = secret == null ? opts.privateKey : secret;
+      secret = secret == null ? opts.key : secret;
+      if (/^hs/i.test(opts.header.alg) === true && secret == null) {
+        throw new TypeError("secret must be a string or buffer or a KeyObject");
+      }
+      var secretStream = new DataStream(secret);
+      this.readable = true;
+      this.header = opts.header;
+      this.encoding = opts.encoding;
+      this.secret = this.privateKey = this.key = secretStream;
+      this.payload = new DataStream(opts.payload);
+      this.secret.once("close", function() {
+        if (!this.payload.writable && this.readable)
+          this.sign();
+      }.bind(this));
+      this.payload.once("close", function() {
+        if (!this.secret.writable && this.readable)
+          this.sign();
+      }.bind(this));
+    }
+    util2.inherits(SignStream, Stream);
+    SignStream.prototype.sign = function sign() {
       try {
-        return n || e((n = { exports: {} }).exports, n), n.exports;
-      } catch (t) {
-        throw n = 0, t;
+        var signature = jwsSign({
+          header: this.header,
+          payload: this.payload.buffer,
+          secret: this.secret.buffer,
+          encoding: this.encoding
+        });
+        this.emit("done", signature);
+        this.emit("data", signature);
+        this.emit("end");
+        this.readable = false;
+        return signature;
+      } catch (e) {
+        this.readable = false;
+        this.emit("error", e);
+        this.emit("close");
       }
     };
-    var R = j((Z, N) => {
-      function T(e) {
-        return typeof e == "string" ? !["false", "0", "no", "off", ""].includes(e.toLowerCase()) : !!e;
+    SignStream.sign = jwsSign;
+    module.exports = SignStream;
+  }
+});
+
+// node_modules/jws/lib/verify-stream.js
+var require_verify_stream = __commonJS({
+  "node_modules/jws/lib/verify-stream.js"(exports, module) {
+    var Buffer2 = require_safe_buffer().Buffer;
+    var DataStream = require_data_stream();
+    var jwa = require_jwa();
+    var Stream = __require("stream");
+    var toString = require_tostring();
+    var util2 = __require("util");
+    var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
+    function isObject(thing) {
+      return Object.prototype.toString.call(thing) === "[object Object]";
+    }
+    function safeJsonParse(thing) {
+      if (isObject(thing))
+        return thing;
+      try {
+        return JSON.parse(thing);
+      } catch (e) {
+        return void 0;
       }
-      function U(e = process.env) {
-        let n = {};
-        for (let t of ["ENCODING", "PATH", "QUIET", "DEBUG", "OVERRIDE", "FAST"]) {
-          let r = e[`DOTENV_${t}`] != null ? e[`DOTENV_${t}`] : e[`DOTENV_CONFIG_${t}`];
-          r != null && (n[t.toLowerCase()] = t === "ENCODING" || t === "PATH" ? r : T(r));
+    }
+    function headerFromJWS(jwsSig) {
+      var encodedHeader = jwsSig.split(".", 1)[0];
+      return safeJsonParse(Buffer2.from(encodedHeader, "base64").toString("binary"));
+    }
+    function securedInputFromJWS(jwsSig) {
+      return jwsSig.split(".", 2).join(".");
+    }
+    function signatureFromJWS(jwsSig) {
+      return jwsSig.split(".")[2];
+    }
+    function payloadFromJWS(jwsSig, encoding) {
+      encoding = encoding || "utf8";
+      var payload = jwsSig.split(".")[1];
+      return Buffer2.from(payload, "base64").toString(encoding);
+    }
+    function isValidJws(string) {
+      return JWS_REGEX.test(string) && !!headerFromJWS(string);
+    }
+    function jwsVerify(jwsSig, algorithm, secretOrKey) {
+      if (!algorithm) {
+        var err = new Error("Missing algorithm parameter for jws.verify");
+        err.code = "MISSING_ALGORITHM";
+        throw err;
+      }
+      jwsSig = toString(jwsSig);
+      var signature = signatureFromJWS(jwsSig);
+      var securedInput = securedInputFromJWS(jwsSig);
+      var algo = jwa(algorithm);
+      return algo.verify(securedInput, signature, secretOrKey);
+    }
+    function jwsDecode(jwsSig, opts) {
+      opts = opts || {};
+      jwsSig = toString(jwsSig);
+      if (!isValidJws(jwsSig))
+        return null;
+      var header = headerFromJWS(jwsSig);
+      if (!header)
+        return null;
+      var payload = payloadFromJWS(jwsSig);
+      if (header.typ === "JWT" || opts.json)
+        payload = JSON.parse(payload, opts.encoding);
+      return {
+        header,
+        payload,
+        signature: signatureFromJWS(jwsSig)
+      };
+    }
+    function VerifyStream(opts) {
+      opts = opts || {};
+      var secretOrKey = opts.secret;
+      secretOrKey = secretOrKey == null ? opts.publicKey : secretOrKey;
+      secretOrKey = secretOrKey == null ? opts.key : secretOrKey;
+      if (/^hs/i.test(opts.algorithm) === true && secretOrKey == null) {
+        throw new TypeError("secret must be a string or buffer or a KeyObject");
+      }
+      var secretStream = new DataStream(secretOrKey);
+      this.readable = true;
+      this.algorithm = opts.algorithm;
+      this.encoding = opts.encoding;
+      this.secret = this.publicKey = this.key = secretStream;
+      this.signature = new DataStream(opts.signature);
+      this.secret.once("close", function() {
+        if (!this.signature.writable && this.readable)
+          this.verify();
+      }.bind(this));
+      this.signature.once("close", function() {
+        if (!this.secret.writable && this.readable)
+          this.verify();
+      }.bind(this));
+    }
+    util2.inherits(VerifyStream, Stream);
+    VerifyStream.prototype.verify = function verify() {
+      try {
+        var valid = jwsVerify(this.signature.buffer, this.algorithm, this.key.buffer);
+        var obj = jwsDecode(this.signature.buffer, this.encoding);
+        this.emit("done", valid, obj);
+        this.emit("data", valid);
+        this.emit("end");
+        this.readable = false;
+        return valid;
+      } catch (e) {
+        this.readable = false;
+        this.emit("error", e);
+        this.emit("close");
+      }
+    };
+    VerifyStream.decode = jwsDecode;
+    VerifyStream.isValid = isValidJws;
+    VerifyStream.verify = jwsVerify;
+    module.exports = VerifyStream;
+  }
+});
+
+// node_modules/jws/index.js
+var require_jws = __commonJS({
+  "node_modules/jws/index.js"(exports) {
+    var SignStream = require_sign_stream();
+    var VerifyStream = require_verify_stream();
+    var ALGORITHMS = [
+      "HS256",
+      "HS384",
+      "HS512",
+      "RS256",
+      "RS384",
+      "RS512",
+      "PS256",
+      "PS384",
+      "PS512",
+      "ES256",
+      "ES384",
+      "ES512"
+    ];
+    exports.ALGORITHMS = ALGORITHMS;
+    exports.sign = SignStream.sign;
+    exports.verify = VerifyStream.verify;
+    exports.decode = VerifyStream.decode;
+    exports.isValid = VerifyStream.isValid;
+    exports.createSign = function createSign(opts) {
+      return new SignStream(opts);
+    };
+    exports.createVerify = function createVerify(opts) {
+      return new VerifyStream(opts);
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/decode.js
+var require_decode = __commonJS({
+  "node_modules/jsonwebtoken/decode.js"(exports, module) {
+    var jws = require_jws();
+    module.exports = function(jwt4, options) {
+      options = options || {};
+      var decoded = jws.decode(jwt4, options);
+      if (!decoded) {
+        return null;
+      }
+      var payload = decoded.payload;
+      if (typeof payload === "string") {
+        try {
+          var obj = JSON.parse(payload);
+          if (obj !== null && typeof obj === "object") {
+            payload = obj;
+          }
+        } catch (e) {
         }
-        return n;
       }
-      N.exports = { parseBoolean: T, optionsFromEnv: U };
-    });
-    var P = j((ee, b) => {
-      var F = __require("fs"), _ = __require("path"), B = __require("os"), { URL: L, fileURLToPath: Q } = __require("url"), { parseBoolean: $, optionsFromEnv: I } = R(), G = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg, y = new Uint8Array(256);
-      for (let e = 48; e <= 57; e++) y[e] = 1;
-      for (let e = 65; e <= 90; e++) y[e] = 1;
-      for (let e = 97; e <= 122; e++) y[e] = 1;
-      y[45] = 1;
-      y[46] = 1;
-      y[95] = 1;
-      function H(e) {
-        let n = {}, t = e.toString();
-        t = t.replace(/\r\n?/mg, `
-`);
-        let r;
-        for (; (r = G.exec(t)) != null; ) {
-          let o = r[1], i = r[2] || "";
-          i = i.trim();
-          let c = i[0];
-          i = i.replace(/^(['"`])([\s\S]*)\1$/mg, "$2"), c === '"' && (i = i.replace(/\\n/g, `
-`), i = i.replace(/\\r/g, "\r")), n[o] = i;
+      if (options.complete === true) {
+        return {
+          header: decoded.header,
+          payload,
+          signature: decoded.signature
+        };
+      }
+      return payload;
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/lib/JsonWebTokenError.js
+var require_JsonWebTokenError = __commonJS({
+  "node_modules/jsonwebtoken/lib/JsonWebTokenError.js"(exports, module) {
+    var JsonWebTokenError = function(message, error) {
+      Error.call(this, message);
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(this, this.constructor);
+      }
+      this.name = "JsonWebTokenError";
+      this.message = message;
+      if (error) this.inner = error;
+    };
+    JsonWebTokenError.prototype = Object.create(Error.prototype);
+    JsonWebTokenError.prototype.constructor = JsonWebTokenError;
+    module.exports = JsonWebTokenError;
+  }
+});
+
+// node_modules/jsonwebtoken/lib/NotBeforeError.js
+var require_NotBeforeError = __commonJS({
+  "node_modules/jsonwebtoken/lib/NotBeforeError.js"(exports, module) {
+    var JsonWebTokenError = require_JsonWebTokenError();
+    var NotBeforeError = function(message, date) {
+      JsonWebTokenError.call(this, message);
+      this.name = "NotBeforeError";
+      this.date = date;
+    };
+    NotBeforeError.prototype = Object.create(JsonWebTokenError.prototype);
+    NotBeforeError.prototype.constructor = NotBeforeError;
+    module.exports = NotBeforeError;
+  }
+});
+
+// node_modules/jsonwebtoken/lib/TokenExpiredError.js
+var require_TokenExpiredError = __commonJS({
+  "node_modules/jsonwebtoken/lib/TokenExpiredError.js"(exports, module) {
+    var JsonWebTokenError = require_JsonWebTokenError();
+    var TokenExpiredError = function(message, expiredAt) {
+      JsonWebTokenError.call(this, message);
+      this.name = "TokenExpiredError";
+      this.expiredAt = expiredAt;
+    };
+    TokenExpiredError.prototype = Object.create(JsonWebTokenError.prototype);
+    TokenExpiredError.prototype.constructor = TokenExpiredError;
+    module.exports = TokenExpiredError;
+  }
+});
+
+// node_modules/jsonwebtoken/lib/timespan.js
+var require_timespan = __commonJS({
+  "node_modules/jsonwebtoken/lib/timespan.js"(exports, module) {
+    var ms = require_ms();
+    module.exports = function(time, iat) {
+      var timestamp = iat || Math.floor(Date.now() / 1e3);
+      if (typeof time === "string") {
+        var milliseconds = ms(time);
+        if (typeof milliseconds === "undefined") {
+          return;
         }
-        return n;
+        return Math.floor(timestamp + milliseconds / 1e3);
+      } else if (typeof time === "number") {
+        return timestamp + time;
+      } else {
+        return;
       }
-      function g(e) {
-        return e <= 32 ? e === 32 || e >= 9 && e <= 13 : e >= 160 && (e === 160 || e === 5760 || e >= 8192 && e <= 8202 || e === 8232 || e === 8233 || e === 8239 || e === 8287 || e === 12288 || e === 65279);
+    };
+  }
+});
+
+// node_modules/semver/internal/constants.js
+var require_constants3 = __commonJS({
+  "node_modules/semver/internal/constants.js"(exports, module) {
+    "use strict";
+    var SEMVER_SPEC_VERSION = "2.0.0";
+    var MAX_LENGTH = 256;
+    var MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || /* istanbul ignore next */
+    9007199254740991;
+    var MAX_SAFE_COMPONENT_LENGTH = 16;
+    var MAX_SAFE_BUILD_LENGTH = MAX_LENGTH - 6;
+    var WHITESPACE_CHARACTERS = [
+      "	",
+      "\n",
+      "\v",
+      "\f",
+      "\r",
+      " ",
+      "\xA0",
+      "\u1680",
+      "\u2000",
+      "\u2001",
+      "\u2002",
+      "\u2003",
+      "\u2004",
+      "\u2005",
+      "\u2006",
+      "\u2007",
+      "\u2008",
+      "\u2009",
+      "\u200A",
+      "\u2028",
+      "\u2029",
+      "\u202F",
+      "\u205F",
+      "\u3000",
+      "\uFEFF"
+    ];
+    var RELEASE_TYPES = [
+      "major",
+      "premajor",
+      "minor",
+      "preminor",
+      "patch",
+      "prepatch",
+      "prerelease"
+    ];
+    module.exports = {
+      MAX_LENGTH,
+      MAX_SAFE_COMPONENT_LENGTH,
+      MAX_SAFE_BUILD_LENGTH,
+      MAX_SAFE_INTEGER,
+      WHITESPACE_CHARACTERS,
+      RELEASE_TYPES,
+      SEMVER_SPEC_VERSION,
+      FLAG_INCLUDE_PRERELEASE: 1,
+      FLAG_LOOSE: 2
+    };
+  }
+});
+
+// node_modules/semver/internal/debug.js
+var require_debug = __commonJS({
+  "node_modules/semver/internal/debug.js"(exports, module) {
+    "use strict";
+    var debug = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {
+    };
+    module.exports = debug;
+  }
+});
+
+// node_modules/semver/internal/re.js
+var require_re = __commonJS({
+  "node_modules/semver/internal/re.js"(exports, module) {
+    "use strict";
+    var {
+      MAX_SAFE_COMPONENT_LENGTH,
+      MAX_SAFE_BUILD_LENGTH,
+      MAX_LENGTH
+    } = require_constants3();
+    var debug = require_debug();
+    exports = module.exports = {};
+    var re = exports.re = [];
+    var safeRe = exports.safeRe = [];
+    var src = exports.src = [];
+    var safeSrc = exports.safeSrc = [];
+    var t = exports.t = {};
+    var R = 0;
+    var LETTERDASHNUMBER = "[a-zA-Z0-9-]";
+    var safeRegexReplacements = [
+      ["\\s", 1],
+      ["\\d", MAX_LENGTH],
+      [LETTERDASHNUMBER, MAX_SAFE_BUILD_LENGTH]
+    ];
+    var makeSafeRegex = (value) => {
+      for (const [token, max] of safeRegexReplacements) {
+        value = value.split(`${token}*`).join(`${token}{0,${max}}`).split(`${token}+`).join(`${token}{1,${max}}`);
       }
-      function O(e) {
-        return e === 10 || e === 8232 || e === 8233;
+      return value;
+    };
+    var createToken = (name, value, isGlobal) => {
+      const safe = makeSafeRegex(value);
+      const index = R++;
+      debug(name, index, value);
+      t[name] = index;
+      src[index] = value;
+      safeSrc[index] = safe;
+      re[index] = new RegExp(value, isGlobal ? "g" : void 0);
+      safeRe[index] = new RegExp(safe, isGlobal ? "g" : void 0);
+    };
+    createToken("NUMERICIDENTIFIER", "0|[1-9]\\d*");
+    createToken("NUMERICIDENTIFIERLOOSE", "\\d+");
+    createToken("NONNUMERICIDENTIFIER", `\\d*[a-zA-Z-]${LETTERDASHNUMBER}*`);
+    createToken("MAINVERSION", `(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})\\.(${src[t.NUMERICIDENTIFIER]})`);
+    createToken("MAINVERSIONLOOSE", `(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})\\.(${src[t.NUMERICIDENTIFIERLOOSE]})`);
+    createToken("PRERELEASEIDENTIFIER", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIER]})`);
+    createToken("PRERELEASEIDENTIFIERLOOSE", `(?:${src[t.NONNUMERICIDENTIFIER]}|${src[t.NUMERICIDENTIFIERLOOSE]})`);
+    createToken("PRERELEASE", `(?:-(${src[t.PRERELEASEIDENTIFIER]}(?:\\.${src[t.PRERELEASEIDENTIFIER]})*))`);
+    createToken("PRERELEASELOOSE", `(?:-?(${src[t.PRERELEASEIDENTIFIERLOOSE]}(?:\\.${src[t.PRERELEASEIDENTIFIERLOOSE]})*))`);
+    createToken("BUILDIDENTIFIER", `${LETTERDASHNUMBER}+`);
+    createToken("BUILD", `(?:\\+(${src[t.BUILDIDENTIFIER]}(?:\\.${src[t.BUILDIDENTIFIER]})*))`);
+    createToken("FULLPLAIN", `v?${src[t.MAINVERSION]}${src[t.PRERELEASE]}?${src[t.BUILD]}?`);
+    createToken("FULL", `^${src[t.FULLPLAIN]}$`);
+    createToken("LOOSEPLAIN", `[v=\\s]*${src[t.MAINVERSIONLOOSE]}${src[t.PRERELEASELOOSE]}?${src[t.BUILD]}?`);
+    createToken("LOOSE", `^${src[t.LOOSEPLAIN]}$`);
+    createToken("GTLT", "((?:<|>)?=?)");
+    createToken("XRANGEIDENTIFIERLOOSE", `${src[t.NUMERICIDENTIFIERLOOSE]}|x|X|\\*`);
+    createToken("XRANGEIDENTIFIER", `${src[t.NUMERICIDENTIFIER]}|x|X|\\*`);
+    createToken("XRANGEPLAIN", `[v=\\s]*(${src[t.XRANGEIDENTIFIER]})(?:\\.(${src[t.XRANGEIDENTIFIER]})(?:\\.(${src[t.XRANGEIDENTIFIER]})(?:${src[t.PRERELEASE]})?${src[t.BUILD]}?)?)?`);
+    createToken("XRANGEPLAINLOOSE", `[v=\\s]*(${src[t.XRANGEIDENTIFIERLOOSE]})(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})(?:\\.(${src[t.XRANGEIDENTIFIERLOOSE]})(?:${src[t.PRERELEASELOOSE]})?${src[t.BUILD]}?)?)?`);
+    createToken("XRANGE", `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAIN]}$`);
+    createToken("XRANGELOOSE", `^${src[t.GTLT]}\\s*${src[t.XRANGEPLAINLOOSE]}$`);
+    createToken("COERCEPLAIN", `${"(^|[^\\d])(\\d{1,"}${MAX_SAFE_COMPONENT_LENGTH}})(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?(?:\\.(\\d{1,${MAX_SAFE_COMPONENT_LENGTH}}))?`);
+    createToken("COERCE", `${src[t.COERCEPLAIN]}(?:$|[^\\d])`);
+    createToken("COERCEFULL", src[t.COERCEPLAIN] + `(?:${src[t.PRERELEASE]})?(?:${src[t.BUILD]})?(?:$|[^\\d])`);
+    createToken("COERCERTL", src[t.COERCE], true);
+    createToken("COERCERTLFULL", src[t.COERCEFULL], true);
+    createToken("LONETILDE", "(?:~>?)");
+    createToken("TILDETRIM", `(\\s*)${src[t.LONETILDE]}\\s+`, true);
+    exports.tildeTrimReplace = "$1~";
+    createToken("TILDE", `^${src[t.LONETILDE]}${src[t.XRANGEPLAIN]}$`);
+    createToken("TILDELOOSE", `^${src[t.LONETILDE]}${src[t.XRANGEPLAINLOOSE]}$`);
+    createToken("LONECARET", "(?:\\^)");
+    createToken("CARETTRIM", `(\\s*)${src[t.LONECARET]}\\s+`, true);
+    exports.caretTrimReplace = "$1^";
+    createToken("CARET", `^${src[t.LONECARET]}${src[t.XRANGEPLAIN]}$`);
+    createToken("CARETLOOSE", `^${src[t.LONECARET]}${src[t.XRANGEPLAINLOOSE]}$`);
+    createToken("COMPARATORLOOSE", `^${src[t.GTLT]}\\s*(${src[t.LOOSEPLAIN]})$|^$`);
+    createToken("COMPARATOR", `^${src[t.GTLT]}\\s*(${src[t.FULLPLAIN]})$|^$`);
+    createToken("COMPARATORTRIM", `(\\s*)${src[t.GTLT]}\\s*(${src[t.LOOSEPLAIN]}|${src[t.XRANGEPLAIN]})`, true);
+    exports.comparatorTrimReplace = "$1$2$3";
+    createToken("HYPHENRANGE", `^\\s*(${src[t.XRANGEPLAIN]})\\s+-\\s+(${src[t.XRANGEPLAIN]})\\s*$`);
+    createToken("HYPHENRANGELOOSE", `^\\s*(${src[t.XRANGEPLAINLOOSE]})\\s+-\\s+(${src[t.XRANGEPLAINLOOSE]})\\s*$`);
+    createToken("STAR", "(<|>)?=?\\s*\\*");
+    createToken("GTE0", "^\\s*>=\\s*0\\.0\\.0\\s*$");
+    createToken("GTE0PRE", "^\\s*>=\\s*0\\.0\\.0-0\\s*$");
+  }
+});
+
+// node_modules/semver/internal/parse-options.js
+var require_parse_options = __commonJS({
+  "node_modules/semver/internal/parse-options.js"(exports, module) {
+    "use strict";
+    var looseOption = Object.freeze({ loose: true });
+    var emptyOpts = Object.freeze({});
+    var parseOptions = (options) => {
+      if (!options) {
+        return emptyOpts;
       }
-      function V(e) {
-        let n = {}, t = typeof e == "string" ? e : e.toString();
-        t.indexOf("\r") !== -1 && (t = t.replace(/\r\n?/g, `
-`));
-        let r = t.length, o = 0;
-        for (; o < r; ) {
-          let i = t.charCodeAt(o);
-          for (; o < r && g(i); ) o++, i = t.charCodeAt(o);
-          if (o >= r) break;
-          if (i === 35) {
-            for (; o < r && !O(t.charCodeAt(o)); ) o++;
-            continue;
+      if (typeof options !== "object") {
+        return looseOption;
+      }
+      return options;
+    };
+    module.exports = parseOptions;
+  }
+});
+
+// node_modules/semver/internal/identifiers.js
+var require_identifiers = __commonJS({
+  "node_modules/semver/internal/identifiers.js"(exports, module) {
+    "use strict";
+    var numeric = /^[0-9]+$/;
+    var compareIdentifiers = (a, b) => {
+      if (typeof a === "number" && typeof b === "number") {
+        return a === b ? 0 : a < b ? -1 : 1;
+      }
+      const anum = numeric.test(a);
+      const bnum = numeric.test(b);
+      if (anum && bnum) {
+        a = +a;
+        b = +b;
+      }
+      return a === b ? 0 : anum && !bnum ? -1 : bnum && !anum ? 1 : a < b ? -1 : 1;
+    };
+    var rcompareIdentifiers = (a, b) => compareIdentifiers(b, a);
+    module.exports = {
+      compareIdentifiers,
+      rcompareIdentifiers
+    };
+  }
+});
+
+// node_modules/semver/classes/semver.js
+var require_semver = __commonJS({
+  "node_modules/semver/classes/semver.js"(exports, module) {
+    "use strict";
+    var debug = require_debug();
+    var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants3();
+    var { safeRe: re, t } = require_re();
+    var parseOptions = require_parse_options();
+    var { compareIdentifiers } = require_identifiers();
+    var isPrereleaseIdentifier = (prerelease, identifier) => {
+      const identifiers = identifier.split(".");
+      if (identifiers.length > prerelease.length) {
+        return false;
+      }
+      for (let i = 0; i < identifiers.length; i++) {
+        if (compareIdentifiers(prerelease[i], identifiers[i]) !== 0) {
+          return false;
+        }
+      }
+      return true;
+    };
+    var SemVer = class _SemVer {
+      constructor(version, options) {
+        options = parseOptions(options);
+        if (version instanceof _SemVer) {
+          if (version.loose === !!options.loose && version.includePrerelease === !!options.includePrerelease) {
+            return version;
+          } else {
+            version = version.version;
           }
-          let c = -1;
-          if (i === 101 && o + 6 < r && t.charCodeAt(o + 1) === 120 && t.charCodeAt(o + 2) === 112 && t.charCodeAt(o + 3) === 111 && t.charCodeAt(o + 4) === 114 && t.charCodeAt(o + 5) === 116) {
-            let u = t.charCodeAt(o + 6);
-            if (g(u)) {
-              let s = o + 7;
-              for (; s < r && g(t.charCodeAt(s)); ) s++;
-              y[t.charCodeAt(s)] && (c = o + 6, o = s);
-            } else i = t.charCodeAt(o);
-          }
-          let E = o, p = 0;
-          for (; o < r && (p = t.charCodeAt(o), y[p]); ) o++;
-          if (o === E) {
-            for (; o < r && !O(t.charCodeAt(o)); ) o++;
-            continue;
-          }
-          let k = t.slice(E, o), D = o;
-          if (o >= r && (p = 0), g(p)) do
-            o++, p = o < r ? t.charCodeAt(o) : 0;
-          while (g(p));
-          if (p === 61) o++;
-          else if (p === 58 && o === D && o + 1 < r && g(t.charCodeAt(o + 1))) o += 2;
-          else {
-            for (o = c === -1 ? D : c; o < r && !O(t.charCodeAt(o)); ) o++;
-            continue;
-          }
-          let d = o, l = o;
-          for (; l < r && g(t.charCodeAt(l)); ) l++;
-          let C = t.charCodeAt(l), a, q = false;
-          if (C === 39 || C === 34 || C === 96) {
-            let u = t[l], s = t.indexOf(u, l + 1), f = -1, h = -1;
-            for (; s !== -1; ) {
-              let x = t.charCodeAt(s - 1) === 92, w = s + 1;
-              for (; w < r && !O(t.charCodeAt(w)) && g(t.charCodeAt(w)); ) w++;
-              if ((w === r || O(t.charCodeAt(w)) || t.charCodeAt(w) === 35) && (f = s, h = w), !x) break;
-              s = t.indexOf(u, s + 1);
+        } else if (typeof version !== "string") {
+          throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version}".`);
+        }
+        if (version.length > MAX_LENGTH) {
+          throw new TypeError(
+            `version is longer than ${MAX_LENGTH} characters`
+          );
+        }
+        debug("SemVer", version, options);
+        this.options = options;
+        this.loose = !!options.loose;
+        this.includePrerelease = !!options.includePrerelease;
+        const m = version.trim().match(options.loose ? re[t.LOOSE] : re[t.FULL]);
+        if (!m) {
+          throw new TypeError(`Invalid Version: ${version}`);
+        }
+        this.raw = version;
+        this.major = +m[1];
+        this.minor = +m[2];
+        this.patch = +m[3];
+        if (this.major > MAX_SAFE_INTEGER || this.major < 0) {
+          throw new TypeError("Invalid major version");
+        }
+        if (this.minor > MAX_SAFE_INTEGER || this.minor < 0) {
+          throw new TypeError("Invalid minor version");
+        }
+        if (this.patch > MAX_SAFE_INTEGER || this.patch < 0) {
+          throw new TypeError("Invalid patch version");
+        }
+        if (!m[4]) {
+          this.prerelease = [];
+        } else {
+          this.prerelease = m[4].split(".").map((id) => {
+            if (/^[0-9]+$/.test(id)) {
+              const num = +id;
+              if (num >= 0 && num < MAX_SAFE_INTEGER) {
+                return num;
+              }
             }
-            if (f !== -1) {
-              if (a = t.slice(l + 1, f), o = h, t.charCodeAt(o) === 35) for (; o < r && !O(t.charCodeAt(o)); ) o++;
-              q = true;
+            return id;
+          });
+        }
+        this.build = m[5] ? m[5].split(".") : [];
+        this.format();
+      }
+      format() {
+        this.version = `${this.major}.${this.minor}.${this.patch}`;
+        if (this.prerelease.length) {
+          this.version += `-${this.prerelease.join(".")}`;
+        }
+        return this.version;
+      }
+      toString() {
+        return this.version;
+      }
+      compare(other) {
+        debug("SemVer.compare", this.version, this.options, other);
+        if (!(other instanceof _SemVer)) {
+          if (typeof other === "string" && other === this.version) {
+            return 0;
+          }
+          other = new _SemVer(other, this.options);
+        }
+        if (other.version === this.version) {
+          return 0;
+        }
+        return this.compareMain(other) || this.comparePre(other);
+      }
+      compareMain(other) {
+        if (!(other instanceof _SemVer)) {
+          other = new _SemVer(other, this.options);
+        }
+        if (this.major < other.major) {
+          return -1;
+        }
+        if (this.major > other.major) {
+          return 1;
+        }
+        if (this.minor < other.minor) {
+          return -1;
+        }
+        if (this.minor > other.minor) {
+          return 1;
+        }
+        if (this.patch < other.patch) {
+          return -1;
+        }
+        if (this.patch > other.patch) {
+          return 1;
+        }
+        return 0;
+      }
+      comparePre(other) {
+        if (!(other instanceof _SemVer)) {
+          other = new _SemVer(other, this.options);
+        }
+        if (this.prerelease.length && !other.prerelease.length) {
+          return -1;
+        } else if (!this.prerelease.length && other.prerelease.length) {
+          return 1;
+        } else if (!this.prerelease.length && !other.prerelease.length) {
+          return 0;
+        }
+        let i = 0;
+        do {
+          const a = this.prerelease[i];
+          const b = other.prerelease[i];
+          debug("prerelease compare", i, a, b);
+          if (a === void 0 && b === void 0) {
+            return 0;
+          } else if (b === void 0) {
+            return 1;
+          } else if (a === void 0) {
+            return -1;
+          } else if (a === b) {
+            continue;
+          } else {
+            return compareIdentifiers(a, b);
+          }
+        } while (++i);
+      }
+      compareBuild(other) {
+        if (!(other instanceof _SemVer)) {
+          other = new _SemVer(other, this.options);
+        }
+        let i = 0;
+        do {
+          const a = this.build[i];
+          const b = other.build[i];
+          debug("build compare", i, a, b);
+          if (a === void 0 && b === void 0) {
+            return 0;
+          } else if (b === void 0) {
+            return 1;
+          } else if (a === void 0) {
+            return -1;
+          } else if (a === b) {
+            continue;
+          } else {
+            return compareIdentifiers(a, b);
+          }
+        } while (++i);
+      }
+      // preminor will bump the version up to the next minor release, and immediately
+      // down to pre-release. premajor and prepatch work the same way.
+      inc(release, identifier, identifierBase) {
+        if (release.startsWith("pre")) {
+          if (!identifier && identifierBase === false) {
+            throw new Error("invalid increment argument: identifier is empty");
+          }
+          if (identifier) {
+            const match = `-${identifier}`.match(this.options.loose ? re[t.PRERELEASELOOSE] : re[t.PRERELEASE]);
+            if (!match || match[1] !== identifier) {
+              throw new Error(`invalid identifier: ${identifier}`);
             }
           }
-          if (!q) {
-            let u = t.indexOf(`
-`, d);
-            u === -1 && (u = r);
-            let s;
-            if (r < 4096) s = t.indexOf("#", d), (s === -1 || s > u) && (s = u);
-            else for (s = d; s < u && t.charCodeAt(s) !== 35; ) s++;
-            let f = d, h = s;
-            for (; f < h && g(t.charCodeAt(f)); ) f++;
-            for (; h > f && g(t.charCodeAt(h - 1)); ) h--;
-            let x = t.charCodeAt(f);
-            if (a = t.slice(f, h), a.includes("\u2028") || a.includes("\u2029") ? a = a.replace(/^(['"`])([\s\S]*)\1$/mg, "$2") : h - f >= 2 && (x === 39 || x === 34 || x === 96) && t.charCodeAt(h - 1) === x && (a = t.slice(f + 1, h - 1)), o = s, s < u) for (; o < r && !O(t.charCodeAt(o)); ) o++;
+        }
+        switch (release) {
+          case "premajor":
+            this.prerelease.length = 0;
+            this.patch = 0;
+            this.minor = 0;
+            this.major++;
+            this.inc("pre", identifier, identifierBase);
+            break;
+          case "preminor":
+            this.prerelease.length = 0;
+            this.patch = 0;
+            this.minor++;
+            this.inc("pre", identifier, identifierBase);
+            break;
+          case "prepatch":
+            this.prerelease.length = 0;
+            this.inc("patch", identifier, identifierBase);
+            this.inc("pre", identifier, identifierBase);
+            break;
+          // If the input is a non-prerelease version, this acts the same as
+          // prepatch.
+          case "prerelease":
+            if (this.prerelease.length === 0) {
+              this.inc("patch", identifier, identifierBase);
+            }
+            this.inc("pre", identifier, identifierBase);
+            break;
+          case "release":
+            if (this.prerelease.length === 0) {
+              throw new Error(`version ${this.raw} is not a prerelease`);
+            }
+            this.prerelease.length = 0;
+            break;
+          case "major":
+            if (this.minor !== 0 || this.patch !== 0 || this.prerelease.length === 0) {
+              this.major++;
+            }
+            this.minor = 0;
+            this.patch = 0;
+            this.prerelease = [];
+            break;
+          case "minor":
+            if (this.patch !== 0 || this.prerelease.length === 0) {
+              this.minor++;
+            }
+            this.patch = 0;
+            this.prerelease = [];
+            break;
+          case "patch":
+            if (this.prerelease.length === 0) {
+              this.patch++;
+            }
+            this.prerelease = [];
+            break;
+          // This probably shouldn't be used publicly.
+          // 1.0.0 'pre' would become 1.0.0-0 which is the wrong direction.
+          case "pre": {
+            const base = Number(identifierBase) ? 1 : 0;
+            if (this.prerelease.length === 0) {
+              this.prerelease = [base];
+            } else {
+              let i = this.prerelease.length;
+              while (--i >= 0) {
+                if (typeof this.prerelease[i] === "number") {
+                  this.prerelease[i]++;
+                  i = -2;
+                }
+              }
+              if (i === -1) {
+                if (identifier === this.prerelease.join(".") && identifierBase === false) {
+                  throw new Error("invalid increment argument: identifier already exists");
+                }
+                this.prerelease.push(base);
+              }
+            }
+            if (identifier) {
+              let prerelease = [identifier, base];
+              if (identifierBase === false) {
+                prerelease = [identifier];
+              }
+              if (isPrereleaseIdentifier(this.prerelease, identifier)) {
+                const prereleaseBase = this.prerelease[identifier.split(".").length];
+                if (isNaN(prereleaseBase)) {
+                  this.prerelease = prerelease;
+                }
+              } else {
+                this.prerelease = prerelease;
+              }
+            }
+            break;
           }
-          C === 34 && (q || l < o) && a.indexOf("\\") !== -1 && (a = a.replace(/\\n/g, `
-`).replace(/\\r/g, "\r")), n[k] = a;
+          default:
+            throw new Error(`invalid increment argument: ${release}`);
         }
-        return n;
-      }
-      function J(e, n) {
-        return n && $(n.fast) ? V(e) : H(e);
-      }
-      function v(e) {
-        console.log(`\u2506 ${e}`);
-      }
-      function W(e) {
-        console.error(`\u25C7 ${e}`);
-      }
-      function S(e) {
-        return e[0] === "~" ? _.join(B.homedir(), e.slice(1)) : e;
-      }
-      function K(e = {}) {
-        let n = { ...e };
-        for (let t of Object.keys(n)) n[t] === void 0 && delete n[t];
-        return { ...I(), ...n };
-      }
-      function M(e) {
-        e = K(e);
-        let n = _.resolve(process.cwd(), ".env"), t = "utf8", r = process.env;
-        e && e.processEnv != null && (r = e.processEnv);
-        let o = $(e && e.debug);
-        e && e.encoding ? t = e.encoding : o && v("no encoding is specified (UTF-8 is used by default)");
-        let i = [n];
-        if (e && e.path) if (!Array.isArray(e.path)) i = [S(e.path)];
-        else {
-          i = [];
-          for (let d of e.path) i.push(S(d));
+        this.raw = this.format();
+        if (this.build.length) {
+          this.raw += `+${this.build.join(".")}`;
         }
-        let c, E = {}, p = { fast: e.fast };
-        for (let d of i) try {
-          let l = A.parse(F.readFileSync(d, { encoding: t }), p);
-          A.populate(E, l, e);
-        } catch (l) {
-          o && v(`failed to load ${d} ${l.message}`), c = l;
+        return this;
+      }
+    };
+    module.exports = SemVer;
+  }
+});
+
+// node_modules/semver/functions/parse.js
+var require_parse2 = __commonJS({
+  "node_modules/semver/functions/parse.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var parse = (version, options, throwErrors = false) => {
+      if (version instanceof SemVer) {
+        return version;
+      }
+      try {
+        return new SemVer(version, options);
+      } catch (er) {
+        if (!throwErrors) {
+          return null;
         }
-        let k = A.populate(r, E, e), D = $(Object.prototype.hasOwnProperty.call(e, "quiet") ? e.quiet : I(r).quiet);
-        if (o || !D) {
-          let d = Object.keys(k).length, l = [];
-          for (let C of i) try {
-            let a = _.relative(process.cwd(), C instanceof L ? Q(C) : C);
-            l.push(a);
-          } catch (a) {
-            o && v(`failed to load ${C} ${a.message}`), c = a;
+        throw er;
+      }
+    };
+    module.exports = parse;
+  }
+});
+
+// node_modules/semver/functions/valid.js
+var require_valid = __commonJS({
+  "node_modules/semver/functions/valid.js"(exports, module) {
+    "use strict";
+    var parse = require_parse2();
+    var valid = (version, options) => {
+      const v = parse(version, options);
+      return v ? v.version : null;
+    };
+    module.exports = valid;
+  }
+});
+
+// node_modules/semver/functions/clean.js
+var require_clean = __commonJS({
+  "node_modules/semver/functions/clean.js"(exports, module) {
+    "use strict";
+    var parse = require_parse2();
+    var clean = (version, options) => {
+      const s = parse(version.trim().replace(/^[=v]+/, ""), options);
+      return s ? s.version : null;
+    };
+    module.exports = clean;
+  }
+});
+
+// node_modules/semver/functions/inc.js
+var require_inc = __commonJS({
+  "node_modules/semver/functions/inc.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var inc = (version, release, options, identifier, identifierBase) => {
+      if (typeof options === "string") {
+        identifierBase = identifier;
+        identifier = options;
+        options = void 0;
+      }
+      try {
+        return new SemVer(
+          version instanceof SemVer ? version.version : version,
+          options
+        ).inc(release, identifier, identifierBase).version;
+      } catch (er) {
+        return null;
+      }
+    };
+    module.exports = inc;
+  }
+});
+
+// node_modules/semver/functions/diff.js
+var require_diff = __commonJS({
+  "node_modules/semver/functions/diff.js"(exports, module) {
+    "use strict";
+    var parse = require_parse2();
+    var diff = (version1, version2) => {
+      const v1 = parse(version1, null, true);
+      const v2 = parse(version2, null, true);
+      const comparison = v1.compare(v2);
+      if (comparison === 0) {
+        return null;
+      }
+      const v1Higher = comparison > 0;
+      const highVersion = v1Higher ? v1 : v2;
+      const lowVersion = v1Higher ? v2 : v1;
+      const highHasPre = !!highVersion.prerelease.length;
+      const lowHasPre = !!lowVersion.prerelease.length;
+      if (lowHasPre && !highHasPre) {
+        if (!lowVersion.patch && !lowVersion.minor) {
+          return "major";
+        }
+        if (lowVersion.compareMain(highVersion) === 0) {
+          if (lowVersion.minor && !lowVersion.patch) {
+            return "minor";
           }
-          W(`injected env (${d}) from ${l.join(",")}`);
+          return "patch";
         }
-        return c ? { parsed: E, error: c } : { parsed: E };
       }
-      function Y(e) {
-        return A.configDotenv(e);
+      const prefix = highHasPre ? "pre" : "";
+      if (v1.major !== v2.major) {
+        return prefix + "major";
       }
-      function z(e, n, t = {}) {
-        let r = $(t && t.debug), o = $(t && t.override), i = {};
-        if (e === null || typeof e != "object" || n === null || typeof n != "object") {
-          let c = new Error("OBJECT_REQUIRED: Please check the processEnv argument being passed to populate");
-          throw c.code = "OBJECT_REQUIRED", c;
+      if (v1.minor !== v2.minor) {
+        return prefix + "minor";
+      }
+      if (v1.patch !== v2.patch) {
+        return prefix + "patch";
+      }
+      return "prerelease";
+    };
+    module.exports = diff;
+  }
+});
+
+// node_modules/semver/functions/major.js
+var require_major = __commonJS({
+  "node_modules/semver/functions/major.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var major = (a, loose) => new SemVer(a, loose).major;
+    module.exports = major;
+  }
+});
+
+// node_modules/semver/functions/minor.js
+var require_minor = __commonJS({
+  "node_modules/semver/functions/minor.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var minor = (a, loose) => new SemVer(a, loose).minor;
+    module.exports = minor;
+  }
+});
+
+// node_modules/semver/functions/patch.js
+var require_patch = __commonJS({
+  "node_modules/semver/functions/patch.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var patch = (a, loose) => new SemVer(a, loose).patch;
+    module.exports = patch;
+  }
+});
+
+// node_modules/semver/functions/prerelease.js
+var require_prerelease = __commonJS({
+  "node_modules/semver/functions/prerelease.js"(exports, module) {
+    "use strict";
+    var parse = require_parse2();
+    var prerelease = (version, options) => {
+      const parsed = parse(version, options);
+      return parsed && parsed.prerelease.length ? parsed.prerelease : null;
+    };
+    module.exports = prerelease;
+  }
+});
+
+// node_modules/semver/functions/compare.js
+var require_compare = __commonJS({
+  "node_modules/semver/functions/compare.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
+    module.exports = compare;
+  }
+});
+
+// node_modules/semver/functions/rcompare.js
+var require_rcompare = __commonJS({
+  "node_modules/semver/functions/rcompare.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var rcompare = (a, b, loose) => compare(b, a, loose);
+    module.exports = rcompare;
+  }
+});
+
+// node_modules/semver/functions/compare-loose.js
+var require_compare_loose = __commonJS({
+  "node_modules/semver/functions/compare-loose.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var compareLoose = (a, b) => compare(a, b, true);
+    module.exports = compareLoose;
+  }
+});
+
+// node_modules/semver/functions/compare-build.js
+var require_compare_build = __commonJS({
+  "node_modules/semver/functions/compare-build.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var compareBuild = (a, b, loose) => {
+      const versionA = new SemVer(a, loose);
+      const versionB = new SemVer(b, loose);
+      return versionA.compare(versionB) || versionA.compareBuild(versionB);
+    };
+    module.exports = compareBuild;
+  }
+});
+
+// node_modules/semver/functions/sort.js
+var require_sort2 = __commonJS({
+  "node_modules/semver/functions/sort.js"(exports, module) {
+    "use strict";
+    var compareBuild = require_compare_build();
+    var sort = (list, loose) => list.sort((a, b) => compareBuild(a, b, loose));
+    module.exports = sort;
+  }
+});
+
+// node_modules/semver/functions/rsort.js
+var require_rsort = __commonJS({
+  "node_modules/semver/functions/rsort.js"(exports, module) {
+    "use strict";
+    var compareBuild = require_compare_build();
+    var rsort = (list, loose) => list.sort((a, b) => compareBuild(b, a, loose));
+    module.exports = rsort;
+  }
+});
+
+// node_modules/semver/functions/gt.js
+var require_gt = __commonJS({
+  "node_modules/semver/functions/gt.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var gt = (a, b, loose) => compare(a, b, loose) > 0;
+    module.exports = gt;
+  }
+});
+
+// node_modules/semver/functions/lt.js
+var require_lt = __commonJS({
+  "node_modules/semver/functions/lt.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var lt = (a, b, loose) => compare(a, b, loose) < 0;
+    module.exports = lt;
+  }
+});
+
+// node_modules/semver/functions/eq.js
+var require_eq2 = __commonJS({
+  "node_modules/semver/functions/eq.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var eq = (a, b, loose) => compare(a, b, loose) === 0;
+    module.exports = eq;
+  }
+});
+
+// node_modules/semver/functions/neq.js
+var require_neq = __commonJS({
+  "node_modules/semver/functions/neq.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var neq = (a, b, loose) => compare(a, b, loose) !== 0;
+    module.exports = neq;
+  }
+});
+
+// node_modules/semver/functions/gte.js
+var require_gte = __commonJS({
+  "node_modules/semver/functions/gte.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var gte = (a, b, loose) => compare(a, b, loose) >= 0;
+    module.exports = gte;
+  }
+});
+
+// node_modules/semver/functions/lte.js
+var require_lte = __commonJS({
+  "node_modules/semver/functions/lte.js"(exports, module) {
+    "use strict";
+    var compare = require_compare();
+    var lte = (a, b, loose) => compare(a, b, loose) <= 0;
+    module.exports = lte;
+  }
+});
+
+// node_modules/semver/functions/cmp.js
+var require_cmp = __commonJS({
+  "node_modules/semver/functions/cmp.js"(exports, module) {
+    "use strict";
+    var eq = require_eq2();
+    var neq = require_neq();
+    var gt = require_gt();
+    var gte = require_gte();
+    var lt = require_lt();
+    var lte = require_lte();
+    var cmp = (a, op, b, loose) => {
+      switch (op) {
+        case "===":
+          if (typeof a === "object") {
+            a = a.version;
+          }
+          if (typeof b === "object") {
+            b = b.version;
+          }
+          return a === b;
+        case "!==":
+          if (typeof a === "object") {
+            a = a.version;
+          }
+          if (typeof b === "object") {
+            b = b.version;
+          }
+          return a !== b;
+        case "":
+        case "=":
+        case "==":
+          return eq(a, b, loose);
+        case "!=":
+          return neq(a, b, loose);
+        case ">":
+          return gt(a, b, loose);
+        case ">=":
+          return gte(a, b, loose);
+        case "<":
+          return lt(a, b, loose);
+        case "<=":
+          return lte(a, b, loose);
+        default:
+          throw new TypeError(`Invalid operator: ${op}`);
+      }
+    };
+    module.exports = cmp;
+  }
+});
+
+// node_modules/semver/functions/coerce.js
+var require_coerce = __commonJS({
+  "node_modules/semver/functions/coerce.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var parse = require_parse2();
+    var { safeRe: re, t } = require_re();
+    var coerce2 = (version, options) => {
+      if (version instanceof SemVer) {
+        return version;
+      }
+      if (typeof version === "number") {
+        version = String(version);
+      }
+      if (typeof version !== "string") {
+        return null;
+      }
+      options = options || {};
+      let match = null;
+      if (!options.rtl) {
+        match = version.match(options.includePrerelease ? re[t.COERCEFULL] : re[t.COERCE]);
+      } else {
+        const coerceRtlRegex = options.includePrerelease ? re[t.COERCERTLFULL] : re[t.COERCERTL];
+        let next;
+        while ((next = coerceRtlRegex.exec(version)) && (!match || match.index + match[0].length !== version.length)) {
+          if (!match || next.index + next[0].length !== match.index + match[0].length) {
+            match = next;
+          }
+          coerceRtlRegex.lastIndex = next.index + next[1].length + next[2].length;
         }
-        for (let c of Object.keys(n)) Object.prototype.hasOwnProperty.call(e, c) ? (o === true && (e[c] = n[c], i[c] = n[c]), r && v(o === true ? `"${c}" is already defined and WAS overwritten` : `"${c}" is already defined and was NOT overwritten`)) : (e[c] = n[c], i[c] = n[c]);
-        return i;
+        coerceRtlRegex.lastIndex = -1;
       }
-      var A = { configDotenv: M, config: Y, parse: J, populate: z };
-      b.exports.configDotenv = A.configDotenv;
-      b.exports.config = A.config;
-      b.exports.parse = A.parse;
-      b.exports.populate = A.populate;
-      b.exports = A;
-    });
-    var m = P();
-    module.exports = m;
-    module.exports.config = m.config;
-    module.exports.configDotenv = m.configDotenv;
-    module.exports.parse = m.parse;
-    module.exports.populate = m.populate;
+      if (match === null) {
+        return null;
+      }
+      const major = match[2];
+      const minor = match[3] || "0";
+      const patch = match[4] || "0";
+      const prerelease = options.includePrerelease && match[5] ? `-${match[5]}` : "";
+      const build = options.includePrerelease && match[6] ? `+${match[6]}` : "";
+      return parse(`${major}.${minor}.${patch}${prerelease}${build}`, options);
+    };
+    module.exports = coerce2;
+  }
+});
+
+// node_modules/semver/functions/truncate.js
+var require_truncate = __commonJS({
+  "node_modules/semver/functions/truncate.js"(exports, module) {
+    "use strict";
+    var parse = require_parse2();
+    var constants = require_constants3();
+    var SemVer = require_semver();
+    var truncate = (version, truncation, options) => {
+      if (!constants.RELEASE_TYPES.includes(truncation)) {
+        return null;
+      }
+      const clonedVersion = cloneInputVersion(version, options);
+      return clonedVersion && doTruncation(clonedVersion, truncation);
+    };
+    var cloneInputVersion = (version, options) => {
+      const versionStringToParse = version instanceof SemVer ? version.version : version;
+      return parse(versionStringToParse, options);
+    };
+    var doTruncation = (version, truncation) => {
+      if (isPrerelease(truncation)) {
+        return version.version;
+      }
+      version.prerelease = [];
+      switch (truncation) {
+        case "major":
+          version.minor = 0;
+          version.patch = 0;
+          break;
+        case "minor":
+          version.patch = 0;
+          break;
+      }
+      return version.format();
+    };
+    var isPrerelease = (type) => {
+      return type.startsWith("pre");
+    };
+    module.exports = truncate;
+  }
+});
+
+// node_modules/semver/internal/lrucache.js
+var require_lrucache = __commonJS({
+  "node_modules/semver/internal/lrucache.js"(exports, module) {
+    "use strict";
+    var LRUCache = class {
+      constructor() {
+        this.max = 1e3;
+        this.map = /* @__PURE__ */ new Map();
+      }
+      get(key) {
+        const value = this.map.get(key);
+        if (value === void 0) {
+          return void 0;
+        } else {
+          this.map.delete(key);
+          this.map.set(key, value);
+          return value;
+        }
+      }
+      delete(key) {
+        return this.map.delete(key);
+      }
+      set(key, value) {
+        const deleted = this.delete(key);
+        if (!deleted && value !== void 0) {
+          if (this.map.size >= this.max) {
+            const firstKey = this.map.keys().next().value;
+            this.delete(firstKey);
+          }
+          this.map.set(key, value);
+        }
+        return this;
+      }
+    };
+    module.exports = LRUCache;
+  }
+});
+
+// node_modules/semver/internal/trim-comparator-whitespace.js
+var require_trim_comparator_whitespace = __commonJS({
+  "node_modules/semver/internal/trim-comparator-whitespace.js"(exports, module) {
+    "use strict";
+    var {
+      MAX_LENGTH,
+      MAX_SAFE_BUILD_LENGTH,
+      WHITESPACE_CHARACTERS
+    } = require_constants3();
+    var whitespace = new Uint8Array(65536);
+    for (const char of WHITESPACE_CHARACTERS) {
+      whitespace[char.charCodeAt(0)] = 1;
+    }
+    var isWhitespace = (char) => char !== void 0 && whitespace[char.charCodeAt(0)] === 1;
+    var isVersionPrefix = (char) => char === "v" || char === "=" || isWhitespace(char);
+    var isDigit = (char) => char !== void 0 && char >= "0" && char <= "9";
+    var isLetter = (char) => char !== void 0 && (char >= "a" && char <= "z" || char >= "A" && char <= "Z");
+    var isIdentifierCharacter = (char) => isDigit(char) || isLetter(char) || char === "-";
+    var isVersionStart = (char) => isDigit(char) || char === "x" || char === "X" || char === "*";
+    var findDigitsEndIndex = (range, start, limit, digitRuns) => {
+      if (!isDigit(range[start])) {
+        return start;
+      }
+      if (start >= digitRuns.start && start < digitRuns.end) {
+        return Math.min(start + limit, digitRuns.end);
+      }
+      if (start >= digitRuns.previousStart && start < digitRuns.previousEnd) {
+        return Math.min(start + limit, digitRuns.previousEnd);
+      }
+      let end = start + 1;
+      while (isDigit(range[end])) {
+        end++;
+      }
+      digitRuns.previousStart = digitRuns.start;
+      digitRuns.previousEnd = digitRuns.end;
+      digitRuns.start = start;
+      digitRuns.end = end;
+      return Math.min(start + limit, end);
+    };
+    var findVersionNumberEndIndex = (range, start, loose, digitRuns) => {
+      if (!loose && range[start] === "0") {
+        return start + 1;
+      }
+      return findDigitsEndIndex(range, start, loose ? MAX_LENGTH : MAX_LENGTH + 1, digitRuns);
+    };
+    var findPrereleaseIdentifierEndIndex = (range, start, loose, digitRuns) => {
+      const digitsEnd = findDigitsEndIndex(range, start, MAX_LENGTH, digitRuns);
+      if (isLetter(range[digitsEnd]) || range[digitsEnd] === "-") {
+        let end = digitsEnd + 1;
+        const limit = end + MAX_SAFE_BUILD_LENGTH;
+        while (end < limit && isIdentifierCharacter(range[end])) {
+          end++;
+        }
+        return end;
+      }
+      return findVersionNumberEndIndex(range, start, loose, digitRuns);
+    };
+    var findPrereleaseEndIndex = (range, start, loose, digitRuns) => {
+      const hyphen = range[start] === "-";
+      if (!loose && !hyphen) {
+        return start;
+      }
+      const identifierStart = start + (hyphen ? 1 : 0);
+      let end = findPrereleaseIdentifierEndIndex(range, identifierStart, loose, digitRuns);
+      if (end === identifierStart) {
+        if (!loose || !hyphen) {
+          return start;
+        }
+        end = findPrereleaseIdentifierEndIndex(range, start, loose, digitRuns);
+      }
+      while (range[end] === ".") {
+        const next = findPrereleaseIdentifierEndIndex(range, end + 1, loose, digitRuns);
+        if (next === end + 1) {
+          break;
+        }
+        end = next;
+      }
+      return end;
+    };
+    var findBuildIdentifierEndIndex = (range, start) => {
+      let end = start;
+      while (end - start < MAX_SAFE_BUILD_LENGTH && isIdentifierCharacter(range[end])) {
+        end++;
+      }
+      return end;
+    };
+    var findBuildEndIndex = (range, start) => {
+      if (range[start] !== "+") {
+        return start;
+      }
+      let end = findBuildIdentifierEndIndex(range, start + 1);
+      if (end === start + 1) {
+        return start;
+      }
+      while (range[end] === ".") {
+        const next = findBuildIdentifierEndIndex(range, end + 1);
+        if (next === end + 1) {
+          break;
+        }
+        end = next;
+      }
+      return end;
+    };
+    var findLooseFullVersionEndIndex = (range, start, digitRuns) => {
+      let end = start;
+      for (let component = 0; component < 3; component++) {
+        const next = findVersionNumberEndIndex(range, end, true, digitRuns);
+        if (next === end) {
+          return start;
+        }
+        end = next;
+        if (component < 2) {
+          if (range[end] !== ".") {
+            return start;
+          }
+          end++;
+        }
+      }
+      const prereleaseEnd = findPrereleaseEndIndex(range, end, true, digitRuns);
+      return findBuildEndIndex(range, prereleaseEnd);
+    };
+    var findPartialVersionComponentEndIndex = (range, start, digitRuns) => {
+      if (isDigit(range[start])) {
+        return findVersionNumberEndIndex(range, start, false, digitRuns);
+      }
+      return isVersionStart(range[start]) ? start + 1 : start;
+    };
+    var findPartialVersionEndIndex = (range, start, digitRuns) => {
+      let end = findPartialVersionComponentEndIndex(range, start, digitRuns);
+      for (let component = 0; component < 2; component++) {
+        if (range[end] !== ".") {
+          return end;
+        }
+        const next = findPartialVersionComponentEndIndex(range, end + 1, digitRuns);
+        if (next === end + 1) {
+          return end;
+        }
+        end = next;
+      }
+      const prereleaseEnd = findPrereleaseEndIndex(range, end, false, digitRuns);
+      return findBuildEndIndex(range, prereleaseEnd);
+    };
+    var findVersionEndIndex = (range, start, digitRuns) => {
+      const fullVersionEnd = findLooseFullVersionEndIndex(range, start, digitRuns);
+      return fullVersionEnd !== start ? fullVersionEnd : findPartialVersionEndIndex(range, start, digitRuns);
+    };
+    var findRemovableWhitespaceIndex = (range, matchStart) => {
+      let position = matchStart;
+      if (isWhitespace(range[position])) {
+        position++;
+      }
+      if (range[position] === "<" || range[position] === ">") {
+        position++;
+      }
+      if (range[position] === "=") {
+        position++;
+      }
+      return isWhitespace(range[position]) ? position : -1;
+    };
+    var trimComparatorWhitespace = (range) => {
+      let result = "";
+      let copyFrom = 0;
+      let cursor = 0;
+      const digitRuns = { start: -1, end: -1, previousStart: -1, previousEnd: -1 };
+      while (cursor < range.length) {
+        const matchStart = cursor;
+        if (range[cursor] === "<" || range[cursor] === ">") {
+          cursor++;
+        } else if (!isVersionPrefix(range[cursor]) && !isVersionStart(range[cursor])) {
+          cursor++;
+          continue;
+        }
+        while (cursor < range.length && isVersionPrefix(range[cursor])) {
+          cursor++;
+        }
+        if (!isVersionStart(range[cursor])) {
+          continue;
+        }
+        const whitespacePosition = findRemovableWhitespaceIndex(range, matchStart);
+        if (whitespacePosition !== -1) {
+          result += range.slice(copyFrom, whitespacePosition);
+          copyFrom = whitespacePosition + 1;
+        }
+        cursor = findVersionEndIndex(range, cursor, digitRuns);
+      }
+      return result + range.slice(copyFrom);
+    };
+    module.exports = trimComparatorWhitespace;
+  }
+});
+
+// node_modules/semver/classes/range.js
+var require_range2 = __commonJS({
+  "node_modules/semver/classes/range.js"(exports, module) {
+    "use strict";
+    var SPACE_CHARACTERS = /\s+/g;
+    var Range = class _Range {
+      constructor(range, options) {
+        options = parseOptions(options);
+        if (range instanceof _Range) {
+          if (range.loose === !!options.loose && range.includePrerelease === !!options.includePrerelease) {
+            return range;
+          } else {
+            return new _Range(range.raw, options);
+          }
+        }
+        if (range instanceof Comparator) {
+          this.raw = range.value;
+          this.set = [[range]];
+          this.formatted = void 0;
+          return this;
+        }
+        this.options = options;
+        this.loose = !!options.loose;
+        this.includePrerelease = !!options.includePrerelease;
+        this.raw = range.trim().replace(SPACE_CHARACTERS, " ");
+        this.set = this.raw.split("||").map((r) => this.parseRange(r.trim())).filter((c) => c.length);
+        if (!this.set.length) {
+          throw new TypeError(`Invalid SemVer Range: ${this.raw}`);
+        }
+        if (this.set.length > 1) {
+          const first = this.set[0];
+          this.set = this.set.filter((c) => !isNullSet(c[0]));
+          if (this.set.length === 0) {
+            this.set = [first];
+          } else if (this.set.length > 1) {
+            for (const c of this.set) {
+              if (c.length === 1 && isAny(c[0])) {
+                this.set = [c];
+                break;
+              }
+            }
+          }
+        }
+        this.formatted = void 0;
+      }
+      get range() {
+        if (this.formatted === void 0) {
+          this.formatted = "";
+          for (let i = 0; i < this.set.length; i++) {
+            if (i > 0) {
+              this.formatted += "||";
+            }
+            const comps = this.set[i];
+            for (let k = 0; k < comps.length; k++) {
+              if (k > 0) {
+                this.formatted += " ";
+              }
+              this.formatted += comps[k].toString().trim();
+            }
+          }
+        }
+        return this.formatted;
+      }
+      format() {
+        return this.range;
+      }
+      toString() {
+        return this.range;
+      }
+      parseRange(range) {
+        range = range.replace(BUILDSTRIPRE, "");
+        const memoOpts = (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) | (this.options.loose && FLAG_LOOSE);
+        const memoKey = memoOpts + ":" + range;
+        const cached = cache.get(memoKey);
+        if (cached) {
+          return cached;
+        }
+        const loose = this.options.loose;
+        const hr = loose ? re[t.HYPHENRANGELOOSE] : re[t.HYPHENRANGE];
+        range = range.replace(hr, hyphenReplace(this.options.includePrerelease));
+        debug("hyphen replace", range);
+        range = trimComparatorWhitespace(range);
+        debug("comparator trim", range);
+        range = range.replace(re[t.TILDETRIM], tildeTrimReplace);
+        debug("tilde trim", range);
+        range = range.replace(re[t.CARETTRIM], caretTrimReplace);
+        debug("caret trim", range);
+        let rangeList = range.split(" ").map((comp) => parseComparator(comp, this.options)).join(" ").split(/\s+/).map((comp) => replaceGTE0(comp, this.options));
+        if (loose) {
+          rangeList = rangeList.filter((comp) => {
+            debug("loose invalid filter", comp, this.options);
+            return !!comp.match(re[t.COMPARATORLOOSE]);
+          });
+        }
+        debug("range list", rangeList);
+        const rangeMap = /* @__PURE__ */ new Map();
+        const comparators = rangeList.map((comp) => new Comparator(comp, this.options));
+        for (const comp of comparators) {
+          if (isNullSet(comp)) {
+            return [comp];
+          }
+          rangeMap.set(comp.value, comp);
+        }
+        if (rangeMap.size > 1 && rangeMap.has("")) {
+          rangeMap.delete("");
+        }
+        const result = [...rangeMap.values()];
+        cache.set(memoKey, result);
+        return result;
+      }
+      intersects(range, options) {
+        if (!(range instanceof _Range)) {
+          throw new TypeError("a Range is required");
+        }
+        return this.set.some((thisComparators) => {
+          return isSatisfiable(thisComparators, options) && range.set.some((rangeComparators) => {
+            return isSatisfiable(rangeComparators, options) && thisComparators.every((thisComparator) => {
+              return rangeComparators.every((rangeComparator) => {
+                return thisComparator.intersects(rangeComparator, options);
+              });
+            });
+          });
+        });
+      }
+      // if ANY of the sets match ALL of its comparators, then pass
+      test(version) {
+        if (!version) {
+          return false;
+        }
+        if (typeof version === "string") {
+          try {
+            version = new SemVer(version, this.options);
+          } catch (er) {
+            return false;
+          }
+        }
+        for (let i = 0; i < this.set.length; i++) {
+          if (testSet(this.set[i], version, this.options)) {
+            return true;
+          }
+        }
+        return false;
+      }
+    };
+    module.exports = Range;
+    var LRU = require_lrucache();
+    var cache = new LRU();
+    var parseOptions = require_parse_options();
+    var Comparator = require_comparator();
+    var debug = require_debug();
+    var SemVer = require_semver();
+    var trimComparatorWhitespace = require_trim_comparator_whitespace();
+    var {
+      safeRe: re,
+      src,
+      t,
+      tildeTrimReplace,
+      caretTrimReplace
+    } = require_re();
+    var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants3();
+    var BUILDSTRIPRE = new RegExp(src[t.BUILD], "g");
+    var isNullSet = (c) => c.value === "<0.0.0-0";
+    var isAny = (c) => c.value === "";
+    var isSatisfiable = (comparators, options) => {
+      let result = true;
+      const remainingComparators = comparators.slice();
+      let testComparator = remainingComparators.pop();
+      while (result && remainingComparators.length) {
+        result = remainingComparators.every((otherComparator) => {
+          return testComparator.intersects(otherComparator, options);
+        });
+        testComparator = remainingComparators.pop();
+      }
+      return result;
+    };
+    var parseComparator = (comp, options) => {
+      comp = comp.replace(re[t.BUILD], "");
+      debug("comp", comp, options);
+      comp = replaceCarets(comp, options);
+      debug("caret", comp);
+      comp = replaceTildes(comp, options);
+      debug("tildes", comp);
+      comp = replaceXRanges(comp, options);
+      debug("xrange", comp);
+      comp = replaceStars(comp, options);
+      debug("stars", comp);
+      return comp;
+    };
+    var isX = (id) => !id || id.toLowerCase() === "x" || id === "*";
+    var invalidXRangeOrder = (M, m, p) => isX(M) && !isX(m) || isX(m) && p && !isX(p);
+    var replaceTildes = (comp, options) => {
+      return comp.trim().split(/\s+/).map((c) => replaceTilde(c, options)).join(" ");
+    };
+    var replaceTilde = (comp, options) => {
+      const r = options.loose ? re[t.TILDELOOSE] : re[t.TILDE];
+      const z = options.includePrerelease ? "-0" : "";
+      return comp.replace(r, (_, M, m, p, pr) => {
+        debug("tilde", comp, _, M, m, p, pr);
+        let ret;
+        if (isX(M)) {
+          ret = "";
+        } else if (isX(m)) {
+          ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`;
+        } else if (isX(p)) {
+          ret = `>=${M}.${m}.0${z} <${M}.${+m + 1}.0-0`;
+        } else if (pr) {
+          debug("replaceTilde pr", pr);
+          ret = `>=${M}.${m}.${p}-${pr} <${M}.${+m + 1}.0-0`;
+        } else {
+          ret = `>=${M}.${m}.${p} <${M}.${+m + 1}.0-0`;
+        }
+        debug("tilde return", ret);
+        return ret;
+      });
+    };
+    var replaceCarets = (comp, options) => {
+      return comp.trim().split(/\s+/).map((c) => replaceCaret(c, options)).join(" ");
+    };
+    var replaceCaret = (comp, options) => {
+      debug("caret", comp, options);
+      const r = options.loose ? re[t.CARETLOOSE] : re[t.CARET];
+      const z = options.includePrerelease ? "-0" : "";
+      return comp.replace(r, (_, M, m, p, pr) => {
+        debug("caret", comp, _, M, m, p, pr);
+        let ret;
+        if (isX(M)) {
+          ret = "";
+        } else if (isX(m)) {
+          ret = `>=${M}.0.0${z} <${+M + 1}.0.0-0`;
+        } else if (isX(p)) {
+          if (M === "0") {
+            ret = `>=${M}.${m}.0${z} <${M}.${+m + 1}.0-0`;
+          } else {
+            ret = `>=${M}.${m}.0${z} <${+M + 1}.0.0-0`;
+          }
+        } else if (pr) {
+          debug("replaceCaret pr", pr);
+          if (M === "0") {
+            if (m === "0") {
+              ret = `>=${M}.${m}.${p}-${pr} <${M}.${m}.${+p + 1}-0`;
+            } else {
+              ret = `>=${M}.${m}.${p}-${pr} <${M}.${+m + 1}.0-0`;
+            }
+          } else {
+            ret = `>=${M}.${m}.${p}-${pr} <${+M + 1}.0.0-0`;
+          }
+        } else {
+          debug("no pr");
+          if (M === "0") {
+            if (m === "0") {
+              ret = `>=${M}.${m}.${p} <${M}.${m}.${+p + 1}-0`;
+            } else {
+              ret = `>=${M}.${m}.${p} <${M}.${+m + 1}.0-0`;
+            }
+          } else {
+            ret = `>=${M}.${m}.${p} <${+M + 1}.0.0-0`;
+          }
+        }
+        debug("caret return", ret);
+        return ret;
+      });
+    };
+    var replaceXRanges = (comp, options) => {
+      debug("replaceXRanges", comp, options);
+      return comp.split(/\s+/).map((c) => replaceXRange(c, options)).join(" ");
+    };
+    var replaceXRange = (comp, options) => {
+      comp = comp.trim();
+      const r = options.loose ? re[t.XRANGELOOSE] : re[t.XRANGE];
+      return comp.replace(r, (ret, gtlt, M, m, p, pr) => {
+        debug("xRange", comp, ret, gtlt, M, m, p, pr);
+        if (invalidXRangeOrder(M, m, p)) {
+          return comp;
+        }
+        const xM = isX(M);
+        const xm = xM || isX(m);
+        const xp = xm || isX(p);
+        const anyX = xp;
+        if (gtlt === "=" && anyX) {
+          gtlt = "";
+        }
+        pr = options.includePrerelease ? "-0" : "";
+        if (xM) {
+          if (gtlt === ">" || gtlt === "<") {
+            ret = "<0.0.0-0";
+          } else {
+            ret = "*";
+          }
+        } else if (gtlt && anyX) {
+          if (xm) {
+            m = 0;
+          }
+          p = 0;
+          if (gtlt === ">") {
+            gtlt = ">=";
+            if (xm) {
+              M = +M + 1;
+              m = 0;
+              p = 0;
+            } else {
+              m = +m + 1;
+              p = 0;
+            }
+          } else if (gtlt === "<=") {
+            gtlt = "<";
+            if (xm) {
+              M = +M + 1;
+            } else {
+              m = +m + 1;
+            }
+          }
+          if (gtlt === "<") {
+            pr = "-0";
+          }
+          ret = `${gtlt + M}.${m}.${p}${pr}`;
+        } else if (xm) {
+          ret = `>=${M}.0.0${pr} <${+M + 1}.0.0-0`;
+        } else if (xp) {
+          ret = `>=${M}.${m}.0${pr} <${M}.${+m + 1}.0-0`;
+        }
+        debug("xRange return", ret);
+        return ret;
+      });
+    };
+    var replaceStars = (comp, options) => {
+      debug("replaceStars", comp, options);
+      return comp.trim().replace(re[t.STAR], "");
+    };
+    var replaceGTE0 = (comp, options) => {
+      debug("replaceGTE0", comp, options);
+      return comp.trim().replace(re[options.includePrerelease ? t.GTE0PRE : t.GTE0], "");
+    };
+    var hyphenReplace = (incPr) => ($0, from, fM, fm, fp, fpr, fb, to, tM, tm, tp, tpr) => {
+      if (isX(fM)) {
+        from = "";
+      } else if (isX(fm)) {
+        from = `>=${fM}.0.0${incPr ? "-0" : ""}`;
+      } else if (isX(fp)) {
+        from = `>=${fM}.${fm}.0${incPr ? "-0" : ""}`;
+      } else if (fpr) {
+        from = `>=${from}`;
+      } else {
+        from = `>=${from}${incPr ? "-0" : ""}`;
+      }
+      if (isX(tM)) {
+        to = "";
+      } else if (isX(tm)) {
+        to = `<${+tM + 1}.0.0-0`;
+      } else if (isX(tp)) {
+        to = `<${tM}.${+tm + 1}.0-0`;
+      } else if (tpr) {
+        to = `<=${tM}.${tm}.${tp}-${tpr}`;
+      } else if (incPr) {
+        to = `<${tM}.${tm}.${+tp + 1}-0`;
+      } else {
+        to = `<=${to}`;
+      }
+      return `${from} ${to}`.trim();
+    };
+    var testSet = (set, version, options) => {
+      for (let i = 0; i < set.length; i++) {
+        if (!set[i].test(version)) {
+          return false;
+        }
+      }
+      if (version.prerelease.length && !options.includePrerelease) {
+        for (let i = 0; i < set.length; i++) {
+          debug(set[i].semver);
+          if (set[i].semver === Comparator.ANY) {
+            continue;
+          }
+          if (set[i].semver.prerelease.length > 0) {
+            const allowed = set[i].semver;
+            if (allowed.major === version.major && allowed.minor === version.minor && allowed.patch === version.patch) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+      return true;
+    };
+  }
+});
+
+// node_modules/semver/classes/comparator.js
+var require_comparator = __commonJS({
+  "node_modules/semver/classes/comparator.js"(exports, module) {
+    "use strict";
+    var ANY = /* @__PURE__ */ Symbol("SemVer ANY");
+    var Comparator = class _Comparator {
+      static get ANY() {
+        return ANY;
+      }
+      constructor(comp, options) {
+        options = parseOptions(options);
+        if (comp instanceof _Comparator) {
+          if (comp.loose === !!options.loose) {
+            return comp;
+          } else {
+            comp = comp.value;
+          }
+        }
+        comp = comp.trim().split(/\s+/).join(" ");
+        debug("comparator", comp, options);
+        this.options = options;
+        this.loose = !!options.loose;
+        this.parse(comp);
+        if (this.semver === ANY) {
+          this.value = "";
+        } else {
+          this.value = this.operator + this.semver.version;
+        }
+        debug("comp", this);
+      }
+      parse(comp) {
+        const r = this.options.loose ? re[t.COMPARATORLOOSE] : re[t.COMPARATOR];
+        const m = comp.match(r);
+        if (!m) {
+          throw new TypeError(`Invalid comparator: ${comp}`);
+        }
+        this.operator = m[1] !== void 0 ? m[1] : "";
+        if (this.operator === "=") {
+          this.operator = "";
+        }
+        if (!m[2]) {
+          this.semver = ANY;
+        } else {
+          this.semver = new SemVer(m[2], this.options.loose);
+        }
+      }
+      toString() {
+        return this.value;
+      }
+      test(version) {
+        debug("Comparator.test", version, this.options.loose);
+        if (this.semver === ANY || version === ANY) {
+          return true;
+        }
+        if (typeof version === "string") {
+          try {
+            version = new SemVer(version, this.options);
+          } catch (er) {
+            return false;
+          }
+        }
+        return cmp(version, this.operator, this.semver, this.options);
+      }
+      intersects(comp, options) {
+        if (!(comp instanceof _Comparator)) {
+          throw new TypeError("a Comparator is required");
+        }
+        if (this.operator === "") {
+          if (this.value === "") {
+            return true;
+          }
+          return new Range(comp.value, options).test(this.value);
+        } else if (comp.operator === "") {
+          if (comp.value === "") {
+            return true;
+          }
+          return new Range(this.value, options).test(comp.semver);
+        }
+        options = parseOptions(options);
+        if (options.includePrerelease && (this.value === "<0.0.0-0" || comp.value === "<0.0.0-0")) {
+          return false;
+        }
+        if (!options.includePrerelease && (this.value.startsWith("<0.0.0") || comp.value.startsWith("<0.0.0"))) {
+          return false;
+        }
+        if (this.operator.startsWith(">") && comp.operator.startsWith(">")) {
+          return true;
+        }
+        if (this.operator.startsWith("<") && comp.operator.startsWith("<")) {
+          return true;
+        }
+        if (this.semver.version === comp.semver.version && this.operator.includes("=") && comp.operator.includes("=")) {
+          return true;
+        }
+        if (cmp(this.semver, "<", comp.semver, options) && this.operator.startsWith(">") && comp.operator.startsWith("<")) {
+          return true;
+        }
+        if (cmp(this.semver, ">", comp.semver, options) && this.operator.startsWith("<") && comp.operator.startsWith(">")) {
+          return true;
+        }
+        return false;
+      }
+    };
+    module.exports = Comparator;
+    var parseOptions = require_parse_options();
+    var { safeRe: re, t } = require_re();
+    var cmp = require_cmp();
+    var debug = require_debug();
+    var SemVer = require_semver();
+    var Range = require_range2();
+  }
+});
+
+// node_modules/semver/functions/satisfies.js
+var require_satisfies = __commonJS({
+  "node_modules/semver/functions/satisfies.js"(exports, module) {
+    "use strict";
+    var Range = require_range2();
+    var satisfies = (version, range, options) => {
+      try {
+        range = new Range(range, options);
+      } catch (er) {
+        return false;
+      }
+      return range.test(version);
+    };
+    module.exports = satisfies;
+  }
+});
+
+// node_modules/semver/ranges/to-comparators.js
+var require_to_comparators = __commonJS({
+  "node_modules/semver/ranges/to-comparators.js"(exports, module) {
+    "use strict";
+    var Range = require_range2();
+    var toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
+    module.exports = toComparators;
+  }
+});
+
+// node_modules/semver/ranges/max-satisfying.js
+var require_max_satisfying = __commonJS({
+  "node_modules/semver/ranges/max-satisfying.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var Range = require_range2();
+    var maxSatisfying = (versions, range, options) => {
+      let max = null;
+      let maxSV = null;
+      let rangeObj = null;
+      try {
+        rangeObj = new Range(range, options);
+      } catch (er) {
+        return null;
+      }
+      versions.forEach((v) => {
+        if (rangeObj.test(v)) {
+          if (!max || maxSV.compare(v) === -1) {
+            max = v;
+            maxSV = new SemVer(max, options);
+          }
+        }
+      });
+      return max;
+    };
+    module.exports = maxSatisfying;
+  }
+});
+
+// node_modules/semver/ranges/min-satisfying.js
+var require_min_satisfying = __commonJS({
+  "node_modules/semver/ranges/min-satisfying.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var Range = require_range2();
+    var minSatisfying = (versions, range, options) => {
+      let min = null;
+      let minSV = null;
+      let rangeObj = null;
+      try {
+        rangeObj = new Range(range, options);
+      } catch (er) {
+        return null;
+      }
+      versions.forEach((v) => {
+        if (rangeObj.test(v)) {
+          if (!min || minSV.compare(v) === 1) {
+            min = v;
+            minSV = new SemVer(min, options);
+          }
+        }
+      });
+      return min;
+    };
+    module.exports = minSatisfying;
+  }
+});
+
+// node_modules/semver/ranges/min-version.js
+var require_min_version = __commonJS({
+  "node_modules/semver/ranges/min-version.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var Range = require_range2();
+    var gt = require_gt();
+    var minVersion = (range, loose) => {
+      range = new Range(range, loose);
+      let minver = new SemVer("0.0.0");
+      if (range.test(minver)) {
+        return minver;
+      }
+      minver = new SemVer("0.0.0-0");
+      if (range.test(minver)) {
+        return minver;
+      }
+      minver = null;
+      for (let i = 0; i < range.set.length; ++i) {
+        const comparators = range.set[i];
+        let setMin = null;
+        comparators.forEach((comparator) => {
+          const compver = new SemVer(comparator.semver.version);
+          switch (comparator.operator) {
+            case ">":
+              if (compver.prerelease.length === 0) {
+                compver.patch++;
+              } else {
+                compver.prerelease.push(0);
+              }
+              compver.raw = compver.format();
+            /* fallthrough */
+            case "":
+            case ">=":
+              if (!setMin || gt(compver, setMin)) {
+                setMin = compver;
+              }
+              break;
+            case "<":
+            case "<=":
+              break;
+            /* istanbul ignore next */
+            default:
+              throw new Error(`Unexpected operation: ${comparator.operator}`);
+          }
+        });
+        if (setMin && (!minver || gt(minver, setMin))) {
+          minver = setMin;
+        }
+      }
+      if (minver && range.test(minver)) {
+        return minver;
+      }
+      return null;
+    };
+    module.exports = minVersion;
+  }
+});
+
+// node_modules/semver/ranges/valid.js
+var require_valid2 = __commonJS({
+  "node_modules/semver/ranges/valid.js"(exports, module) {
+    "use strict";
+    var Range = require_range2();
+    var validRange = (range, options) => {
+      try {
+        return new Range(range, options).range || "*";
+      } catch (er) {
+        return null;
+      }
+    };
+    module.exports = validRange;
+  }
+});
+
+// node_modules/semver/ranges/outside.js
+var require_outside = __commonJS({
+  "node_modules/semver/ranges/outside.js"(exports, module) {
+    "use strict";
+    var SemVer = require_semver();
+    var Comparator = require_comparator();
+    var { ANY } = Comparator;
+    var Range = require_range2();
+    var satisfies = require_satisfies();
+    var gt = require_gt();
+    var lt = require_lt();
+    var lte = require_lte();
+    var gte = require_gte();
+    var outside = (version, range, hilo, options) => {
+      version = new SemVer(version, options);
+      range = new Range(range, options);
+      let gtfn, ltefn, ltfn, comp, ecomp;
+      switch (hilo) {
+        case ">":
+          gtfn = gt;
+          ltefn = lte;
+          ltfn = lt;
+          comp = ">";
+          ecomp = ">=";
+          break;
+        case "<":
+          gtfn = lt;
+          ltefn = gte;
+          ltfn = gt;
+          comp = "<";
+          ecomp = "<=";
+          break;
+        default:
+          throw new TypeError('Must provide a hilo val of "<" or ">"');
+      }
+      if (satisfies(version, range, options)) {
+        return false;
+      }
+      for (let i = 0; i < range.set.length; ++i) {
+        const comparators = range.set[i];
+        let high = null;
+        let low = null;
+        comparators.forEach((comparator) => {
+          if (comparator.semver === ANY) {
+            comparator = new Comparator(">=0.0.0");
+          }
+          high = high || comparator;
+          low = low || comparator;
+          if (gtfn(comparator.semver, high.semver, options)) {
+            high = comparator;
+          } else if (ltfn(comparator.semver, low.semver, options)) {
+            low = comparator;
+          }
+        });
+        if (high.operator === comp || high.operator === ecomp) {
+          return false;
+        }
+        if ((!low.operator || low.operator === comp) && ltefn(version, low.semver)) {
+          return false;
+        } else if (low.operator === ecomp && ltfn(version, low.semver)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    module.exports = outside;
+  }
+});
+
+// node_modules/semver/ranges/gtr.js
+var require_gtr = __commonJS({
+  "node_modules/semver/ranges/gtr.js"(exports, module) {
+    "use strict";
+    var outside = require_outside();
+    var gtr = (version, range, options) => outside(version, range, ">", options);
+    module.exports = gtr;
+  }
+});
+
+// node_modules/semver/ranges/ltr.js
+var require_ltr = __commonJS({
+  "node_modules/semver/ranges/ltr.js"(exports, module) {
+    "use strict";
+    var outside = require_outside();
+    var ltr = (version, range, options) => outside(version, range, "<", options);
+    module.exports = ltr;
+  }
+});
+
+// node_modules/semver/ranges/intersects.js
+var require_intersects = __commonJS({
+  "node_modules/semver/ranges/intersects.js"(exports, module) {
+    "use strict";
+    var Range = require_range2();
+    var intersects = (r1, r2, options) => {
+      r1 = new Range(r1, options);
+      r2 = new Range(r2, options);
+      return r1.intersects(r2, options);
+    };
+    module.exports = intersects;
+  }
+});
+
+// node_modules/semver/ranges/simplify.js
+var require_simplify = __commonJS({
+  "node_modules/semver/ranges/simplify.js"(exports, module) {
+    "use strict";
+    var satisfies = require_satisfies();
+    var compare = require_compare();
+    module.exports = (versions, range, options) => {
+      const set = [];
+      let first = null;
+      let prev = null;
+      const v = versions.sort((a, b) => compare(a, b, options));
+      for (const version of v) {
+        const included = satisfies(version, range, options);
+        if (included) {
+          prev = version;
+          if (!first) {
+            first = version;
+          }
+        } else {
+          if (prev) {
+            set.push([first, prev]);
+          }
+          prev = null;
+          first = null;
+        }
+      }
+      if (first) {
+        set.push([first, null]);
+      }
+      const ranges = [];
+      for (const [min, max] of set) {
+        if (min === max) {
+          ranges.push(min);
+        } else if (!max && min === v[0]) {
+          ranges.push("*");
+        } else if (!max) {
+          ranges.push(`>=${min}`);
+        } else if (min === v[0]) {
+          ranges.push(`<=${max}`);
+        } else {
+          ranges.push(`${min} - ${max}`);
+        }
+      }
+      const simplified = ranges.join(" || ");
+      const original = typeof range.raw === "string" ? range.raw : String(range);
+      return simplified.length < original.length ? simplified : range;
+    };
+  }
+});
+
+// node_modules/semver/ranges/subset.js
+var require_subset = __commonJS({
+  "node_modules/semver/ranges/subset.js"(exports, module) {
+    "use strict";
+    var Range = require_range2();
+    var Comparator = require_comparator();
+    var { ANY } = Comparator;
+    var satisfies = require_satisfies();
+    var compare = require_compare();
+    var subset = (sub, dom, options = {}) => {
+      if (sub === dom) {
+        return true;
+      }
+      sub = new Range(sub, options);
+      dom = new Range(dom, options);
+      let sawNonNull = false;
+      OUTER: for (const simpleSub of sub.set) {
+        for (const simpleDom of dom.set) {
+          const isSub = simpleSubset(simpleSub, simpleDom, options);
+          sawNonNull = sawNonNull || isSub !== null;
+          if (isSub) {
+            continue OUTER;
+          }
+        }
+        if (sawNonNull) {
+          return false;
+        }
+      }
+      return true;
+    };
+    var minimumVersionWithPreRelease = [new Comparator(">=0.0.0-0")];
+    var minimumVersion = [new Comparator(">=0.0.0")];
+    var simpleSubset = (sub, dom, options) => {
+      if (sub === dom) {
+        return true;
+      }
+      if (sub.length === 1 && sub[0].semver === ANY) {
+        if (dom.length === 1 && dom[0].semver === ANY) {
+          return true;
+        } else if (options.includePrerelease) {
+          sub = minimumVersionWithPreRelease;
+        } else {
+          sub = minimumVersion;
+        }
+      }
+      if (dom.length === 1 && dom[0].semver === ANY) {
+        if (options.includePrerelease) {
+          return true;
+        } else {
+          dom = minimumVersion;
+        }
+      }
+      const eqSet = /* @__PURE__ */ new Set();
+      let gt, lt;
+      for (const c of sub) {
+        if (c.operator === ">" || c.operator === ">=") {
+          gt = higherGT(gt, c, options);
+        } else if (c.operator === "<" || c.operator === "<=") {
+          lt = lowerLT(lt, c, options);
+        } else {
+          eqSet.add(c.semver);
+        }
+      }
+      if (eqSet.size > 1) {
+        return null;
+      }
+      let gtltComp;
+      if (gt && lt) {
+        gtltComp = compare(gt.semver, lt.semver, options);
+        if (gtltComp > 0) {
+          return null;
+        } else if (gtltComp === 0 && (gt.operator !== ">=" || lt.operator !== "<=")) {
+          return null;
+        }
+      }
+      for (const eq of eqSet) {
+        if (gt && !satisfies(eq, String(gt), options)) {
+          return null;
+        }
+        if (lt && !satisfies(eq, String(lt), options)) {
+          return null;
+        }
+        for (const c of dom) {
+          if (!satisfies(eq, String(c), options)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      let higher, lower;
+      let hasDomLT, hasDomGT;
+      let needDomLTPre = lt && !options.includePrerelease && lt.semver.prerelease.length ? lt.semver : false;
+      let needDomGTPre = gt && !options.includePrerelease && gt.semver.prerelease.length ? gt.semver : false;
+      if (needDomLTPre && needDomLTPre.prerelease.length === 1 && lt.operator === "<" && needDomLTPre.prerelease[0] === 0) {
+        needDomLTPre = false;
+      }
+      for (const c of dom) {
+        hasDomGT = hasDomGT || c.operator === ">" || c.operator === ">=";
+        hasDomLT = hasDomLT || c.operator === "<" || c.operator === "<=";
+        if (gt) {
+          if (needDomGTPre) {
+            if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomGTPre.major && c.semver.minor === needDomGTPre.minor && c.semver.patch === needDomGTPre.patch) {
+              needDomGTPre = false;
+            }
+          }
+          if (c.operator === ">" || c.operator === ">=") {
+            higher = higherGT(gt, c, options);
+            if (higher === c && higher !== gt) {
+              return false;
+            }
+          } else if (gt.operator === ">=" && !c.test(gt.semver)) {
+            return false;
+          }
+        }
+        if (lt) {
+          if (needDomLTPre) {
+            if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomLTPre.major && c.semver.minor === needDomLTPre.minor && c.semver.patch === needDomLTPre.patch) {
+              needDomLTPre = false;
+            }
+          }
+          if (c.operator === "<" || c.operator === "<=") {
+            lower = lowerLT(lt, c, options);
+            if (lower === c && lower !== lt) {
+              return false;
+            }
+          } else if (lt.operator === "<=" && !c.test(lt.semver)) {
+            return false;
+          }
+        }
+        if (!c.operator && (lt || gt) && gtltComp !== 0) {
+          return false;
+        }
+      }
+      if (gt && hasDomLT && !lt && gtltComp !== 0) {
+        return false;
+      }
+      if (lt && hasDomGT && !gt && gtltComp !== 0) {
+        return false;
+      }
+      if (needDomGTPre || needDomLTPre) {
+        return false;
+      }
+      return true;
+    };
+    var higherGT = (a, b, options) => {
+      if (!a) {
+        return b;
+      }
+      const comp = compare(a.semver, b.semver, options);
+      return comp > 0 ? a : comp < 0 ? b : b.operator === ">" && a.operator === ">=" ? b : a;
+    };
+    var lowerLT = (a, b, options) => {
+      if (!a) {
+        return b;
+      }
+      const comp = compare(a.semver, b.semver, options);
+      return comp < 0 ? a : comp > 0 ? b : b.operator === "<" && a.operator === "<=" ? b : a;
+    };
+    module.exports = subset;
+  }
+});
+
+// node_modules/semver/index.js
+var require_semver2 = __commonJS({
+  "node_modules/semver/index.js"(exports, module) {
+    "use strict";
+    var internalRe = require_re();
+    var constants = require_constants3();
+    var SemVer = require_semver();
+    var identifiers = require_identifiers();
+    var parse = require_parse2();
+    var valid = require_valid();
+    var clean = require_clean();
+    var inc = require_inc();
+    var diff = require_diff();
+    var major = require_major();
+    var minor = require_minor();
+    var patch = require_patch();
+    var prerelease = require_prerelease();
+    var compare = require_compare();
+    var rcompare = require_rcompare();
+    var compareLoose = require_compare_loose();
+    var compareBuild = require_compare_build();
+    var sort = require_sort2();
+    var rsort = require_rsort();
+    var gt = require_gt();
+    var lt = require_lt();
+    var eq = require_eq2();
+    var neq = require_neq();
+    var gte = require_gte();
+    var lte = require_lte();
+    var cmp = require_cmp();
+    var coerce2 = require_coerce();
+    var truncate = require_truncate();
+    var Comparator = require_comparator();
+    var Range = require_range2();
+    var satisfies = require_satisfies();
+    var toComparators = require_to_comparators();
+    var maxSatisfying = require_max_satisfying();
+    var minSatisfying = require_min_satisfying();
+    var minVersion = require_min_version();
+    var validRange = require_valid2();
+    var outside = require_outside();
+    var gtr = require_gtr();
+    var ltr = require_ltr();
+    var intersects = require_intersects();
+    var simplifyRange = require_simplify();
+    var subset = require_subset();
+    module.exports = {
+      parse,
+      valid,
+      clean,
+      inc,
+      diff,
+      major,
+      minor,
+      patch,
+      prerelease,
+      compare,
+      rcompare,
+      compareLoose,
+      compareBuild,
+      sort,
+      rsort,
+      gt,
+      lt,
+      eq,
+      neq,
+      gte,
+      lte,
+      cmp,
+      coerce: coerce2,
+      truncate,
+      Comparator,
+      Range,
+      satisfies,
+      toComparators,
+      maxSatisfying,
+      minSatisfying,
+      minVersion,
+      validRange,
+      outside,
+      gtr,
+      ltr,
+      intersects,
+      simplifyRange,
+      subset,
+      SemVer,
+      re: internalRe.re,
+      src: internalRe.src,
+      tokens: internalRe.t,
+      SEMVER_SPEC_VERSION: constants.SEMVER_SPEC_VERSION,
+      RELEASE_TYPES: constants.RELEASE_TYPES,
+      compareIdentifiers: identifiers.compareIdentifiers,
+      rcompareIdentifiers: identifiers.rcompareIdentifiers
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/lib/asymmetricKeyDetailsSupported.js
+var require_asymmetricKeyDetailsSupported = __commonJS({
+  "node_modules/jsonwebtoken/lib/asymmetricKeyDetailsSupported.js"(exports, module) {
+    var semver = require_semver2();
+    module.exports = semver.satisfies(process.version, ">=15.7.0");
+  }
+});
+
+// node_modules/jsonwebtoken/lib/rsaPssKeyDetailsSupported.js
+var require_rsaPssKeyDetailsSupported = __commonJS({
+  "node_modules/jsonwebtoken/lib/rsaPssKeyDetailsSupported.js"(exports, module) {
+    var semver = require_semver2();
+    module.exports = semver.satisfies(process.version, ">=16.9.0");
+  }
+});
+
+// node_modules/jsonwebtoken/lib/validateAsymmetricKey.js
+var require_validateAsymmetricKey = __commonJS({
+  "node_modules/jsonwebtoken/lib/validateAsymmetricKey.js"(exports, module) {
+    var ASYMMETRIC_KEY_DETAILS_SUPPORTED = require_asymmetricKeyDetailsSupported();
+    var RSA_PSS_KEY_DETAILS_SUPPORTED = require_rsaPssKeyDetailsSupported();
+    var allowedAlgorithmsForKeys = {
+      "ec": ["ES256", "ES384", "ES512"],
+      "rsa": ["RS256", "PS256", "RS384", "PS384", "RS512", "PS512"],
+      "rsa-pss": ["PS256", "PS384", "PS512"]
+    };
+    var allowedCurves = {
+      ES256: "prime256v1",
+      ES384: "secp384r1",
+      ES512: "secp521r1"
+    };
+    module.exports = function(algorithm, key) {
+      if (!algorithm || !key) return;
+      const keyType = key.asymmetricKeyType;
+      if (!keyType) return;
+      const allowedAlgorithms = allowedAlgorithmsForKeys[keyType];
+      if (!allowedAlgorithms) {
+        throw new Error(`Unknown key type "${keyType}".`);
+      }
+      if (!allowedAlgorithms.includes(algorithm)) {
+        throw new Error(`"alg" parameter for "${keyType}" key type must be one of: ${allowedAlgorithms.join(", ")}.`);
+      }
+      if (ASYMMETRIC_KEY_DETAILS_SUPPORTED) {
+        switch (keyType) {
+          case "ec":
+            const keyCurve = key.asymmetricKeyDetails.namedCurve;
+            const allowedCurve = allowedCurves[algorithm];
+            if (keyCurve !== allowedCurve) {
+              throw new Error(`"alg" parameter "${algorithm}" requires curve "${allowedCurve}".`);
+            }
+            break;
+          case "rsa-pss":
+            if (RSA_PSS_KEY_DETAILS_SUPPORTED) {
+              const length = parseInt(algorithm.slice(-3), 10);
+              const { hashAlgorithm, mgf1HashAlgorithm, saltLength } = key.asymmetricKeyDetails;
+              if (hashAlgorithm !== `sha${length}` || mgf1HashAlgorithm !== hashAlgorithm) {
+                throw new Error(`Invalid key for this operation, its RSA-PSS parameters do not meet the requirements of "alg" ${algorithm}.`);
+              }
+              if (saltLength !== void 0 && saltLength > length >> 3) {
+                throw new Error(`Invalid key for this operation, its RSA-PSS parameter saltLength does not meet the requirements of "alg" ${algorithm}.`);
+              }
+            }
+            break;
+        }
+      }
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/lib/psSupported.js
+var require_psSupported = __commonJS({
+  "node_modules/jsonwebtoken/lib/psSupported.js"(exports, module) {
+    var semver = require_semver2();
+    module.exports = semver.satisfies(process.version, "^6.12.0 || >=8.0.0");
+  }
+});
+
+// node_modules/jsonwebtoken/verify.js
+var require_verify = __commonJS({
+  "node_modules/jsonwebtoken/verify.js"(exports, module) {
+    var JsonWebTokenError = require_JsonWebTokenError();
+    var NotBeforeError = require_NotBeforeError();
+    var TokenExpiredError = require_TokenExpiredError();
+    var decode = require_decode();
+    var timespan = require_timespan();
+    var validateAsymmetricKey = require_validateAsymmetricKey();
+    var PS_SUPPORTED = require_psSupported();
+    var jws = require_jws();
+    var { KeyObject, createSecretKey, createPublicKey } = __require("crypto");
+    var PUB_KEY_ALGS = ["RS256", "RS384", "RS512"];
+    var EC_KEY_ALGS = ["ES256", "ES384", "ES512"];
+    var RSA_KEY_ALGS = ["RS256", "RS384", "RS512"];
+    var HS_ALGS = ["HS256", "HS384", "HS512"];
+    if (PS_SUPPORTED) {
+      PUB_KEY_ALGS.splice(PUB_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
+      RSA_KEY_ALGS.splice(RSA_KEY_ALGS.length, 0, "PS256", "PS384", "PS512");
+    }
+    module.exports = function(jwtString, secretOrPublicKey, options, callback) {
+      if (typeof options === "function" && !callback) {
+        callback = options;
+        options = {};
+      }
+      if (!options) {
+        options = {};
+      }
+      options = Object.assign({}, options);
+      let done;
+      if (callback) {
+        done = callback;
+      } else {
+        done = function(err, data) {
+          if (err) throw err;
+          return data;
+        };
+      }
+      if (options.clockTimestamp && typeof options.clockTimestamp !== "number") {
+        return done(new JsonWebTokenError("clockTimestamp must be a number"));
+      }
+      if (options.nonce !== void 0 && (typeof options.nonce !== "string" || options.nonce.trim() === "")) {
+        return done(new JsonWebTokenError("nonce must be a non-empty string"));
+      }
+      if (options.allowInvalidAsymmetricKeyTypes !== void 0 && typeof options.allowInvalidAsymmetricKeyTypes !== "boolean") {
+        return done(new JsonWebTokenError("allowInvalidAsymmetricKeyTypes must be a boolean"));
+      }
+      const clockTimestamp = options.clockTimestamp || Math.floor(Date.now() / 1e3);
+      if (!jwtString) {
+        return done(new JsonWebTokenError("jwt must be provided"));
+      }
+      if (typeof jwtString !== "string") {
+        return done(new JsonWebTokenError("jwt must be a string"));
+      }
+      const parts = jwtString.split(".");
+      if (parts.length !== 3) {
+        return done(new JsonWebTokenError("jwt malformed"));
+      }
+      let decodedToken;
+      try {
+        decodedToken = decode(jwtString, { complete: true });
+      } catch (err) {
+        return done(err);
+      }
+      if (!decodedToken) {
+        return done(new JsonWebTokenError("invalid token"));
+      }
+      const header = decodedToken.header;
+      let getSecret;
+      if (typeof secretOrPublicKey === "function") {
+        if (!callback) {
+          return done(new JsonWebTokenError("verify must be called asynchronous if secret or public key is provided as a callback"));
+        }
+        getSecret = secretOrPublicKey;
+      } else {
+        getSecret = function(header2, secretCallback) {
+          return secretCallback(null, secretOrPublicKey);
+        };
+      }
+      return getSecret(header, function(err, secretOrPublicKey2) {
+        if (err) {
+          return done(new JsonWebTokenError("error in secret or public key callback: " + err.message));
+        }
+        const hasSignature = parts[2].trim() !== "";
+        if (!hasSignature && secretOrPublicKey2) {
+          return done(new JsonWebTokenError("jwt signature is required"));
+        }
+        if (hasSignature && !secretOrPublicKey2) {
+          return done(new JsonWebTokenError("secret or public key must be provided"));
+        }
+        if (!hasSignature && !options.algorithms) {
+          return done(new JsonWebTokenError('please specify "none" in "algorithms" to verify unsigned tokens'));
+        }
+        if (secretOrPublicKey2 != null && !(secretOrPublicKey2 instanceof KeyObject)) {
+          try {
+            secretOrPublicKey2 = createPublicKey(secretOrPublicKey2);
+          } catch (_) {
+            try {
+              secretOrPublicKey2 = createSecretKey(typeof secretOrPublicKey2 === "string" ? Buffer.from(secretOrPublicKey2) : secretOrPublicKey2);
+            } catch (_2) {
+              return done(new JsonWebTokenError("secretOrPublicKey is not valid key material"));
+            }
+          }
+        }
+        if (!options.algorithms) {
+          if (secretOrPublicKey2.type === "secret") {
+            options.algorithms = HS_ALGS;
+          } else if (["rsa", "rsa-pss"].includes(secretOrPublicKey2.asymmetricKeyType)) {
+            options.algorithms = RSA_KEY_ALGS;
+          } else if (secretOrPublicKey2.asymmetricKeyType === "ec") {
+            options.algorithms = EC_KEY_ALGS;
+          } else {
+            options.algorithms = PUB_KEY_ALGS;
+          }
+        }
+        if (options.algorithms.indexOf(decodedToken.header.alg) === -1) {
+          return done(new JsonWebTokenError("invalid algorithm"));
+        }
+        if (header.alg.startsWith("HS") && secretOrPublicKey2.type !== "secret") {
+          return done(new JsonWebTokenError(`secretOrPublicKey must be a symmetric key when using ${header.alg}`));
+        } else if (/^(?:RS|PS|ES)/.test(header.alg) && secretOrPublicKey2.type !== "public") {
+          return done(new JsonWebTokenError(`secretOrPublicKey must be an asymmetric key when using ${header.alg}`));
+        }
+        if (!options.allowInvalidAsymmetricKeyTypes) {
+          try {
+            validateAsymmetricKey(header.alg, secretOrPublicKey2);
+          } catch (e) {
+            return done(e);
+          }
+        }
+        let valid;
+        try {
+          valid = jws.verify(jwtString, decodedToken.header.alg, secretOrPublicKey2);
+        } catch (e) {
+          return done(e);
+        }
+        if (!valid) {
+          return done(new JsonWebTokenError("invalid signature"));
+        }
+        const payload = decodedToken.payload;
+        if (typeof payload.nbf !== "undefined" && !options.ignoreNotBefore) {
+          if (typeof payload.nbf !== "number") {
+            return done(new JsonWebTokenError("invalid nbf value"));
+          }
+          if (payload.nbf > clockTimestamp + (options.clockTolerance || 0)) {
+            return done(new NotBeforeError("jwt not active", new Date(payload.nbf * 1e3)));
+          }
+        }
+        if (typeof payload.exp !== "undefined" && !options.ignoreExpiration) {
+          if (typeof payload.exp !== "number") {
+            return done(new JsonWebTokenError("invalid exp value"));
+          }
+          if (clockTimestamp >= payload.exp + (options.clockTolerance || 0)) {
+            return done(new TokenExpiredError("jwt expired", new Date(payload.exp * 1e3)));
+          }
+        }
+        if (options.audience) {
+          const audiences = Array.isArray(options.audience) ? options.audience : [options.audience];
+          const target = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+          const match = target.some(function(targetAudience) {
+            return audiences.some(function(audience) {
+              return audience instanceof RegExp ? audience.test(targetAudience) : audience === targetAudience;
+            });
+          });
+          if (!match) {
+            return done(new JsonWebTokenError("jwt audience invalid. expected: " + audiences.join(" or ")));
+          }
+        }
+        if (options.issuer) {
+          const invalid_issuer = typeof options.issuer === "string" && payload.iss !== options.issuer || Array.isArray(options.issuer) && options.issuer.indexOf(payload.iss) === -1;
+          if (invalid_issuer) {
+            return done(new JsonWebTokenError("jwt issuer invalid. expected: " + options.issuer));
+          }
+        }
+        if (options.subject) {
+          if (payload.sub !== options.subject) {
+            return done(new JsonWebTokenError("jwt subject invalid. expected: " + options.subject));
+          }
+        }
+        if (options.jwtid) {
+          if (payload.jti !== options.jwtid) {
+            return done(new JsonWebTokenError("jwt jwtid invalid. expected: " + options.jwtid));
+          }
+        }
+        if (options.nonce) {
+          if (payload.nonce !== options.nonce) {
+            return done(new JsonWebTokenError("jwt nonce invalid. expected: " + options.nonce));
+          }
+        }
+        if (options.maxAge) {
+          if (typeof payload.iat !== "number") {
+            return done(new JsonWebTokenError("iat required when maxAge is specified"));
+          }
+          const maxAgeTimestamp = timespan(options.maxAge, payload.iat);
+          if (typeof maxAgeTimestamp === "undefined") {
+            return done(new JsonWebTokenError('"maxAge" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+          }
+          if (clockTimestamp >= maxAgeTimestamp + (options.clockTolerance || 0)) {
+            return done(new TokenExpiredError("maxAge exceeded", new Date(maxAgeTimestamp * 1e3)));
+          }
+        }
+        if (options.complete === true) {
+          const signature = decodedToken.signature;
+          return done(null, {
+            header,
+            payload,
+            signature
+          });
+        }
+        return done(null, payload);
+      });
+    };
+  }
+});
+
+// node_modules/lodash.includes/index.js
+var require_lodash2 = __commonJS({
+  "node_modules/lodash.includes/index.js"(exports, module) {
+    var INFINITY = 1 / 0;
+    var MAX_SAFE_INTEGER = 9007199254740991;
+    var MAX_INTEGER = 17976931348623157e292;
+    var NAN = 0 / 0;
+    var argsTag = "[object Arguments]";
+    var funcTag = "[object Function]";
+    var genTag = "[object GeneratorFunction]";
+    var stringTag = "[object String]";
+    var symbolTag = "[object Symbol]";
+    var reTrim = /^\s+|\s+$/g;
+    var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+    var reIsBinary = /^0b[01]+$/i;
+    var reIsOctal = /^0o[0-7]+$/i;
+    var reIsUint = /^(?:0|[1-9]\d*)$/;
+    var freeParseInt = parseInt;
+    function arrayMap(array, iteratee) {
+      var index = -1, length = array ? array.length : 0, result = Array(length);
+      while (++index < length) {
+        result[index] = iteratee(array[index], index, array);
+      }
+      return result;
+    }
+    function baseFindIndex(array, predicate, fromIndex, fromRight) {
+      var length = array.length, index = fromIndex + (fromRight ? 1 : -1);
+      while (fromRight ? index-- : ++index < length) {
+        if (predicate(array[index], index, array)) {
+          return index;
+        }
+      }
+      return -1;
+    }
+    function baseIndexOf(array, value, fromIndex) {
+      if (value !== value) {
+        return baseFindIndex(array, baseIsNaN, fromIndex);
+      }
+      var index = fromIndex - 1, length = array.length;
+      while (++index < length) {
+        if (array[index] === value) {
+          return index;
+        }
+      }
+      return -1;
+    }
+    function baseIsNaN(value) {
+      return value !== value;
+    }
+    function baseTimes(n, iteratee) {
+      var index = -1, result = Array(n);
+      while (++index < n) {
+        result[index] = iteratee(index);
+      }
+      return result;
+    }
+    function baseValues(object, props) {
+      return arrayMap(props, function(key) {
+        return object[key];
+      });
+    }
+    function overArg(func, transform) {
+      return function(arg) {
+        return func(transform(arg));
+      };
+    }
+    var objectProto = Object.prototype;
+    var hasOwnProperty = objectProto.hasOwnProperty;
+    var objectToString = objectProto.toString;
+    var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+    var nativeKeys = overArg(Object.keys, Object);
+    var nativeMax = Math.max;
+    function arrayLikeKeys(value, inherited) {
+      var result = isArray(value) || isArguments(value) ? baseTimes(value.length, String) : [];
+      var length = result.length, skipIndexes = !!length;
+      for (var key in value) {
+        if ((inherited || hasOwnProperty.call(value, key)) && !(skipIndexes && (key == "length" || isIndex(key, length)))) {
+          result.push(key);
+        }
+      }
+      return result;
+    }
+    function baseKeys(object) {
+      if (!isPrototype(object)) {
+        return nativeKeys(object);
+      }
+      var result = [];
+      for (var key in Object(object)) {
+        if (hasOwnProperty.call(object, key) && key != "constructor") {
+          result.push(key);
+        }
+      }
+      return result;
+    }
+    function isIndex(value, length) {
+      length = length == null ? MAX_SAFE_INTEGER : length;
+      return !!length && (typeof value == "number" || reIsUint.test(value)) && (value > -1 && value % 1 == 0 && value < length);
+    }
+    function isPrototype(value) {
+      var Ctor = value && value.constructor, proto = typeof Ctor == "function" && Ctor.prototype || objectProto;
+      return value === proto;
+    }
+    function includes(collection6, value, fromIndex, guard) {
+      collection6 = isArrayLike(collection6) ? collection6 : values(collection6);
+      fromIndex = fromIndex && !guard ? toInteger(fromIndex) : 0;
+      var length = collection6.length;
+      if (fromIndex < 0) {
+        fromIndex = nativeMax(length + fromIndex, 0);
+      }
+      return isString(collection6) ? fromIndex <= length && collection6.indexOf(value, fromIndex) > -1 : !!length && baseIndexOf(collection6, value, fromIndex) > -1;
+    }
+    function isArguments(value) {
+      return isArrayLikeObject(value) && hasOwnProperty.call(value, "callee") && (!propertyIsEnumerable.call(value, "callee") || objectToString.call(value) == argsTag);
+    }
+    var isArray = Array.isArray;
+    function isArrayLike(value) {
+      return value != null && isLength(value.length) && !isFunction(value);
+    }
+    function isArrayLikeObject(value) {
+      return isObjectLike(value) && isArrayLike(value);
+    }
+    function isFunction(value) {
+      var tag = isObject(value) ? objectToString.call(value) : "";
+      return tag == funcTag || tag == genTag;
+    }
+    function isLength(value) {
+      return typeof value == "number" && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+    }
+    function isObject(value) {
+      var type = typeof value;
+      return !!value && (type == "object" || type == "function");
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isString(value) {
+      return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
+    }
+    function isSymbol(value) {
+      return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+    }
+    function toFinite(value) {
+      if (!value) {
+        return value === 0 ? value : 0;
+      }
+      value = toNumber(value);
+      if (value === INFINITY || value === -INFINITY) {
+        var sign = value < 0 ? -1 : 1;
+        return sign * MAX_INTEGER;
+      }
+      return value === value ? value : 0;
+    }
+    function toInteger(value) {
+      var result = toFinite(value), remainder = result % 1;
+      return result === result ? remainder ? result - remainder : result : 0;
+    }
+    function toNumber(value) {
+      if (typeof value == "number") {
+        return value;
+      }
+      if (isSymbol(value)) {
+        return NAN;
+      }
+      if (isObject(value)) {
+        var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+        value = isObject(other) ? other + "" : other;
+      }
+      if (typeof value != "string") {
+        return value === 0 ? value : +value;
+      }
+      value = value.replace(reTrim, "");
+      var isBinary = reIsBinary.test(value);
+      return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+    }
+    function keys(object) {
+      return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
+    }
+    function values(object) {
+      return object ? baseValues(object, keys(object)) : [];
+    }
+    module.exports = includes;
+  }
+});
+
+// node_modules/lodash.isboolean/index.js
+var require_lodash3 = __commonJS({
+  "node_modules/lodash.isboolean/index.js"(exports, module) {
+    var boolTag = "[object Boolean]";
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function isBoolean(value) {
+      return value === true || value === false || isObjectLike(value) && objectToString.call(value) == boolTag;
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    module.exports = isBoolean;
+  }
+});
+
+// node_modules/lodash.isinteger/index.js
+var require_lodash4 = __commonJS({
+  "node_modules/lodash.isinteger/index.js"(exports, module) {
+    var INFINITY = 1 / 0;
+    var MAX_INTEGER = 17976931348623157e292;
+    var NAN = 0 / 0;
+    var symbolTag = "[object Symbol]";
+    var reTrim = /^\s+|\s+$/g;
+    var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+    var reIsBinary = /^0b[01]+$/i;
+    var reIsOctal = /^0o[0-7]+$/i;
+    var freeParseInt = parseInt;
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function isInteger(value) {
+      return typeof value == "number" && value == toInteger(value);
+    }
+    function isObject(value) {
+      var type = typeof value;
+      return !!value && (type == "object" || type == "function");
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isSymbol(value) {
+      return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+    }
+    function toFinite(value) {
+      if (!value) {
+        return value === 0 ? value : 0;
+      }
+      value = toNumber(value);
+      if (value === INFINITY || value === -INFINITY) {
+        var sign = value < 0 ? -1 : 1;
+        return sign * MAX_INTEGER;
+      }
+      return value === value ? value : 0;
+    }
+    function toInteger(value) {
+      var result = toFinite(value), remainder = result % 1;
+      return result === result ? remainder ? result - remainder : result : 0;
+    }
+    function toNumber(value) {
+      if (typeof value == "number") {
+        return value;
+      }
+      if (isSymbol(value)) {
+        return NAN;
+      }
+      if (isObject(value)) {
+        var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+        value = isObject(other) ? other + "" : other;
+      }
+      if (typeof value != "string") {
+        return value === 0 ? value : +value;
+      }
+      value = value.replace(reTrim, "");
+      var isBinary = reIsBinary.test(value);
+      return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+    }
+    module.exports = isInteger;
+  }
+});
+
+// node_modules/lodash.isnumber/index.js
+var require_lodash5 = __commonJS({
+  "node_modules/lodash.isnumber/index.js"(exports, module) {
+    var numberTag = "[object Number]";
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isNumber(value) {
+      return typeof value == "number" || isObjectLike(value) && objectToString.call(value) == numberTag;
+    }
+    module.exports = isNumber;
+  }
+});
+
+// node_modules/lodash.isplainobject/index.js
+var require_lodash6 = __commonJS({
+  "node_modules/lodash.isplainobject/index.js"(exports, module) {
+    var objectTag = "[object Object]";
+    function isHostObject(value) {
+      var result = false;
+      if (value != null && typeof value.toString != "function") {
+        try {
+          result = !!(value + "");
+        } catch (e) {
+        }
+      }
+      return result;
+    }
+    function overArg(func, transform) {
+      return function(arg) {
+        return func(transform(arg));
+      };
+    }
+    var funcProto = Function.prototype;
+    var objectProto = Object.prototype;
+    var funcToString = funcProto.toString;
+    var hasOwnProperty = objectProto.hasOwnProperty;
+    var objectCtorString = funcToString.call(Object);
+    var objectToString = objectProto.toString;
+    var getPrototype = overArg(Object.getPrototypeOf, Object);
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isPlainObject(value) {
+      if (!isObjectLike(value) || objectToString.call(value) != objectTag || isHostObject(value)) {
+        return false;
+      }
+      var proto = getPrototype(value);
+      if (proto === null) {
+        return true;
+      }
+      var Ctor = hasOwnProperty.call(proto, "constructor") && proto.constructor;
+      return typeof Ctor == "function" && Ctor instanceof Ctor && funcToString.call(Ctor) == objectCtorString;
+    }
+    module.exports = isPlainObject;
+  }
+});
+
+// node_modules/lodash.isstring/index.js
+var require_lodash7 = __commonJS({
+  "node_modules/lodash.isstring/index.js"(exports, module) {
+    var stringTag = "[object String]";
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    var isArray = Array.isArray;
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isString(value) {
+      return typeof value == "string" || !isArray(value) && isObjectLike(value) && objectToString.call(value) == stringTag;
+    }
+    module.exports = isString;
+  }
+});
+
+// node_modules/lodash.once/index.js
+var require_lodash8 = __commonJS({
+  "node_modules/lodash.once/index.js"(exports, module) {
+    var FUNC_ERROR_TEXT = "Expected a function";
+    var INFINITY = 1 / 0;
+    var MAX_INTEGER = 17976931348623157e292;
+    var NAN = 0 / 0;
+    var symbolTag = "[object Symbol]";
+    var reTrim = /^\s+|\s+$/g;
+    var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+    var reIsBinary = /^0b[01]+$/i;
+    var reIsOctal = /^0o[0-7]+$/i;
+    var freeParseInt = parseInt;
+    var objectProto = Object.prototype;
+    var objectToString = objectProto.toString;
+    function before(n, func) {
+      var result;
+      if (typeof func != "function") {
+        throw new TypeError(FUNC_ERROR_TEXT);
+      }
+      n = toInteger(n);
+      return function() {
+        if (--n > 0) {
+          result = func.apply(this, arguments);
+        }
+        if (n <= 1) {
+          func = void 0;
+        }
+        return result;
+      };
+    }
+    function once(func) {
+      return before(2, func);
+    }
+    function isObject(value) {
+      var type = typeof value;
+      return !!value && (type == "object" || type == "function");
+    }
+    function isObjectLike(value) {
+      return !!value && typeof value == "object";
+    }
+    function isSymbol(value) {
+      return typeof value == "symbol" || isObjectLike(value) && objectToString.call(value) == symbolTag;
+    }
+    function toFinite(value) {
+      if (!value) {
+        return value === 0 ? value : 0;
+      }
+      value = toNumber(value);
+      if (value === INFINITY || value === -INFINITY) {
+        var sign = value < 0 ? -1 : 1;
+        return sign * MAX_INTEGER;
+      }
+      return value === value ? value : 0;
+    }
+    function toInteger(value) {
+      var result = toFinite(value), remainder = result % 1;
+      return result === result ? remainder ? result - remainder : result : 0;
+    }
+    function toNumber(value) {
+      if (typeof value == "number") {
+        return value;
+      }
+      if (isSymbol(value)) {
+        return NAN;
+      }
+      if (isObject(value)) {
+        var other = typeof value.valueOf == "function" ? value.valueOf() : value;
+        value = isObject(other) ? other + "" : other;
+      }
+      if (typeof value != "string") {
+        return value === 0 ? value : +value;
+      }
+      value = value.replace(reTrim, "");
+      var isBinary = reIsBinary.test(value);
+      return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+    }
+    module.exports = once;
+  }
+});
+
+// node_modules/jsonwebtoken/sign.js
+var require_sign2 = __commonJS({
+  "node_modules/jsonwebtoken/sign.js"(exports, module) {
+    var timespan = require_timespan();
+    var PS_SUPPORTED = require_psSupported();
+    var validateAsymmetricKey = require_validateAsymmetricKey();
+    var jws = require_jws();
+    var includes = require_lodash2();
+    var isBoolean = require_lodash3();
+    var isInteger = require_lodash4();
+    var isNumber = require_lodash5();
+    var isPlainObject = require_lodash6();
+    var isString = require_lodash7();
+    var once = require_lodash8();
+    var { KeyObject, createSecretKey, createPrivateKey } = __require("crypto");
+    var SUPPORTED_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "HS256", "HS384", "HS512", "none"];
+    if (PS_SUPPORTED) {
+      SUPPORTED_ALGS.splice(3, 0, "PS256", "PS384", "PS512");
+    }
+    var sign_options_schema = {
+      expiresIn: { isValid: function(value) {
+        return isInteger(value) || isString(value) && value;
+      }, message: '"expiresIn" should be a number of seconds or string representing a timespan' },
+      notBefore: { isValid: function(value) {
+        return isInteger(value) || isString(value) && value;
+      }, message: '"notBefore" should be a number of seconds or string representing a timespan' },
+      audience: { isValid: function(value) {
+        return isString(value) || Array.isArray(value);
+      }, message: '"audience" must be a string or array' },
+      algorithm: { isValid: includes.bind(null, SUPPORTED_ALGS), message: '"algorithm" must be a valid string enum value' },
+      header: { isValid: isPlainObject, message: '"header" must be an object' },
+      encoding: { isValid: isString, message: '"encoding" must be a string' },
+      issuer: { isValid: isString, message: '"issuer" must be a string' },
+      subject: { isValid: isString, message: '"subject" must be a string' },
+      jwtid: { isValid: isString, message: '"jwtid" must be a string' },
+      noTimestamp: { isValid: isBoolean, message: '"noTimestamp" must be a boolean' },
+      keyid: { isValid: isString, message: '"keyid" must be a string' },
+      mutatePayload: { isValid: isBoolean, message: '"mutatePayload" must be a boolean' },
+      allowInsecureKeySizes: { isValid: isBoolean, message: '"allowInsecureKeySizes" must be a boolean' },
+      allowInvalidAsymmetricKeyTypes: { isValid: isBoolean, message: '"allowInvalidAsymmetricKeyTypes" must be a boolean' }
+    };
+    var registered_claims_schema = {
+      iat: { isValid: isNumber, message: '"iat" should be a number of seconds' },
+      exp: { isValid: isNumber, message: '"exp" should be a number of seconds' },
+      nbf: { isValid: isNumber, message: '"nbf" should be a number of seconds' }
+    };
+    function validate(schema, allowUnknown, object, parameterName) {
+      if (!isPlainObject(object)) {
+        throw new Error('Expected "' + parameterName + '" to be a plain object.');
+      }
+      Object.keys(object).forEach(function(key) {
+        const validator = schema[key];
+        if (!validator) {
+          if (!allowUnknown) {
+            throw new Error('"' + key + '" is not allowed in "' + parameterName + '"');
+          }
+          return;
+        }
+        if (!validator.isValid(object[key])) {
+          throw new Error(validator.message);
+        }
+      });
+    }
+    function validateOptions(options) {
+      return validate(sign_options_schema, false, options, "options");
+    }
+    function validatePayload(payload) {
+      return validate(registered_claims_schema, true, payload, "payload");
+    }
+    var options_to_payload = {
+      "audience": "aud",
+      "issuer": "iss",
+      "subject": "sub",
+      "jwtid": "jti"
+    };
+    var options_for_objects = [
+      "expiresIn",
+      "notBefore",
+      "noTimestamp",
+      "audience",
+      "issuer",
+      "subject",
+      "jwtid"
+    ];
+    module.exports = function(payload, secretOrPrivateKey, options, callback) {
+      if (typeof options === "function") {
+        callback = options;
+        options = {};
+      } else {
+        options = options || {};
+      }
+      const isObjectPayload = typeof payload === "object" && !Buffer.isBuffer(payload);
+      const header = Object.assign({
+        alg: options.algorithm || "HS256",
+        typ: isObjectPayload ? "JWT" : void 0,
+        kid: options.keyid
+      }, options.header);
+      function failure(err) {
+        if (callback) {
+          return callback(err);
+        }
+        throw err;
+      }
+      if (!secretOrPrivateKey && options.algorithm !== "none") {
+        return failure(new Error("secretOrPrivateKey must have a value"));
+      }
+      if (secretOrPrivateKey != null && !(secretOrPrivateKey instanceof KeyObject)) {
+        try {
+          secretOrPrivateKey = createPrivateKey(secretOrPrivateKey);
+        } catch (_) {
+          try {
+            secretOrPrivateKey = createSecretKey(typeof secretOrPrivateKey === "string" ? Buffer.from(secretOrPrivateKey) : secretOrPrivateKey);
+          } catch (_2) {
+            return failure(new Error("secretOrPrivateKey is not valid key material"));
+          }
+        }
+      }
+      if (header.alg.startsWith("HS") && secretOrPrivateKey.type !== "secret") {
+        return failure(new Error(`secretOrPrivateKey must be a symmetric key when using ${header.alg}`));
+      } else if (/^(?:RS|PS|ES)/.test(header.alg)) {
+        if (secretOrPrivateKey.type !== "private") {
+          return failure(new Error(`secretOrPrivateKey must be an asymmetric key when using ${header.alg}`));
+        }
+        if (!options.allowInsecureKeySizes && !header.alg.startsWith("ES") && secretOrPrivateKey.asymmetricKeyDetails !== void 0 && //KeyObject.asymmetricKeyDetails is supported in Node 15+
+        secretOrPrivateKey.asymmetricKeyDetails.modulusLength < 2048) {
+          return failure(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
+        }
+      }
+      if (typeof payload === "undefined") {
+        return failure(new Error("payload is required"));
+      } else if (isObjectPayload) {
+        try {
+          validatePayload(payload);
+        } catch (error) {
+          return failure(error);
+        }
+        if (!options.mutatePayload) {
+          payload = Object.assign({}, payload);
+        }
+      } else {
+        const invalid_options = options_for_objects.filter(function(opt) {
+          return typeof options[opt] !== "undefined";
+        });
+        if (invalid_options.length > 0) {
+          return failure(new Error("invalid " + invalid_options.join(",") + " option for " + typeof payload + " payload"));
+        }
+      }
+      if (typeof payload.exp !== "undefined" && typeof options.expiresIn !== "undefined") {
+        return failure(new Error('Bad "options.expiresIn" option the payload already has an "exp" property.'));
+      }
+      if (typeof payload.nbf !== "undefined" && typeof options.notBefore !== "undefined") {
+        return failure(new Error('Bad "options.notBefore" option the payload already has an "nbf" property.'));
+      }
+      try {
+        validateOptions(options);
+      } catch (error) {
+        return failure(error);
+      }
+      if (!options.allowInvalidAsymmetricKeyTypes) {
+        try {
+          validateAsymmetricKey(header.alg, secretOrPrivateKey);
+        } catch (error) {
+          return failure(error);
+        }
+      }
+      const timestamp = payload.iat || Math.floor(Date.now() / 1e3);
+      if (options.noTimestamp) {
+        delete payload.iat;
+      } else if (isObjectPayload) {
+        payload.iat = timestamp;
+      }
+      if (typeof options.notBefore !== "undefined") {
+        try {
+          payload.nbf = timespan(options.notBefore, timestamp);
+        } catch (err) {
+          return failure(err);
+        }
+        if (typeof payload.nbf === "undefined") {
+          return failure(new Error('"notBefore" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+        }
+      }
+      if (typeof options.expiresIn !== "undefined" && typeof payload === "object") {
+        try {
+          payload.exp = timespan(options.expiresIn, timestamp);
+        } catch (err) {
+          return failure(err);
+        }
+        if (typeof payload.exp === "undefined") {
+          return failure(new Error('"expiresIn" should be a number of seconds or string representing a timespan eg: "1d", "20h", 60'));
+        }
+      }
+      Object.keys(options_to_payload).forEach(function(key) {
+        const claim = options_to_payload[key];
+        if (typeof options[key] !== "undefined") {
+          if (typeof payload[claim] !== "undefined") {
+            return failure(new Error('Bad "options.' + key + '" option. The payload already has an "' + claim + '" property.'));
+          }
+          payload[claim] = options[key];
+        }
+      });
+      const encoding = options.encoding || "utf8";
+      if (typeof callback === "function") {
+        callback = callback && once(callback);
+        jws.createSign({
+          header,
+          privateKey: secretOrPrivateKey,
+          payload,
+          encoding
+        }).once("error", callback).once("done", function(signature) {
+          if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
+            return callback(new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`));
+          }
+          callback(null, signature);
+        });
+      } else {
+        let signature = jws.sign({ header, payload, secret: secretOrPrivateKey, encoding });
+        if (!options.allowInsecureKeySizes && /^(?:RS|PS)/.test(header.alg) && signature.length < 256) {
+          throw new Error(`secretOrPrivateKey has a minimum key size of 2048 bits for ${header.alg}`);
+        }
+        return signature;
+      }
+    };
+  }
+});
+
+// node_modules/jsonwebtoken/index.js
+var require_jsonwebtoken = __commonJS({
+  "node_modules/jsonwebtoken/index.js"(exports, module) {
+    module.exports = {
+      decode: require_decode(),
+      verify: require_verify(),
+      sign: require_sign2(),
+      JsonWebTokenError: require_JsonWebTokenError(),
+      NotBeforeError: require_NotBeforeError(),
+      TokenExpiredError: require_TokenExpiredError()
+    };
   }
 });
 
 // src/app.ts
-var import_express6 = __toESM(require_express2(), 1);
+var import_express8 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 
 // src/routes/index.ts
-var import_express5 = __toESM(require_express2(), 1);
+var import_express7 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
+
+// node_modules/zod/v3/external.js
+var external_exports = {};
+__export(external_exports, {
+  BRAND: () => BRAND,
+  DIRTY: () => DIRTY,
+  EMPTY_PATH: () => EMPTY_PATH,
+  INVALID: () => INVALID,
+  NEVER: () => NEVER,
+  OK: () => OK,
+  ParseStatus: () => ParseStatus,
+  Schema: () => ZodType,
+  ZodAny: () => ZodAny,
+  ZodArray: () => ZodArray,
+  ZodBigInt: () => ZodBigInt,
+  ZodBoolean: () => ZodBoolean,
+  ZodBranded: () => ZodBranded,
+  ZodCatch: () => ZodCatch,
+  ZodDate: () => ZodDate,
+  ZodDefault: () => ZodDefault,
+  ZodDiscriminatedUnion: () => ZodDiscriminatedUnion,
+  ZodEffects: () => ZodEffects,
+  ZodEnum: () => ZodEnum,
+  ZodError: () => ZodError,
+  ZodFirstPartyTypeKind: () => ZodFirstPartyTypeKind,
+  ZodFunction: () => ZodFunction,
+  ZodIntersection: () => ZodIntersection,
+  ZodIssueCode: () => ZodIssueCode,
+  ZodLazy: () => ZodLazy,
+  ZodLiteral: () => ZodLiteral,
+  ZodMap: () => ZodMap,
+  ZodNaN: () => ZodNaN,
+  ZodNativeEnum: () => ZodNativeEnum,
+  ZodNever: () => ZodNever,
+  ZodNull: () => ZodNull,
+  ZodNullable: () => ZodNullable,
+  ZodNumber: () => ZodNumber,
+  ZodObject: () => ZodObject,
+  ZodOptional: () => ZodOptional,
+  ZodParsedType: () => ZodParsedType,
+  ZodPipeline: () => ZodPipeline,
+  ZodPromise: () => ZodPromise,
+  ZodReadonly: () => ZodReadonly,
+  ZodRecord: () => ZodRecord,
+  ZodSchema: () => ZodType,
+  ZodSet: () => ZodSet,
+  ZodString: () => ZodString,
+  ZodSymbol: () => ZodSymbol,
+  ZodTransformer: () => ZodEffects,
+  ZodTuple: () => ZodTuple,
+  ZodType: () => ZodType,
+  ZodUndefined: () => ZodUndefined,
+  ZodUnion: () => ZodUnion,
+  ZodUnknown: () => ZodUnknown,
+  ZodVoid: () => ZodVoid,
+  addIssueToContext: () => addIssueToContext,
+  any: () => anyType,
+  array: () => arrayType,
+  bigint: () => bigIntType,
+  boolean: () => booleanType,
+  coerce: () => coerce,
+  custom: () => custom,
+  date: () => dateType,
+  datetimeRegex: () => datetimeRegex,
+  defaultErrorMap: () => en_default,
+  discriminatedUnion: () => discriminatedUnionType,
+  effect: () => effectsType,
+  enum: () => enumType,
+  function: () => functionType,
+  getErrorMap: () => getErrorMap,
+  getParsedType: () => getParsedType,
+  instanceof: () => instanceOfType,
+  intersection: () => intersectionType,
+  isAborted: () => isAborted,
+  isAsync: () => isAsync,
+  isDirty: () => isDirty,
+  isValid: () => isValid,
+  late: () => late,
+  lazy: () => lazyType,
+  literal: () => literalType,
+  makeIssue: () => makeIssue,
+  map: () => mapType,
+  nan: () => nanType,
+  nativeEnum: () => nativeEnumType,
+  never: () => neverType,
+  null: () => nullType,
+  nullable: () => nullableType,
+  number: () => numberType,
+  object: () => objectType,
+  objectUtil: () => objectUtil,
+  oboolean: () => oboolean,
+  onumber: () => onumber,
+  optional: () => optionalType,
+  ostring: () => ostring,
+  pipeline: () => pipelineType,
+  preprocess: () => preprocessType,
+  promise: () => promiseType,
+  quotelessJson: () => quotelessJson,
+  record: () => recordType,
+  set: () => setType,
+  setErrorMap: () => setErrorMap,
+  strictObject: () => strictObjectType,
+  string: () => stringType,
+  symbol: () => symbolType,
+  transformer: () => effectsType,
+  tuple: () => tupleType,
+  undefined: () => undefinedType,
+  union: () => unionType,
+  unknown: () => unknownType,
+  util: () => util,
+  void: () => voidType
+});
 
 // node_modules/zod/v3/helpers/util.js
 var util;
@@ -112739,6 +116686,10 @@ var ZodIssueCode = util.arrayToEnum([
   "not_multiple_of",
   "not_finite"
 ]);
+var quotelessJson = (obj) => {
+  const json = JSON.stringify(obj, null, 2);
+  return json.replace(/"([^"]+)":/g, "$1:");
+};
 var ZodError = class _ZodError extends Error {
   get errors() {
     return this.issues;
@@ -112939,6 +116890,9 @@ var en_default = errorMap;
 
 // node_modules/zod/v3/errors.js
 var overrideErrorMap = en_default;
+function setErrorMap(map) {
+  overrideErrorMap = map;
+}
 function getErrorMap() {
   return overrideErrorMap;
 }
@@ -112969,6 +116923,7 @@ var makeIssue = (params) => {
     message: errorMessage
   };
 };
+var EMPTY_PATH = [];
 function addIssueToContext(ctx, issueData) {
   const overrideMap = getErrorMap();
   const issue = makeIssue({
@@ -113453,11 +117408,11 @@ function isValidIP(ip, version) {
   }
   return false;
 }
-function isValidJWT(jwt, alg) {
-  if (!jwtRegex.test(jwt))
+function isValidJWT(jwt4, alg) {
+  if (!jwtRegex.test(jwt4))
     return false;
   try {
-    const [header] = jwt.split(".");
+    const [header] = jwt4.split(".");
     if (!header)
       return false;
     const base64 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
@@ -116294,6 +120249,7 @@ ZodNaN.create = (params) => {
     ...processCreateParams(params)
   });
 };
+var BRAND = /* @__PURE__ */ Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -116385,6 +120341,33 @@ ZodReadonly.create = (type, params) => {
     ...processCreateParams(params)
   });
 };
+function cleanParams(params, data) {
+  const p = typeof params === "function" ? params(data) : typeof params === "string" ? { message: params } : params;
+  const p2 = typeof p === "string" ? { message: p } : p;
+  return p2;
+}
+function custom(check, _params = {}, fatal) {
+  if (check)
+    return ZodAny.create().superRefine((data, ctx) => {
+      const r = check(data);
+      if (r instanceof Promise) {
+        return r.then((r2) => {
+          if (!r2) {
+            const params = cleanParams(_params, data);
+            const _fatal = params.fatal ?? fatal ?? true;
+            ctx.addIssue({ code: "custom", ...params, fatal: _fatal });
+          }
+        });
+      }
+      if (!r) {
+        const params = cleanParams(_params, data);
+        const _fatal = params.fatal ?? fatal ?? true;
+        ctx.addIssue({ code: "custom", ...params, fatal: _fatal });
+      }
+      return;
+    });
+  return ZodAny.create();
+}
 var late = {
   object: ZodObject.lazycreate
 };
@@ -116427,6 +120410,9 @@ var ZodFirstPartyTypeKind;
   ZodFirstPartyTypeKind2["ZodPipeline"] = "ZodPipeline";
   ZodFirstPartyTypeKind2["ZodReadonly"] = "ZodReadonly";
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
+var instanceOfType = (cls, params = {
+  message: `Input not instance of ${cls.name}`
+}) => custom((data) => data instanceof cls, params);
 var stringType = ZodString.create;
 var numberType = ZodNumber.create;
 var nanType = ZodNaN.create;
@@ -116461,6 +120447,20 @@ var optionalType = ZodOptional.create;
 var nullableType = ZodNullable.create;
 var preprocessType = ZodEffects.createWithPreprocess;
 var pipelineType = ZodPipeline.create;
+var ostring = () => stringType().optional();
+var onumber = () => numberType().optional();
+var oboolean = () => booleanType().optional();
+var coerce = {
+  string: ((arg) => ZodString.create({ ...arg, coerce: true })),
+  number: ((arg) => ZodNumber.create({ ...arg, coerce: true })),
+  boolean: ((arg) => ZodBoolean.create({
+    ...arg,
+    coerce: true
+  })),
+  bigint: ((arg) => ZodBigInt.create({ ...arg, coerce: true })),
+  date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
+};
+var NEVER = INVALID;
 
 // src/lib/api-zod/generated/api.ts
 var HealthCheckResponse = objectType({
@@ -116508,6 +120508,10 @@ async function getCustomersCollection() {
 async function getProductsCollection() {
   const database = await getDb();
   return database.collection("products");
+}
+async function getUsersCollection() {
+  const database = await getDb();
+  return database.collection("users");
 }
 
 // src/lib/customers.ts
@@ -116853,6 +120857,33 @@ productRouter.delete("/products/:id", async (req, res) => {
 });
 var products_default = productRouter;
 
+// src/middlewares/authMiddleware.ts
+var import_jsonwebtoken = __toESM(require_jsonwebtoken(), 1);
+var authenticate = async (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  console.log("auth Header: ", authHeader);
+  console.log("token", token);
+  if (!token)
+    return res.status(401).json({
+      success: false,
+      message: "Access Denied! No Access or Auth Token found!"
+    });
+  console.log(process.env.JWT_SECRET);
+  import_jsonwebtoken.default.verify(token, process.env.JWT_SECRET || "NO SECRET", (err, decoded) => {
+    if (err) {
+      return res.status(401).json({
+        success: false,
+        message: err.name === "TokenExpiredError" ? "Access token expired" : "Could not Verify the Auth Token.",
+        error: err.name
+      });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+var authMiddleware_default = authenticate;
+
 // src/routes/orders.ts
 function genId() {
   return `CB` + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
@@ -116864,6 +120895,7 @@ var getOrderById = async (id) => {
 };
 ordersRouter.post(
   "/upload-customer-images",
+  authMiddleware_default,
   upload.array("images", 10),
   async (req, res) => {
     try {
@@ -116887,6 +120919,7 @@ ordersRouter.post(
 );
 ordersRouter.post(
   "/upload-product-images",
+  authMiddleware_default,
   upload.array("images", 10),
   async (req, res) => {
     try {
@@ -116908,103 +120941,60 @@ ordersRouter.post(
     }
   }
 );
-ordersRouter.get("/get-orders", async (_req, res) => {
-  try {
-    const orders = await collection3.find({ deleted: { $ne: true } }).sort({ createdAt: -1 }).toArray();
-    return res.json(orders);
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    return res.status(500).json({ error: "Failed to fetch orders" });
+ordersRouter.get(
+  "/get-orders",
+  authMiddleware_default,
+  async (req, res) => {
+    try {
+      const orders = await collection3.find({ deleted: { $ne: true }, userEmailId: req.user?.emailId }).sort({ createdAt: -1 }).toArray();
+      return res.json(orders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      return res.status(500).json({ error: "Failed to fetch orders" });
+    }
   }
-});
-ordersRouter.post("/create-orders", async (req, res) => {
-  try {
-    const id = genId();
-    const createdAt = (/* @__PURE__ */ new Date()).toISOString();
-    const {
-      customerData,
-      orderData
-    } = req.body;
-    if (!customerData) {
-      return res.status(400).json({ error: "Order cannot be created without a Customer" });
-    }
-    const customerId = await createCustomer(customerData);
-    if (!customerId) {
-      return res.status(400).json({ error: "Failed to create Customer" });
-    }
-    if (!orderData) {
-      return res.status(400).json({ error: "No order data received" });
-    }
-    const { contactInfo: _discardedContact, ...sanitizedOrderData } = orderData;
-    if (sanitizedOrderData.items && Array.isArray(sanitizedOrderData.items)) {
-      for (const item of sanitizedOrderData.items) {
-        if (!item.isCustom && item.productName) {
-          const productResult = await createProduct({
-            name: item.productName,
-            price: item.price,
-            size: item.size,
-            imagePaths: item.imagePaths || []
-          });
-          if (productResult.success && productResult.product?.id) {
-            item.productId = productResult.product.id;
-          }
-        }
+);
+ordersRouter.get(
+  ["/order/:id", "/orders/:id"],
+  authMiddleware_default,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const order = await collection3.findOne({
+        _id: id,
+        deleted: { $ne: true }
+      });
+      if (!order) {
+        return res.status(404).json({ success: false, message: `Order ${id} not found` });
       }
-    } else if (sanitizedOrderData.isCustom === 0) {
-      const name = sanitizedOrderData.productName || sanitizedOrderData.customName;
-      if (name) {
-        const productResult = await createProduct({
-          name,
-          price: sanitizedOrderData.price,
-          size: sanitizedOrderData.size,
-          imagePaths: sanitizedOrderData.sizeImagePaths || []
-        });
-        if (productResult.success && productResult.product?.id) {
-          sanitizedOrderData.productId = productResult.product.id;
-        }
-      }
+      return res.status(200).json({ success: true, order });
+    } catch (error) {
+      console.error("Error searching order by ID:", error);
+      return res.status(500).json({ success: false, error: "Failed to search order" });
     }
-    const newOrder = {
-      _id: id,
-      ...sanitizedOrderData,
-      id,
-      customerId: customerId.toString(),
-      createdAt,
-      deleted: false,
-      userEmailId: "cherrybrush.in@gmail.com"
-    };
-    await collection3.insertOne(newOrder);
-    return res.status(201).json({ success: true, id });
-  } catch (error) {
-    console.error("Error creating order:", error);
-    return res.status(500).json({ error: "Failed to create order" });
   }
-});
-ordersRouter.put("/update-order/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      customerData,
-      orderData
-    } = req.body;
-    const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    if (!id || !orderData && !customerData) {
-      return res.status(400).json({ error: "Nothing to Update!" });
-    }
-    const existingOrder = await getOrderById(id);
-    if (!existingOrder) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-    if (customerData && existingOrder.customerId) {
-      const isCustomer = await updateCustomer(
-        existingOrder.customerId,
-        customerData
-      );
-      if (!isCustomer.success) {
-        return res.status(400).json({ error: isCustomer.error });
+);
+ordersRouter.post(
+  "/create-orders",
+  authMiddleware_default,
+  async (req, res) => {
+    try {
+      const id = genId();
+      const createdAt = (/* @__PURE__ */ new Date()).toISOString();
+      const {
+        customerData,
+        orderData
+      } = req.body;
+      if (!customerData) {
+        return res.status(400).json({ error: "Order cannot be created without a Customer" });
       }
-    }
-    if (orderData) {
+      const customerId = await createCustomer(customerData);
+      if (!customerId) {
+        return res.status(400).json({ error: "Failed to create Customer" });
+      }
+      if (!orderData) {
+        return res.status(400).json({ error: "No order data received" });
+      }
       const { contactInfo: _discardedContact, ...sanitizedOrderData } = orderData;
       if (sanitizedOrderData.items && Array.isArray(sanitizedOrderData.items)) {
         for (const item of sanitizedOrderData.items) {
@@ -117020,72 +121010,382 @@ ordersRouter.put("/update-order/:id", async (req, res) => {
             }
           }
         }
+      } else if (sanitizedOrderData.isCustom === 0) {
+        const name = sanitizedOrderData.productName || sanitizedOrderData.customName;
+        if (name) {
+          const productResult = await createProduct({
+            name,
+            price: sanitizedOrderData.price,
+            size: sanitizedOrderData.size,
+            imagePaths: sanitizedOrderData.sizeImagePaths || []
+          });
+          if (productResult.success && productResult.product?.id) {
+            sanitizedOrderData.productId = productResult.product.id;
+          }
+        }
       }
-      const update = await collection3.updateOne(
-        { _id: id },
-        { $set: { ...sanitizedOrderData, updatedAt } }
-      );
-      if (update.matchedCount === 0) {
+      const user = req.user;
+      const newOrder = {
+        _id: id,
+        ...sanitizedOrderData,
+        id,
+        customerId: customerId.toString(),
+        createdAt,
+        deleted: false,
+        userEmailId: user?.emailId || "cherrybrush.in@gmail.com"
+      };
+      await collection3.insertOne(newOrder);
+      return res.status(201).json({ success: true, id });
+    } catch (error) {
+      console.error("Error creating order:", error);
+      return res.status(500).json({ error: "Failed to create order" });
+    }
+  }
+);
+ordersRouter.put(
+  "/update-order/:id",
+  authMiddleware_default,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        customerData,
+        orderData
+      } = req.body;
+      const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      if (!id || !orderData && !customerData) {
+        return res.status(400).json({ error: "Nothing to Update!" });
+      }
+      const existingOrder = await getOrderById(id);
+      if (!existingOrder) {
         return res.status(404).json({ error: "Order not found" });
       }
+      if (customerData && existingOrder.customerId) {
+        const isCustomer = await updateCustomer(
+          existingOrder.customerId,
+          customerData
+        );
+        if (!isCustomer.success) {
+          return res.status(400).json({ error: isCustomer.error });
+        }
+      }
+      if (orderData) {
+        const { contactInfo: _discardedContact, ...sanitizedOrderData } = orderData;
+        if (sanitizedOrderData.items && Array.isArray(sanitizedOrderData.items)) {
+          for (const item of sanitizedOrderData.items) {
+            if (!item.isCustom && item.productName) {
+              const productResult = await createProduct({
+                name: item.productName,
+                price: item.price,
+                size: item.size,
+                imagePaths: item.imagePaths || []
+              });
+              if (productResult.success && productResult.product?.id) {
+                item.productId = productResult.product.id;
+              }
+            }
+          }
+        }
+        const update = await collection3.updateOne(
+          { _id: id },
+          { $set: { ...sanitizedOrderData, updatedAt } }
+        );
+        if (update.matchedCount === 0) {
+          return res.status(404).json({ error: "Order not found" });
+        }
+      }
+      return res.json({ success: true, message: `Order ${id} updated` });
+    } catch (error) {
+      console.error("Error updating order:", error);
+      return res.status(500).json({ error: "Failed to update order" });
     }
-    return res.json({ success: true, message: `Order ${id} updated` });
-  } catch (error) {
-    console.error("Error updating order:", error);
-    return res.status(500).json({ error: "Failed to update order" });
   }
-});
-ordersRouter.delete("/orders/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    await collection3.updateOne(
-      { _id: id },
-      { $set: { deleted: true, updatedAt } }
-    );
-    return res.json({ success: true, message: `Order ${id} deleted` });
-  } catch (error) {
-    console.error("Error deleting order:", error);
-    return res.status(500).json({ error: "Failed to delete order" });
-  }
-});
-ordersRouter.put("/order-status/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    const order = await collection3.findOne({ _id: id });
-    if (!order) {
-      return res.status(404).json({ success: false, message: `${id} not found` });
+);
+ordersRouter.delete(
+  "/orders/:id",
+  authMiddleware_default,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      await collection3.updateOne(
+        { _id: id },
+        { $set: { deleted: true, updatedAt } }
+      );
+      return res.json({ success: true, message: `Order ${id} deleted` });
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      return res.status(500).json({ error: "Failed to delete order" });
     }
-    const isClosed = order.status === "Completed" || order.status === "Shipped" || order.status === "Delivered";
-    if (isClosed) {
-      return res.status(200).json({ success: true, message: `Order ${id} is Completed` });
-    }
-    const next = order.workingOn ? 0 : 1;
-    await collection3.findOneAndUpdate(
-      { _id: id },
-      { $set: { workingOn: next, updatedAt } }
-    );
-    return res.status(200).json({ success: true, message: `Order ${id} status updated!` });
-  } catch (error) {
-    console.error("Error toggling order status:", error);
-    return res.status(500).json({ error: "Failed to toggle order status" });
   }
-});
+);
+ordersRouter.put(
+  "/order-status/:id",
+  authMiddleware_default,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const order = await collection3.findOne({ _id: id });
+      if (!order) {
+        return res.status(404).json({ success: false, message: `${id} not found` });
+      }
+      const isClosed = order.status === "Completed" || order.status === "Shipped" || order.status === "Delivered";
+      if (isClosed) {
+        return res.status(200).json({ success: true, message: `Order ${id} is Completed` });
+      }
+      const next = order.workingOn ? 0 : 1;
+      await collection3.findOneAndUpdate(
+        { _id: id },
+        { $set: { workingOn: next, updatedAt } }
+      );
+      return res.status(200).json({ success: true, message: `Order ${id} status updated!` });
+    } catch (error) {
+      console.error("Error toggling order status:", error);
+      return res.status(500).json({ error: "Failed to toggle order status" });
+    }
+  }
+);
 var orders_default = ordersRouter;
 
+// src/routes/register.ts
+var import_express5 = __toESM(require_express2(), 1);
+var import_jsonwebtoken2 = __toESM(require_jsonwebtoken(), 1);
+import bcrypt from "bcrypt";
+var UserSchema = external_exports.object({
+  userName: external_exports.string().min(1, "Name is Required!"),
+  hashedPassword: external_exports.string().min(2, "Password cannot be Smaler than 2 Characters"),
+  emailId: external_exports.string(),
+  createdAt: external_exports.string(),
+  updatedAt: external_exports.string(),
+  role: external_exports.string().default("user")
+});
+var collection4 = await getUsersCollection();
+var registerRouter = (0, import_express5.Router)();
+registerRouter.post("/create-user", async (req, res) => {
+  const { userData } = req.body;
+  const date = (/* @__PURE__ */ new Date()).toISOString();
+  const hashedPassword = await bcrypt.hash(userData.hashedPassword, 12);
+  userData.hashedPassword = hashedPassword;
+  const newData = { ...userData, createdAt: date, updatedAt: date };
+  const check = UserSchema.safeParse(newData);
+  if (!check.success || !check)
+    return res.status(400).json({
+      success: false,
+      message: check.error.flatten().fieldErrors || "User Cannot be created with empty data"
+    });
+  const user = check.data;
+  const isExistingUser = await collection4.findOne({
+    userName: user.userName,
+    emailId: user.emailId
+  });
+  if (isExistingUser)
+    return res.status(409).json({ success: false, message: "User Already Exists!" });
+  const createdUser = await collection4.insertOne({ ...user });
+  if (!createdUser)
+    return res.status(500).json({ success: false, message: "Could not create User" });
+  const payload = {
+    userId: createdUser.insertedId,
+    email: user.emailId,
+    role: user.role
+  };
+  const jwtToken = import_jsonwebtoken2.default.sign(payload, process.env.JWT_SECRET || "NO SECRET", {
+    expiresIn: "15m"
+  });
+  return res.status(200).json({
+    success: true,
+    message: "User Created Successfully!",
+    payload: jwtToken
+  });
+});
+var register_default = registerRouter;
+
+// src/routes/auth.ts
+var import_express6 = __toESM(require_express2(), 1);
+var import_jsonwebtoken3 = __toESM(require_jsonwebtoken(), 1);
+import bcrypt2 from "bcrypt";
+var collection5 = await getUsersCollection();
+var authRouter = (0, import_express6.Router)();
+var RefreshTokenSchema = external_exports.object({
+  refreshToken: external_exports.string().min(1, "Refresh token is required")
+});
+var LoginSchema = external_exports.object({
+  emailId: external_exports.string().email("Valid email is required").optional(),
+  password: external_exports.string().min(1, "Password is required")
+}).refine((data) => data.emailId, {
+  message: "Either emailId or userName must be provided"
+});
+authRouter.post("/refresh", async (req, res) => {
+  const check = RefreshTokenSchema.safeParse(req.body);
+  if (!check.success) {
+    return res.status(400).json({
+      success: false,
+      message: check.error.flatten().fieldErrors
+    });
+  }
+  const { refreshToken } = check.data;
+  let decoded;
+  try {
+    decoded = import_jsonwebtoken3.default.verify(
+      refreshToken,
+      process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET || "NO SECRET"
+    );
+  } catch {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired refresh token"
+    });
+  }
+  const orConditions = [];
+  if (decoded.emailId) orConditions.push({ emailId: decoded.emailId });
+  if (decoded.email) orConditions.push({ emailId: decoded.email });
+  if (decoded.userName) orConditions.push({ userName: decoded.userName });
+  if (orConditions.length === 0) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid refresh token payload"
+    });
+  }
+  const user = await collection5.findOne({
+    $or: orConditions
+  });
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found"
+    });
+  }
+  const payload = {
+    userName: user.userName,
+    role: user.role,
+    emailId: user.emailId
+  };
+  const newAccessToken = import_jsonwebtoken3.default.sign(
+    payload,
+    process.env.JWT_SECRET || "NO SECRET",
+    { expiresIn: "15m" }
+  );
+  return res.status(200).json({
+    success: true,
+    message: "Access token refreshed successfully",
+    accessToken: newAccessToken,
+    payload
+  });
+});
+authRouter.post("/login", async (req, res) => {
+  const check = LoginSchema.safeParse(req.body);
+  if (!check.success) {
+    return res.status(400).json({
+      success: false,
+      message: check.error.flatten().fieldErrors
+    });
+  }
+  const { emailId, password } = check.data;
+  console.log(password);
+  const user = await collection5.findOne({
+    $or: [...emailId ? [{ emailId }] : []]
+  });
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid credentials"
+    });
+  }
+  const isMatch = await bcrypt2.compare(password, user.hashedPassword);
+  if (!isMatch) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid credentials"
+    });
+  }
+  const payload = {
+    userName: user.userName,
+    role: user.role,
+    emailId: user.emailId
+  };
+  const accessToken = import_jsonwebtoken3.default.sign(payload, process.env.JWT_SECRET || "NO SECRET", {
+    expiresIn: "15m"
+  });
+  const refreshToken = import_jsonwebtoken3.default.sign(
+    payload,
+    process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET || "NO SECRET",
+    { expiresIn: "7d" }
+  );
+  return res.status(200).json({
+    success: true,
+    message: "Login successful",
+    accessToken,
+    refreshToken,
+    payload
+  });
+});
+var UserSchema2 = external_exports.object({
+  userName: external_exports.string().min(1, "Name is Required!"),
+  hashedPassword: external_exports.string().min(2, "Password cannot be Smaler than 2 Characters"),
+  emailId: external_exports.string(),
+  createdAt: external_exports.string(),
+  updatedAt: external_exports.string(),
+  role: external_exports.string().default("user")
+});
+authRouter.post("/register", async (req, res) => {
+  const { userData } = req.body;
+  const date = (/* @__PURE__ */ new Date()).toISOString();
+  const hashedPassword = await bcrypt2.hash(userData.hashedPassword, 12);
+  userData.hashedPassword = hashedPassword;
+  const newData = { ...userData, createdAt: date, updatedAt: date };
+  const check = UserSchema2.safeParse(newData);
+  if (!check.success || !check)
+    return res.status(400).json({
+      success: false,
+      message: check.error.flatten().fieldErrors || "User Cannot be created with empty data"
+    });
+  const user = check.data;
+  const isExistingUser = await collection5.findOne({
+    userName: user.userName,
+    emailId: user.emailId
+  });
+  if (isExistingUser)
+    return res.status(409).json({ success: false, message: "User Already Exists!" });
+  const createdUser = await collection5.insertOne({ ...user });
+  if (!createdUser)
+    return res.status(500).json({ success: false, message: "Could not create User" });
+  const payload = {
+    userId: createdUser.insertedId,
+    userName: user.userName,
+    emailId: user.emailId,
+    email: user.emailId,
+    role: user.role
+  };
+  const accessToken = import_jsonwebtoken3.default.sign(payload, process.env.JWT_SECRET || "NO SECRET", {
+    expiresIn: "15m"
+  });
+  const refreshToken = import_jsonwebtoken3.default.sign(
+    payload,
+    process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET || "NO SECRET",
+    { expiresIn: "7d" }
+  );
+  return res.status(200).json({
+    success: true,
+    message: "User Created Successfully!",
+    accessToken,
+    refreshToken,
+    payload
+  });
+});
+var auth_default = authRouter;
+
 // src/routes/index.ts
-var router2 = (0, import_express5.Router)();
+var router2 = (0, import_express7.Router)();
 router2.use(health_default);
 router2.use(orders_default);
 router2.use(customers_default);
 router2.use(products_default);
+router2.use(register_default);
+router2.use("/auth", auth_default);
 var routes_default = router2;
 
 // src/app.ts
-var import_dotenv = __toESM(require_dist5(), 1);
-import_dotenv.default.config();
-var app = (0, import_express6.default)();
+var app = (0, import_express8.default)();
 app.use(
   (0, import_cors.default)({
     origin: "*",
@@ -117095,8 +121395,8 @@ app.use(
     optionsSuccessStatus: 200
   })
 );
-app.use(import_express6.default.json());
-app.use(import_express6.default.urlencoded({ extended: true }));
+app.use(import_express8.default.json());
+app.use(import_express8.default.urlencoded({ extended: true }));
 app.use((req, _res, next) => {
   console.log(`[${(/* @__PURE__ */ new Date()).toISOString()}] ${req.method} ${req.path}`);
   next();
@@ -117432,4 +121732,7 @@ media-typer/index.js:
    * Copyright(c) 2014 Douglas Christopher Wilson
    * MIT Licensed
    *)
+
+safe-buffer/index.js:
+  (*! safe-buffer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> *)
 */

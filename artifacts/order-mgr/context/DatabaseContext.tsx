@@ -30,6 +30,7 @@ import {
   reconcileOrdersWithOnline,
   ReconcileResult,
 } from "@/services/syncService";
+import { onTokenRefreshed } from "@/services/apiClient";
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
@@ -653,6 +654,23 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       // if any were deleted by DB user, reset to pending and auto-send again!
       checkAndReconcileRef.current();
     });
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onTokenRefreshed((newAccessToken, newRefreshToken) => {
+      setUser((prev) => {
+        if (!prev) return null;
+        const updated = {
+          ...prev,
+          access_token: newAccessToken,
+          refresh_token: newRefreshToken || prev.refresh_token,
+          updatedAt: new Date().toISOString(),
+        };
+        userRef.current = updated;
+        return updated;
+      });
+    });
+    return unsubscribe;
   }, []);
 
   const syncedCount = orders.filter((o) => o.syncStatus === "SYNCED").length;

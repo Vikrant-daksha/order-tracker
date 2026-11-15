@@ -38,10 +38,13 @@ const authenticate = async (
 
   jwt.verify(token, process.env.JWT_SECRET || "NO SECRET", (err, decoded) => {
     if (err) {
-      return res.status(403).json({
+      return res.status(401).json({
         success: false,
-        message: "Could not Verify the Auth Token.",
-        error: err,
+        message:
+          err.name === "TokenExpiredError"
+            ? "Access token expired"
+            : "Could not Verify the Auth Token.",
+        error: err.name,
       });
     }
     req.user = decoded as CustomJwtPayload;

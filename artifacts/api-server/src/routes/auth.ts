@@ -50,9 +50,21 @@ authRouter.post("/refresh", async (req: Request, res: Response) => {
     });
   }
 
-  // Fetch user from DB using the collection variable
+  // Fetch user from DB using decoded token payload safely
+  const orConditions: any[] = [];
+  if (decoded.emailId) orConditions.push({ emailId: decoded.emailId });
+  if (decoded.email) orConditions.push({ emailId: decoded.email });
+  if (decoded.userName) orConditions.push({ userName: decoded.userName });
+
+  if (orConditions.length === 0) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid refresh token payload",
+    });
+  }
+
   const user: any = await collection.findOne({
-    $or: [{ emailId: decoded.emailId }, { userName: decoded.userName }],
+    $or: orConditions,
   });
 
   if (!user) {

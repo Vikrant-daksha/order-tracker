@@ -108,7 +108,36 @@ export async function updateStoredTokens(
 let isRefreshing = false;
 let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshAuthToken(refreshToken: string): Promise<string | null> {
+export type TokenRefreshListener = (
+  newAccessToken: string,
+  newRefreshToken?: string
+) => void;
+const refreshListeners = new Set<TokenRefreshListener>();
+
+/**
+ * Register a listener that fires whenever tokens are refreshed in the background.
+ */
+export function onTokenRefreshed(listener: TokenRefreshListener): () => void {
+  refreshListeners.add(listener);
+  return () => {
+    refreshListeners.delete(listener);
+  };
+}
+
+function notifyTokenRefresh(newAccessToken: string, newRefreshToken?: string) {
+  for (const listener of refreshListeners) {
+    try {
+      listener(newAccessToken, newRefreshToken);
+    } catch (e) {
+      console.warn('[apiClient] Token refresh listener error:', e);
+    }
+  }
+}
+
+/**
+ * Silently refreshes the access token using the stored refresh token.
+ */
+export async function refreshAuthToken(refreshToken: string): Promise<string | null> {
   if (isRefreshing && refreshPromise) {
     return refreshPromise;
   }
@@ -116,21 +145,32 @@ async function refreshAuthToken(refreshToken: string): Promise<string | null> {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const baseTrimmed = API_BASE_URL.replace(/\/+$/, '');
+      const refreshUrl = baseTrimmed.endsWith('/api')
+        ? `${baseTrimmed}/auth/refresh`
+        : `${baseTrimmed}/api/auth/refresh`;
+
+      console.log('[apiClient] Triggering silent token refresh at:', refreshUrl);
+      const res = await fetch(refreshUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
       });
 
       if (!res.ok) {
+        console.warn(`[apiClient] Refresh token endpoint returned HTTP ${res.status}`);
         return null;
       }
 
       const data = await res.json();
       if (data.success && data.accessToken) {
+        console.log('[apiClient] Token refreshed successfully!');
         await updateStoredTokens(data.accessToken, data.refreshToken);
+        notifyTokenRefresh(data.accessToken, data.refreshToken);
         return data.accessToken;
       }
+
+      console.warn('[apiClient] Refresh token response invalid:', data?.message);
       return null;
     } catch (err) {
       console.warn('[apiClient] Silent token refresh failed:', err);
@@ -153,7 +193,7 @@ export interface ApiFetchOptions extends RequestInit {
  * Shared fetch wrapper that:
  * 1. Resolves relative endpoints against API_BASE_URL.
  * 2. Automatically reads the stored access token from SQLite/AsyncStorage and attaches Authorization: Bearer <token>.
- * 3. Handles automatic silent token refresh on HTTP 401 and transparently retries the failed request.
+ * 3. Handles automatic silent token refresh on HTTP 401 or 403 and transparently retries the failed request.
  */
 export async function apiFetch(
   endpointOrUrl: string,
@@ -192,8 +232,9 @@ export async function apiFetch(
     headers,
   });
 
-  // 3. Automatic 401 retry via silent refresh
-  if (response.status === 401 && !options.skipAuth) {
+  // 3. Automatic retry via silent refresh on 401 Unauthorized or 403 Forbidden
+  if ((response.status === 401 || response.status === 403) && !options.skipAuth) {
+    console.log(`[apiClient] Request returned HTTP ${response.status}. Initiating silent token refresh...`);
     const { refreshToken } = await getStoredTokens();
     if (refreshToken) {
       const newAccessToken = await refreshAuthToken(refreshToken);
@@ -203,6 +244,7 @@ export async function apiFetch(
           ...options,
           headers,
         });
+        console.log(`[apiClient] Request retried with new token. Final status: ${response.status}`);
       }
     }
   }
