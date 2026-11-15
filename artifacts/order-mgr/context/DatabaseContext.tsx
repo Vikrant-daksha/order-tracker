@@ -19,6 +19,7 @@ import {
   ExpenseCategory,
   MonthlyGoal,
   GoalStatus,
+  User,
 } from "@/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -26,6 +27,8 @@ import {
   SyncResult,
   serialSyncQueue,
   SyncProgressUpdate,
+  reconcileOrdersWithOnline,
+  ReconcileResult,
 } from "@/services/syncService";
 
 function genId() {
@@ -40,7 +43,10 @@ interface DatabaseContextType {
   customers: Customer[];
   expenses: Expense[];
   goals: MonthlyGoal[];
+  user: User | null;
   loading: boolean;
+  saveUser: (user: User) => Promise<void>;
+  clearUser: () => Promise<void>;
   addOrder: (order: Omit<Order, "id" | "createdAt">) => Promise<string>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
@@ -91,6 +97,7 @@ interface DatabaseContextType {
   snapshotExpiredGoals: () => Promise<void>;
   syncOrderNow: (id: string) => Promise<SyncResult>;
   syncAllPendingOrders: () => Promise<void>;
+  reconcileWithOnlineDb: () => Promise<ReconcileResult>;
   syncProgress: SyncProgressUpdate;
   syncedCount: number;
   totalOrdersCount: number;
@@ -105,6 +112,7 @@ const PRODUCTS_KEY = "@orderflow_products";
 const CUSTOMERS_KEY = "@orderflow_customers";
 const EXPENSES_KEY = "@orderflow_expenses";
 const GOALS_KEY = "@orderflow_monthly_goals";
+const USER_KEY = "@orderflow_user";
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -197,6 +205,16 @@ function initDb() {
       status TEXT DEFAULT 'in_progress',
       createdAt TEXT DEFAULT '',
       updatedAt TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS user (
+      id TEXT PRIMARY KEY,
+      userName TEXT NOT NULL DEFAULT '',
+      emailId TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'user',
+      createdAt TEXT DEFAULT '',
+      updatedAt TEXT DEFAULT '',
+      access_token TEXT DEFAULT '',
+      refresh_token TEXT DEFAULT ''
     );
   `);
   // Migration: add missing columns if they don't exist yet across all historical schemas
@@ -588,12 +606,23 @@ function loadExpensesFromDb(): Expense[] {
   }
 }
 
+function loadUserFromDb(): User | null {
+  if (IS_WEB || !db) return null;
+  try {
+    const row = db.getFirstSync<User>("SELECT * FROM user LIMIT 1");
+    return row || null;
+  } catch {
+    return null;
+  }
+}
+
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [goals, setGoals] = useState<MonthlyGoal[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncProgress, setSyncProgress] = useState<SyncProgressUpdate>({
     isSyncing: false,
@@ -605,9 +634,25 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   ordersRef.current = orders;
   const customersRef = useRef<Customer[]>(customers);
   customersRef.current = customers;
+  const userRef = useRef<User | null>(user);
+  userRef.current = user;
+
+  const isSyncAllowed = useCallback(() => {
+    const u = userRef.current;
+    return Boolean(u && u.access_token && u.refresh_token);
+  }, []);
+
+  const checkAndReconcileRef = useRef<() => Promise<ReconcileResult>>(() =>
+    Promise.resolve({ totalChecked: 0, missingCount: 0, missingOrderIds: [] }),
+  );
 
   useEffect(() => {
     serialSyncQueue.setProgressListener(setSyncProgress);
+    serialSyncQueue.setOnQueueFinishedListener(() => {
+      // After sync queue completes, check online DB to verify all orders are present;
+      // if any were deleted by DB user, reset to pending and auto-send again!
+      checkAndReconcileRef.current();
+    });
   }, []);
 
   const syncedCount = orders.filter((o) => o.syncStatus === "SYNCED").length;
@@ -621,12 +666,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     async function init() {
       try {
         if (IS_WEB) {
-          const [os, ps, cs, es, gs] = await Promise.all([
+          const [os, ps, cs, es, gs, us] = await Promise.all([
             AsyncStorage.getItem(ORDERS_KEY),
             AsyncStorage.getItem(PRODUCTS_KEY),
             AsyncStorage.getItem(CUSTOMERS_KEY),
             AsyncStorage.getItem(EXPENSES_KEY),
             AsyncStorage.getItem(GOALS_KEY),
+            AsyncStorage.getItem(USER_KEY),
           ]);
           const parsedOrders = os ? JSON.parse(os) : [];
           const sanitizedOrders = parsedOrders.map((o: any) => {
@@ -669,6 +715,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           setProducts(ps ? JSON.parse(ps) : []);
           setExpenses(es ? JSON.parse(es) : []);
           setGoals(gs ? JSON.parse(gs) : []);
+          setUser(us ? JSON.parse(us) : null);
           const parsedCustomers = cs ? JSON.parse(cs) : [];
           let customerUpdated = false;
           const sanitizedCustomers = parsedCustomers.map((c: any) => {
@@ -793,6 +840,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           setCustomers(loadedCustomers);
           setExpenses(loadExpensesFromDb());
           setGoals(loadGoalsFromDb());
+          setUser(loadUserFromDb());
         }
       } catch (err) {
         console.error("Database initialization failed:", err);
@@ -867,7 +915,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     "syncError",
   ]);
 
-  const triggerBackgroundSyncRef = React.useRef<(id: string) => void>(() => {});
+  const triggerBackgroundSyncRef = React.useRef<(id?: string) => void>(
+    () => {},
+  );
 
   const addOrder = useCallback(
     async (order: Omit<Order, "id" | "createdAt">): Promise<string> => {
@@ -1009,6 +1059,15 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const syncOrderNow = useCallback(
     async (id: string): Promise<SyncResult> => {
+      // Sync is strictly disabled when user is null or missing tokens
+      if (!isSyncAllowed()) {
+        return {
+          success: false,
+          error:
+            "Sync disabled: User must be signed in with both access and refresh tokens",
+        };
+      }
+
       let target: Order | undefined;
       if (!IS_WEB && db) {
         const all = loadOrdersFromDb();
@@ -1045,6 +1104,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const triggerBackgroundSync = useCallback(
     (id?: string) => {
+      // Sync is strictly disabled when user is null or missing tokens
+      if (!isSyncAllowed()) {
+        return;
+      }
+
       let pendingIds: string[] = [];
       if (!IS_WEB && db) {
         try {
@@ -1090,6 +1154,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   triggerBackgroundSyncRef.current = triggerBackgroundSync;
 
   const syncAllPendingOrders = useCallback(async () => {
+    // Sync is strictly disabled when user is null or missing tokens
+    if (!isSyncAllowed()) {
+      return;
+    }
+
     let pendingIds: string[] = [];
     if (!IS_WEB && db) {
       try {
@@ -1124,6 +1193,41 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       );
     }
   }, [syncOrderNow, getOrderName]);
+
+  const isReconcilingRef = useRef<boolean>(false);
+
+  const checkAndReconcileWithOnlineDb =
+    useCallback(async (): Promise<ReconcileResult> => {
+      if (isReconcilingRef.current) {
+        return { totalChecked: 0, missingCount: 0, missingOrderIds: [] };
+      }
+      if (!isSyncAllowed()) {
+        return { totalChecked: 0, missingCount: 0, missingOrderIds: [] };
+      }
+
+      isReconcilingRef.current = true;
+      try {
+        const allOrders =
+          !IS_WEB && db ? loadOrdersFromDb() : ordersRef.current;
+        const result = await reconcileOrdersWithOnline(allOrders, updateOrder);
+
+        if (result.missingCount > 0) {
+          console.log(
+            `[syncReconcile] Detected ${result.missingCount} order(s) missing from remote DB. Re-sending them online now...`,
+          );
+          // Automatically trigger sync so the missing orders are created online again!
+          triggerBackgroundSyncRef.current();
+        }
+        return result;
+      } catch (err) {
+        console.warn("[syncReconcile] Error checking online orders:", err);
+        return { totalChecked: 0, missingCount: 0, missingOrderIds: [] };
+      } finally {
+        isReconcilingRef.current = false;
+      }
+    }, [isSyncAllowed, updateOrder]);
+
+  checkAndReconcileRef.current = checkAndReconcileWithOnlineDb;
 
   const deleteOrder = useCallback(async (id: string) => {
     if (!IS_WEB && db) {
@@ -1830,6 +1934,41 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     [goals],
   );
 
+  const saveUser = useCallback(async (newUser: User) => {
+    if (!IS_WEB && db) {
+      db.runSync(
+        `INSERT OR REPLACE INTO user (id, userName, emailId, role, createdAt, updatedAt, access_token, refresh_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newUser.id,
+          newUser.userName,
+          newUser.emailId,
+          newUser.role || "user",
+          newUser.createdAt || new Date().toISOString(),
+          newUser.updatedAt || new Date().toISOString(),
+          newUser.access_token || "",
+          newUser.refresh_token || "",
+        ],
+      );
+    }
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
+    setUser(newUser);
+    userRef.current = newUser;
+
+    // Trigger sync for any pending offline orders now that user has valid tokens
+    if (newUser.access_token && newUser.refresh_token) {
+      triggerBackgroundSyncRef.current();
+    }
+  }, []);
+
+  const clearUser = useCallback(async () => {
+    if (!IS_WEB && db) {
+      db.runSync("DELETE FROM user");
+    }
+    await AsyncStorage.removeItem(USER_KEY);
+    setUser(null);
+    userRef.current = null;
+  }, []);
+
   return (
     <DatabaseContext.Provider
       value={{
@@ -1838,7 +1977,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         customers,
         expenses,
         goals,
+        user,
         loading,
+        saveUser,
+        clearUser,
         addOrder,
         updateOrder,
         deleteOrder,
@@ -1866,6 +2008,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         snapshotExpiredGoals,
         syncOrderNow,
         syncAllPendingOrders,
+        reconcileWithOnlineDb: checkAndReconcileWithOnlineDb,
         syncProgress,
         syncedCount,
         totalOrdersCount,

@@ -6,6 +6,7 @@ import {
   UploadImagesResponse,
 } from '@/types/sync';
 import { Customer, OrderItem } from '@/types';
+import { apiFetch } from './apiClient';
 
 export const API_BASE_URL = 'https://order-tracker-vert.vercel.app/api';
 
@@ -126,7 +127,7 @@ async function uploadSingleCustomerImage(
   formData.append('customerId', customerId || 'general');
   await appendImagesToFormData(formData, [uri]);
 
-  const response = await fetch(`${API_BASE_URL}/upload-customer-images`, {
+  const response = await apiFetch('/upload-customer-images', {
     method: 'POST',
     body: formData,
   });
@@ -189,7 +190,7 @@ async function uploadSingleProductImage(
   formData.append('productName', productName);
   await appendImagesToFormData(formData, [uri]);
 
-  const response = await fetch(`${API_BASE_URL}/upload-product-images`, {
+  const response = await apiFetch('/upload-product-images', {
     method: 'POST',
     body: formData,
   });
@@ -247,11 +248,8 @@ export async function uploadProductImages(
  */
 export async function createOnlineOrder(payload: CreateOrderPayload): Promise<CreateOrderResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/create-orders`, {
+    const response = await apiFetch('/create-orders', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(payload),
     });
 
@@ -295,11 +293,8 @@ export async function updateOnlineOrder(
   payload: UpdateOrderPayload
 ): Promise<UpdateOrderResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/update-order/${encodeURIComponent(onlineId)}`, {
+    const response = await apiFetch(`/update-order/${encodeURIComponent(onlineId)}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(payload),
     });
 
@@ -334,4 +329,39 @@ export async function updateOnlineOrder(
     };
   }
 }
+
+/**
+ * Searches an order by ID in the remote online database via GET /api/order/:id.
+ * Used during reconciliation to check if an order was deleted in the online DB.
+ * Returns { exists: true } if found and active, or { exists: false } if missing/deleted.
+ */
+export async function searchOnlineOrderById(
+  onlineId: string
+): Promise<{ exists: boolean; order?: any }> {
+  try {
+    const response = await apiFetch(`/order/${encodeURIComponent(onlineId)}`, {
+      method: 'GET',
+    });
+
+    if (response.status === 404) {
+      return { exists: false };
+    }
+
+    if (!response.ok) {
+      return { exists: false };
+    }
+
+    const data = await response.json();
+    if (data.success && data.order && !data.order.deleted) {
+      return { exists: true, order: data.order };
+    }
+
+    return { exists: false };
+  } catch (error: any) {
+    console.error(`[syncApi] searchOnlineOrderById error for ${onlineId}:`, error);
+    // On network failure or offline, preserve existing status
+    return { exists: true };
+  }
+}
+
 

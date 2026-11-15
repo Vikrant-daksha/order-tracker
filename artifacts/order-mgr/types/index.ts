@@ -116,3 +116,14 @@ export interface MonthlyGoal {
   updatedAt: string;       // ISO string
 }
 
+export interface User {
+  id: string;
+  userName: string;
+  emailId: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+  access_token: string;
+  refresh_token?: string;
+}
+

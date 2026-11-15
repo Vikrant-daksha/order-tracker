@@ -9,9 +9,25 @@ import {
 import {
   createOnlineOrder,
   extractOrderItemFullImages,
+  searchOnlineOrderById,
   updateOnlineOrder,
   uploadProductImages,
 } from './syncApi';
+import { getStoredTokens } from './apiClient';
+
+/**
+ * Checks if a user is currently authenticated and eligible for syncing.
+ * Sync operations are strictly enabled ONLY when a user is not null
+ * and possesses BOTH a valid accessToken and refreshToken.
+ */
+export async function isUserAuthenticatedForSync(): Promise<boolean> {
+  try {
+    const { accessToken, refreshToken } = await getStoredTokens();
+    return Boolean(accessToken && refreshToken);
+  } catch {
+    return false;
+  }
+}
 
 export interface SyncResult {
   success: boolean;
@@ -175,6 +191,18 @@ export async function syncSingleOrder(
     return { success: false, error: 'Invalid order' };
   }
 
+  // Gate check: sync is strictly disabled unless user is not null and has both tokens
+  const isAuthenticated = await isUserAuthenticatedForSync();
+  if (!isAuthenticated) {
+    console.log(
+      `[syncService] Sync disabled: order ${order.id} skipped (user is null or missing tokens)`
+    );
+    return {
+      success: false,
+      error: 'Sync disabled: User must be signed in with both access and refresh tokens',
+    };
+  }
+
   if (updateLocalOrder) {
     await updateLocalOrder(order.id, { syncStatus: 'SYNCING', syncError: '' });
   }
@@ -252,6 +280,60 @@ export async function syncSingleOrder(
   }
 }
 
+export interface ReconcileResult {
+  totalChecked: number;
+  missingCount: number;
+  missingOrderIds: string[];
+}
+
+/**
+ * Reconciles locally SYNCED orders with the remote MongoDB database.
+ * Uses searchOnlineOrderById() to check if each order is still present in the online DB.
+ * If an order is missing or was deleted by a DB user:
+ * 1. Resets its local syncStatus to 'PENDING'
+ * 2. Clears onlineId so it will be recreated fresh
+ * 3. Returns missing order IDs so they can immediately be sent to the online DB again!
+ */
+export async function reconcileOrdersWithOnline(
+  orders: Order[],
+  updateLocalOrder: (id: string, updates: Partial<Order>) => Promise<void>
+): Promise<ReconcileResult> {
+  const isAuth = await isUserAuthenticatedForSync();
+  if (!isAuth) {
+    return { totalChecked: 0, missingCount: 0, missingOrderIds: [] };
+  }
+
+  // Find all orders that are locally marked as SYNCED with an onlineId
+  const candidateOrders = orders.filter(
+    (o) => o.syncStatus === 'SYNCED' && Boolean(o.onlineId)
+  );
+
+  const missingOrderIds: string[] = [];
+
+  for (const order of candidateOrders) {
+    if (!order.onlineId) continue;
+
+    const { exists } = await searchOnlineOrderById(order.onlineId);
+    if (!exists) {
+      console.warn(
+        `[syncService] Order "${order.customerName || order.id}" (onlineId: ${order.onlineId}) not found in online DB! Resetting to PENDING to auto-resend.`
+      );
+      missingOrderIds.push(order.id);
+      await updateLocalOrder(order.id, {
+        onlineId: '',
+        syncStatus: 'PENDING',
+        syncError: 'Missing from online database (auto-resending)',
+      });
+    }
+  }
+
+  return {
+    totalChecked: candidateOrders.length,
+    missingCount: missingOrderIds.length,
+    missingOrderIds,
+  };
+}
+
 /**
  * A FIFO Serial Queue ensuring ONLY ONE order is synchronized at a time.
  * Prevents concurrent memory spikes and yields between jobs so Hermes/V8 can garbage-collect.
@@ -264,16 +346,27 @@ class SerialSyncQueue {
   private totalBatch = 0;
   private completedBatch = 0;
   private progressListener?: (update: SyncProgressUpdate) => void;
+  private onQueueFinishedListener?: () => void;
 
   public setProgressListener(listener: (update: SyncProgressUpdate) => void) {
     this.progressListener = listener;
   }
 
-  public enqueue(
+  public setOnQueueFinishedListener(listener?: () => void) {
+    this.onQueueFinishedListener = listener;
+  }
+
+  public async enqueue(
     orderIds: string[],
     worker: (id: string) => Promise<SyncResult>,
     orderNameGetter?: (id: string) => string | undefined
   ) {
+    const isAuthenticated = await isUserAuthenticatedForSync();
+    if (!isAuthenticated) {
+      console.log('[SerialSyncQueue] Sync queue disabled: user is null or missing tokens');
+      return;
+    }
+
     // If the queue was completely idle, reset batch counters to start a fresh batch
     if (!this.isProcessing && this.queue.length === 0) {
       this.totalBatch = 0;
@@ -313,6 +406,19 @@ class SerialSyncQueue {
       return;
     }
 
+    const isAuthenticated = await isUserAuthenticatedForSync();
+    if (!isAuthenticated) {
+      console.log('[SerialSyncQueue] Queue halted: user logged out or missing tokens');
+      this.queue = [];
+      this.queuedSet.clear();
+      this.isProcessing = false;
+      this.activeId = null;
+      this.totalBatch = 0;
+      this.completedBatch = 0;
+      this.emitProgress(false);
+      return;
+    }
+
     this.isProcessing = true;
     const nextId = this.queue.shift()!;
     this.queuedSet.delete(nextId);
@@ -334,6 +440,14 @@ class SerialSyncQueue {
         this.totalBatch = 0;
         this.completedBatch = 0;
         this.emitProgress(false);
+
+        if (this.onQueueFinishedListener) {
+          try {
+            this.onQueueFinishedListener();
+          } catch (listenerErr) {
+            console.error('[SerialSyncQueue] onQueueFinishedListener error:', listenerErr);
+          }
+        }
       } else {
         this.emitProgress(true);
         // Yield 50ms so JavaScript runtime can GC the previous order's memory

@@ -43,6 +43,8 @@ export default function ProfileScreen() {
     syncedCount,
     totalOrdersCount,
     syncPercentage,
+    user,
+    clearUser,
   } = useDatabase();
   const {
     updateInfo,
@@ -127,6 +129,18 @@ export default function ProfileScreen() {
   }
 
   async function handleManualSync() {
+    if (!user || !user.access_token || !user.refresh_token) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        "Sign In Required",
+        "Online database sync requires an active account. Please sign in or register to enable sync.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: () => router.push("/login" as any) },
+        ],
+      );
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await syncAllPendingOrders();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -359,6 +373,138 @@ export default function ProfileScreen() {
         colors={colors}
       />
 
+      {/* Account Section */}
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+          ACCOUNT
+        </Text>
+        {user ? (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    backgroundColor: colors.accent,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Feather name="user" size={18} color={colors.primary} />
+                </View>
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontFamily: "Inter_600SemiBold",
+                      color: colors.foreground,
+                    }}
+                  >
+                    {user.userName || "Studio User"}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: "Inter_400Regular",
+                      color: colors.mutedForeground,
+                    }}
+                  >
+                    {user.emailId}
+                  </Text>
+                </View>
+              </View>
+              <View
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                  backgroundColor: colors.secondary,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "Inter_600SemiBold",
+                    color: colors.mutedForeground,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {user.role || "user"}
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => {
+                Alert.alert(
+                  "Log Out",
+                  "Are you sure you want to log out from this account?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Log Out",
+                      style: "destructive",
+                      onPress: async () => {
+                        await clearUser();
+                        Haptics.notificationAsync(
+                          Haptics.NotificationFeedbackType.Warning,
+                        );
+                      },
+                    },
+                  ],
+                );
+              }}
+              style={({ pressed }) => [
+                {
+                  marginTop: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: colors.unpaid,
+                },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <Feather name="log-out" size={14} color={colors.unpaidText} />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontFamily: "Inter_600SemiBold",
+                  color: colors.unpaidText,
+                }}
+              >
+                Log Out
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <MenuItem
+            icon="log-in"
+            label="Sign In or Register"
+            subtitle="Connect to sync your studio orders to the cloud"
+            onPress={() => router.push("/login" as any)}
+            colors={colors}
+          />
+        )}
+      </View>
+
       <View
         style={[
           styles.section,
@@ -475,9 +621,11 @@ export default function ProfileScreen() {
             >
               {syncProgress.isSyncing
                 ? `Syncing 1 at a time (${syncProgress.completedBatch}/${syncProgress.totalBatch})`
-                : totalOrdersCount - syncedCount > 0
-                  ? `${totalOrdersCount - syncedCount} pending to sync`
-                  : "Up to date with MongoDB"}
+                : !user || !user.access_token || !user.refresh_token
+                  ? "Sync disabled · Sign in to sync"
+                  : totalOrdersCount - syncedCount > 0
+                    ? `${totalOrdersCount - syncedCount} pending to sync`
+                    : "Up to date with MongoDB"}
             </Text>
 
             <Pressable
