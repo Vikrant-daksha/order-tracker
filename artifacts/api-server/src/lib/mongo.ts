@@ -6,6 +6,7 @@ const uri = process.env.MONGODB_URI || "";
 let db: Db | null = null;
 export async function getDb(): Promise<Db | any> {
   try {
+    console.log("uri", uri);
     const client = new MongoClient(uri);
 
     if (!db) {
@@ -39,4 +40,9 @@ export async function getProductsCollection(): Promise<Collection> {
 export async function getExpensesCollection(): Promise<Collection> {
   const database = await getDb();
   return database.collection("expenses");
+}
+
+export async function getUsersCollection(): Promise<Collection> {
+  const database = await getDb();
+  return database.collection("users");
 }

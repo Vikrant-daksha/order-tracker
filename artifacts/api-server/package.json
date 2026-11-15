@@ -4,28 +4,32 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --enable-source-maps ./dist/index.mjs",
+    "dev": "tsx watch --env-file=.env.local src/index.ts",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "deploy:vercel": "vercel --prod"
+    "start": "node --enable-source-maps --env-file=.env ./dist/index.mjs"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.8.0",
     "multer": "^2.5.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.3.0",
     "@types/node": "^22.0.0",
     "@vercel/node": "^5.0.0",
-    "esbuild": "0.27.3"
+    "esbuild": "0.27.3",
+    "tsx": "^4.23.15"
   }
 }
