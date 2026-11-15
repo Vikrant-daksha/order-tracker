@@ -152,13 +152,41 @@ ordersRouter.get(
   async (req: Request, res: Response) => {
     try {
       const orders = await collection
-        .find({ deleted: { $ne: true }, userEmailId: req.user?.email })
+        .find({ deleted: { $ne: true }, userEmailId: req.user?.emailId })
         .sort({ createdAt: -1 })
         .toArray();
       return res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);
       return res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  },
+);
+
+// GET /api/order/:id or /api/orders/:id - Search order by ID to check existence in online db
+ordersRouter.get(
+  ["/order/:id", "/orders/:id"],
+  authenticate,
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const order = await collection.findOne({
+        _id: id as any,
+        deleted: { $ne: true },
+      });
+
+      if (!order) {
+        return res
+          .status(404)
+          .json({ success: false, message: `Order ${id} not found` });
+      }
+
+      return res.status(200).json({ success: true, order });
+    } catch (error) {
+      console.error("Error searching order by ID:", error);
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to search order" });
     }
   },
 );
@@ -232,6 +260,8 @@ ordersRouter.post(
         }
       }
 
+      const user = req.user;
+
       // 3. Insert order document (items contains imagePaths for each product)
       const newOrder: Order = {
         _id: id,
@@ -240,7 +270,7 @@ ordersRouter.post(
         customerId: customerId.toString(),
         createdAt: createdAt,
         deleted: false,
-        userEmailId: "cherrybrush.in@gmail.com",
+        userEmailId: user?.emailId || "cherrybrush.in@gmail.com",
       } as any;
 
       await collection.insertOne(newOrder as any);
